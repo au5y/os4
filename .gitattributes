@@ -1,0 +1,2 @@
+resources/EM411_FA26_R14.pptx filter=lfs diff=lfs merge=lfs -text
+*.pptx filter=lfs diff=lfs merge=lfs -text
