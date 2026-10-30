@@ -222,3 +222,4 @@ __marimo__/
 # Generated model outputs
 outputs/*
 !outputs/.gitkeep
+.DS_Store
