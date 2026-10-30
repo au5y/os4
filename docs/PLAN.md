@@ -3,7 +3,7 @@
 Branch: `tasks-1-2-model`. Due **Thu Nov 12, 10:00am**. Task 1 is worth 10% and Task 2 is worth 25%.
 Tasks 3–6 come later, but Task 2 has to produce everything they will need: (design vector, fleet size, scenario) → (4 MoPs, cost).
 
-**How to use this doc:** questions for the team are marked **❓ Q#**. Write the decision under **Answer:** (replace _TBD_) and initial it.
+**How to use this doc:** questions for the team are marked **❓ Q#**. Lines marked **From OS3A** are proposed answers drawn from `resources/OS3A_H2_Team13.pdf`; confirm or override them. Write the decision under **Answer:** (replace _TBD_) and initial it.
 
 ---
 
@@ -20,21 +20,27 @@ Tasks 3–6 come later, but Task 2 has to produce everything they will need: (de
 
 > **❓ Q1:** D1: Which nodes and boundary do we use, and what are the measured node-to-node distances (km)?
 > **Answer:** _TBD_
+> **From OS3A:** The OS3A boundary (Fig. 1) runs from Central Sq in the west, north through East Cambridge, east to Cambridge Crossing, and south along the Charles/MIT. That matches the assignment, so the **boundary is settled; only the distances remain.** OS3A also puts South Station/Boston in the *context* boundary, which is outside the system. That is useful for a Task 4 scenario.
 
 > **❓ Q2:** D2: What is our primary operating scenario, which OS3 report does it come from, and why did we pick it?
 > **Answer:** _TBD_
+> **From OS3A:** OS3A points to **weekday a.m.-peak last-mile service from Kendall T** (MOE 1 sets the a.m. peak as its measurement condition; MOE 4 covers demand-responsive pickups). MIT P&T asked for *"small on-demand EV shuttles from a central hub"* and warned that empty shuttles are not financially viable. Proposal: on-demand small road EVs and/or e-bikes from a Kendall hub serving Lechmere and Central. OS3B is not in the repo yet; check whether it suggests something different.
 
 > **❓ Q3:** D3: What speed limit do we use (and what is the source)? Is it the same for road vehicles and bikes?
 > **Answer:** _TBD_
+> **From OS3A:** OS3A does not give a speed limit, so this stays open. Look up the Cambridge 20 mph default and the Main St/Broadway limits.
 
 > **❓ Q4:** D4: Do we model only the Kendall node, or scale the Appendix B demand to Lechmere and Central? If we scale it, by what factors?
 > **Answer:** _TBD_
+> **From OS3A:** OS3A gives scale but no per-node demand: 74,000 employees, 6,878 daily Red Line riders at Kendall, and a mode split of 26% walk / 29% MBTA / 22% bike / 22% drive. Appendix B's ~1,790 trips/day is about 26% of Kendall T boardings, so it reads as a plausible last-mile capture. We can cite that as validation for using Appendix B as is.
 
 > **❓ Q5:** D5: How do we fix e-bike speed: add rider pedal power, use a fixed assisted speed, or keep the formula as given? Which number do we use?
 > **Answer:** _TBD_
+> **From OS3A:** **OS3A gives us a validation anchor.** The interviewee rides South Station → Draper (2–2.5 mi) in a reliable 13–15 min, about **15–18 km/h door to door**, and an e-bike saves only ~3 min because of traffic and red lights. That supports a **fixed assisted speed of ~18–20 km/h** over the formula. The interview also says e-bikes help most on inclines and for riders with injuries, which is the comfort and accessibility case for bikes.
 
 > **❓ Q6:** D6: Which autonomy levels are allowed in the primary scenario? Do we also allow travel outside the boundary, which would force A4/A5?
 > **Answer:** _TBD_
+> **From OS3A:** OS3A's constraints are the real problem here: MA law requires a human at the wheel, no AV test permits are active, and Optimus Ride shut down in 2022. Public opposition to AVs is 75% statewide against our MOE 5 target of under 25%. L3 road vehicles need dedicated lanes, but OS3A found bike and curb lanes routinely blocked by trucks and rideshares. Proposal: A3 inside the boundary for the primary scenario, with A4/A5 only in the Task 4 scenario. Flag deployment realism for Task 5. E-bikes come with L4 built in and ride in the already-growing bike network, which is a point in their favor.
 
 ---
 
@@ -71,9 +77,16 @@ The interesting point for the slide is that C has the lowest volume yet ranks hi
 
 > **❓ Q7:** Which MoEs from our OS3A and which operational objectives from our OS3B should we compare against Appendix A? Please paste them here or link them.
 > **Answer:** _TBD_
+> **From OS3A:** OS3A MOE mapping (Table 3):
+> - **MOE 4 pickup wait (<15 min)** ↔ the wait-time MoP (0.35). Direct match. Note the targets differ: OS3A says 15 min, Table 1 says 5 min.
+> - **MOE 1 allocated commute time / predictability** ↔ availability (partial). Reliability was the interviewee's #1 theme ("Red Line is the weakest link").
+> - **MOE 7 regional talent access** and **MOE 2 bike share** ↔ passenger volume and throughput (indirect).
+> - **MOE 3 serious crashes, MOE 6 stop announcements, MOE 5 AV opposition, MOE 8 curb access**: no Appendix A counterpart. OS3A already treats MOE 3 and MOE 6 as **pass/fail screens**, not weighted attributes.
+> - OS3B operational objectives are still missing. Who has our OS3B?
 
 > **❓ Q8:** Do we propose new weights? If so, what values (they must sum to 1), and what is the one-line rationale for each?
 > **Answer:** _TBD_
+> **From OS3A:** Starting proposal from OS3A: **volume 0.10 / peak 0.25 / wait 0.35 / availability 0.30.** Wait stays largest because MOE 4 is a direct match. Weight moves from volume to availability because reliability (MOE 1) dominated the stakeholder evidence while volume traces only indirectly. Keep safety and accessibility as pass/fail screens rather than weights, consistent with OS3A. Run the weight sweep before committing to these numbers.
 
 > **❓ Q9:** Linear interpolation between the Appendix A points (default), or fit a smooth curve? Linear is simpler and reproduces the given points exactly.
 > **Answer:** _TBD_
@@ -101,6 +114,7 @@ Crossing these with fleet sizes is the "MASSIVE" space the recitation warns abou
 
 > **❓ Q10:** What fleet-size ranges and step sizes do we use for road vehicles and bikes? Should a mixed fleet allow more than one road variant at a time? The default is one road variant plus one bike variant per architecture.
 > **Answer:** _TBD_
+> **From OS3A:** OS3A argues against large, half-empty shuttles (MIT P&T quote) and in favor of more e-bikes (the interviewee's #1 request; Ames/Main Bluebikes already need valet service). That points toward small chassis (C1–C4) plus bikes. Make sure the bike fleet range reaches Bluebikes scale (18 stations in Kendall).
 
 ### Layer 1: vehicle model, `src/os4/vehicle.py` (Appendix B, as given)
 For each feasible variant compute: total weight (+100 kg × pax), cost, Wh/km, range, speed (capped at D3), charge time, up-time, down-time and **availability**. Return one tidy DataFrame with one row per variant.
@@ -122,15 +136,18 @@ Inputs: vehicle row(s), N_road, N_bike, scenario (network distances, demand prof
 
 > **❓ Q12:** Which wait-time model do we use: headway/2 plus a queue penalty when overloaded, a full M/M/c queue, or something else? How do we model bike self-delivery time?
 > **Answer:** _TBD_
+> **From OS3A:** MOE 4 explicitly covers *demand-responsive* pickups, so an on-demand wait model fits better than a fixed-route headway model. Anchors: EZRide runs every 8–12 min (≈ 4–6 min average wait), and MBTA buses every 15–30 min.
 
 > **❓ Q13:** What is the average trip length, and what fraction of distance is empty repositioning (deadhead)? Do these differ for road vehicles and bikes?
 > **Answer:** _TBD_
+> **From OS3A:** OS3A suggests short in-district trips: Kendall ↔ Central for lunch, the MIT campus, and the Charles/MGH area. That implies roughly 1–2.5 km. It gives no deadhead data.
 
 > **❓ Q14:** How do we compute availability for a mixed fleet: weighted by capacity, the minimum of the two, or by some other rule?
 > **Answer:** _TBD_
 
 > **❓ Q15:** Does cost cover vehicle capital cost only (Appendix B), or do we add charging stations, depots and operating cost?
 > **Answer:** _TBD_
+> **From OS3A:** MIT P&T's "not financially viable" concern, and EZRide's funding from ~25 member firms, suggest at least noting operating cost, even if the tradespace axis stays capital cost.
 
 ### Layer 3: glue, `src/os4/model.py` (new)
 `evaluate(architecture, scenario) -> dict` returns the MoPs, MAU and cost. Tasks 3 and 4 call this with a different scenario object, so put scenarios in `data/scenarios.yaml` or a dataclass rather than in constants.
@@ -144,6 +161,7 @@ Inputs: vehicle row(s), N_road, N_bike, scenario (network distances, demand prof
 
 > **❓ Q16:** Which real-world anchor systems do we validate against, and who will gather their data (fleet size, headway, trips/day)?
 > **Answer:** _TBD_
+> **From OS3A:** OS3A already has anchors with citations: **EZRide 8–12 min headways** [54], **MBTA buses 15–30 min** [45], **5 daytime MIT shuttles**, **18 Bluebikes stations** in Kendall, **6,878 Red Line riders/day**, and **Red Line 89% on-time within 5 min** [44]. Reuse the OS3A references.
 
 ### Deliverable: 5-architecture table
 Pick 5 that span the space: (1) small road-only fleet of C2 cars, (2) large road shuttles (C6/C7), (3) bike-only, (4) mixed road + bike, (5) a high-autonomy (A5) or long-range variant. Columns: composition, N, component IDs, speed, range, throughput, wait, availability, vehicle cost, fleet cost, plus the MAU for free.
@@ -155,6 +173,17 @@ Pick 5 that span the space: (1) small road-only fleet of C2 cars, (2) large road
 Use `python -m os4` to write `outputs/os4_model.xlsx` (with tabs for inputs, the SAU/MAU tables, the vehicle variants, the 5 architectures, and the hand-calc check) and make it the ZIP submission. The Excel file holds model data and formulas only; text responses go in the slide deck.
 
 ---
+
+## Questions raised by OS3A
+
+> **❓ Q20:** Task 4 scenario. OS3A suggests two candidates that are not just variations of the primary scenario: **(a) a Red Line shutdown** (the July 2026 closure; demand surges, and trips leave the boundary toward Boston, which forces A4/A5), or **(b) winter**, when the interviewee and other commuters switch from bike to Red Line, so the bike fleet loses value. Which one do we pick? Picking now lets the scenario object hold both.
+> **Answer:** _TBD_
+
+> **❓ Q21:** Accessibility. OS3A says no wheelchair-accessible AVs exist, and e-bikes serve no one with a mobility disability. Do we add an accessibility screen, for example requiring that any concept include some road vehicles? That would eliminate bike-only architectures in Task 5.
+> **Answer:** _TBD_
+
+> **❓ Q22:** Where is our OS3B? Task 1 asks us to compare against its operational objectives, and only OS3A is in `resources/`.
+> **Answer:** _TBD_
 
 ## Suggested split & order
 1. **Day 1 (all):** decide D1–D6 in a 30-minute meeting.
