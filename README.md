@@ -50,7 +50,7 @@ If it's missing or too old:
 ### 2. Clone the repository
 
 ```bash
-git clone <repo-url> os4
+git clone git@github.com:au5y/os4.git os4
 cd os4
 ```
 
