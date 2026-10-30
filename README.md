@@ -1,4 +1,6 @@
 # os4
+## Authors
+- Sanjay Bisht
 
 Models for **EM.411 Systems Engineering, Opportunity Set #4: Tradespace Exploration and Concept Selection** (Fall 2026).
 
