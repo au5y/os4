@@ -1,0 +1,4 @@
+id,power_kw,cost_usd,weight_kg
+G1,10,1000,1.0
+G2,20,2500,1.8
+G3,60,7000,5.0

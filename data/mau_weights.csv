@@ -1,0 +1,5 @@
+attribute,weight
+passenger_volume,0.15
+peak_throughput,0.25
+wait_time,0.35
+availability,0.25

@@ -1,0 +1,4 @@
+case,passenger_volume,peak_throughput,wait_time,availability
+A,1000,75,8,0.7
+B,2000,100,12,0.6
+C,750,75,6,0.8

@@ -1,0 +1,4 @@
+id,pax,weight_kg,cost_usd,nominal_wh_per_km
+B1,1,20,2000,30
+B2,1,17,3000,25
+B3,2,35,3500,40

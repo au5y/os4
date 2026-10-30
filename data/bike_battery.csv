@@ -1,0 +1,4 @@
+id,capacity_kwh,cost_usd,weight_kg
+E1,0.5,600,5
+E2,1.5,1500,11
+E3,3.0,2600,17
