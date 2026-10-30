@@ -2,6 +2,8 @@
 ## Authors
 - Sanjay Bisht
 - Yonis Aliyow
+- Austin Miller
+- Robert Wright
 
 Models for **EM.411 Systems Engineering, Opportunity Set #4: Tradespace Exploration and Concept Selection** (Fall 2026).
 
