@@ -1,5 +1,5 @@
 # Game plan: Tasks 1 & 2
-#Task 1 approach:
+# Task 1 approach:
 -- Determmine SAU function(s). I used the slope and point slope form to come up with SAU function. 
  Note that SAU function is the rule that I used to measure x into a utility score (U). 
 
@@ -13,13 +13,13 @@
 
 For the purposes of validation, calculate the function formula for changes X & change U:
 
-+ 0 to 500 -- U<sub>m</sub> (0.2-0)/(500-0) = 0.0004x | equation <sub>1</sub> -- U = 0.0004x
++ 0 to 500 -- U<sub>m</sub> (0.2-0)/(500-0) = 0.0004 | equation <sub>1</sub> -- U = 0.0004x (AM: slopes are plain numbers, so I dropped the trailing "x" from every U<sub>m</sub> in this doc; the "x" belongs only in the equations)
 
-+ 500 to 1000 -- U<sub>m</sub> (0.4-0.2)/(1000-500) = 0.0004x | equation <sub>2</sub> -- U = 0.2 + 0.0004 (x - 500) 
++ 500 to 1000 -- U<sub>m</sub> (0.4-0.2)/(1000-500) = 0.0004 | equation <sub>2</sub> -- U = 0.2 + 0.0004 (x - 500) 
 
-+ 1000 to 1500 -- U<sub>m</sub> (0.8-0.4)/(1500-1000) = 0.0008x | equation <sub>3</sub> -- U = 0.4 + 0.0008 (x - 1000)
++ 1000 to 1500 -- U<sub>m</sub> (0.8-0.4)/(1500-1000) = 0.0008 | equation <sub>3</sub> -- U = 0.4 + 0.0008 (x - 1000)
 
-+ 1500 to 2000 -- U<sub>m</sub> (1.0-0.8)/(2000-1500) = 0.0004x | equation <sub>4</sub> --  U = 0.8 + 0.0004 (x - 1500)
++ 1500 to 2000 -- U<sub>m</sub> (1.0-0.8)/(2000-1500) = 0.0004 | equation <sub>4</sub> --  U = 0.8 + 0.0004 (x - 1500)
 
 From the above SAU functions, we can deviate U<sub>case c</sub> at 750 passenger trips/day 
 
@@ -43,13 +43,13 @@ U<sub>case c</sub> = 0.2 + 0.0004(750-500) = 0.3
 
 For the purposes of validation, calculate the function formula for changes X & change U:
 
-+ 0 to 50 -- U<sub>m</sub> (0.2-0)/(50-0) = 0.004x | equation <sub>1</sub> -- U = 0.004x
++ 0 to 50 -- U<sub>m</sub> (0.2-0)/(50-0) = 0.004 | equation <sub>1</sub> -- U = 0.004x
 
-+ 50 to 100 -- U<sub>m</sub> (0.5-0.2)/(100-50) = 0.006x | equation <sub>2</sub> -- U = 0.2 + 0.006 (x - 50) 
++ 50 to 100 -- U<sub>m</sub> (0.5-0.2)/(100-50) = 0.006 | equation <sub>2</sub> -- U = 0.2 + 0.006 (x - 50) 
 
-+ 100 to 150 -- U<sub>m</sub> (0.9-0.5)/(150-100) = 0.008x | equation <sub>3</sub> -- U = 0.5 + 0.008 (x - 100)
++ 100 to 150 -- U<sub>m</sub> (0.9-0.5)/(150-100) = 0.008 | equation <sub>3</sub> -- U = 0.5 + 0.008 (x - 100)
 
-+ 150 to 200 -- U<sub>m</sub> (1.0-0.0)/(200-150) = 0.002x | equation <sub>4</sub> --  U = 0.9 + 0.002 (x - 150)
++ 150 to 200 -- U<sub>m</sub> (1.0-0.9)/(200-150) = 0.002 (AM: i think slope is wrong as written, U1 here is 0.9 not 0.0; 0.002 is right) | equation <sub>4</sub> --  U = 0.9 + 0.002 (x - 150)
 
 From the above SAU functions, we can deviate U<sub>case a</sub> at 75 passenger trips/hour & U<sub>case c</sub>  at 75 passenger trips/hour 
 
@@ -59,7 +59,7 @@ From the above SAU functions, we can deviate U<sub>case a</sub> at 75 passenger 
 
 U<sub>case a</sub> = 0.2 + 0.006(75-50) = 0.35 ** Calculated
 
-U<sub>case b</sub> = 0.2 + 0.006(75-50) = 0.5 ** in appendix A
+U<sub>case b</sub> = 0.5 @ 100 passenger trips/hour ** in appendix A (AM: this line had case A's formula copied in; 100 is a table point so no equation is needed)
 
 U<sub>case c</sub> = 0.2 + 0.006(75-50) = 0.35 ** calculated
 
@@ -74,17 +74,17 @@ U<sub>case c</sub> = 0.2 + 0.006(75-50) = 0.35 ** calculated
 
 For the purposes of validation, calculate the function formula for changes X & change U:
 
-+ 0 to 5 -- U<sub>m</sub> (0.95-1)/(5-0) = -0.01x | equation <sub>1</sub> -- U = 1 - 0.01x
++ 0 to 5 -- U<sub>m</sub> (0.95-1)/(5-0) = -0.01 | equation <sub>1</sub> -- U = 1 - 0.01x
 
-+ 5 to 10 -- U<sub>m</sub> (0.75-0.95)/(10-5) = - 0.04x | equation <sub>2</sub> -- U = 0.95 - 0.04 (x - 5) 
++ 5 to 10 -- U<sub>m</sub> (0.75-0.95)/(10-5) = -0.04 | equation <sub>2</sub> -- U = 0.95 - 0.04 (x - 5) 
 
-+ 10 to 15 -- U<sub>m</sub> (0.4-0.75)/(15-10) = - 0.07x | equation <sub>3</sub> -- U = 0.75 - 0.07 (x - 10)
++ 10 to 15 -- U<sub>m</sub> (0.4-0.75)/(15-10) = -0.07 | equation <sub>3</sub> -- U = 0.75 - 0.07 (x - 10)
 
-+ 15 to 20 -- U<sub>m</sub> (0.2-0.4)/(20-15) = - 0.04x | equation <sub>4</sub> --  U = 0.4 - 0.04 (x - 15)
++ 15 to 20 -- U<sub>m</sub> (0.2-0.4)/(20-15) = -0.04 | equation <sub>4</sub> --  U = 0.4 - 0.04 (x - 15)
 
-+ 20 to 30 -- U<sub>m</sub> (0-0.2)/(30-20) = - 0.02x | equation <sub>4</sub> --  U = 0.2 - 0.02 (x - 20)
++ 20 to 30 -- U<sub>m</sub> (0-0.2)/(30-20) = -0.02 | equation <sub>5</sub> (AM: was numbered 4 twice) --  U = 0.2 - 0.02 (x - 20)
 
-From the above SAU functions, we can deviate U<sub>case a</sub> at 75 passenger trips/hour & U<sub>case c</sub>  at 75 passenger trips/hour 
+From the above SAU functions, we can derive U<sub>case a</sub> at 8 min, U<sub>case b</sub> at 12 min & U<sub>case c</sub> at 6 min (AM: this line was copied from the throughput section, which said 75 passenger trips/hour)
 
 8 is between 5 to 10, use equation <sub>2</sub> to calculate U<sub>case a</sub> 
 12 is between 10 to 15, use equation <sub>3</sub> to calculate U<sub>case b</sub> 
@@ -92,22 +92,12 @@ From the above SAU functions, we can deviate U<sub>case a</sub> at 75 passenger 
 
 # Average wait time ( minutes)
 
-U<sub>case a</sub> = 0.95 + 0.04(8-5) = 0.83 ** Calculated
+U<sub>case a</sub> = 0.95 - 0.04(8-5) = 0.83 (AM: sign was +, slope is negative; 0.83 is right) ** Calculated
 
-U<sub>case b</sub> = 0.75 + 0.07(12-10) = 0.61 ** Calculated
+U<sub>case b</sub> = 0.75 - 0.07(12-10) = 0.61 (AM: sign was +, slope is negative; 0.61 is right) ** Calculated
 
-U<sub>case c</sub> = 0.95 + 0.04(6-5) = 0.91 ** calculated
+U<sub>case c</sub> = 0.95 - 0.04(6-5) = 0.91 (AM: sign was +, slope is negative; 0.91 is right) ** calculated
 
-
-
-
-
-
-
-
-
-Branch: `tasks-1-2-model`. Due **Thu Nov 12, 10:00am**. Task 1 is worth 10% and Task 2 is worth 25%.
-Tasks 3–6 come later, but Task 2 has to produce everything they will need: (design vector, fleet size, scenario) → (4 MoPs, cost).
 
 **How to use this doc:** questions for the team are marked **❓ Q#**. Lines marked **From OS3A** are proposed answers drawn from `resources/OS3A_H2_Team13.pdf`; confirm or override them. Write the decision under **Answer:** (replace _TBD_) and initial it.
 

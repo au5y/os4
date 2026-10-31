@@ -9,7 +9,7 @@ Models for **EM.411 Systems Engineering, Opportunity Set #4: Tradespace Explorat
 
 The assignment asks for a tradespace exploration of an autonomous, battery-electric surface transportation system serving East Cambridge (Cambridge Crossing/Lechmere, Central Square, MIT/Kendall Square). The system can use autonomous road vehicles, autonomous e-bikes, or both. The full assignment is in [`resources/OS4_FA26_v1.pdf`](resources/OS4_FA26_v1.pdf).
 
-> **Status:** project scaffold only. The input data is transcribed and loadable, and every model function is stubbed with its signature and docstring, but no model logic is implemented yet. Tests for unimplemented functions are marked as expected failures and start passing as each function is filled in.
+> **Status:** Task 1 (SAU/MAU) is implemented and tested, and writes its table and figures to `outputs/`. The Task 2+ model functions are still stubbed with their signatures and docstrings. Tests for unimplemented functions are marked as expected failures and start passing as each function is filled in.
 
 ## Repository layout
 
@@ -26,7 +26,8 @@ os4/
 │   └── bike_*.csv          Appendix D: e-bike components
 ├── src/os4/
 │   ├── data.py           CSV loaders
-│   ├── utility.py        Task 1: SAU / MAU functions        (stubbed)
+│   ├── utility.py        Task 1: SAU / MAU functions, weight sensitivity
+│   ├── plots.py          Task 1: case table and figures
 │   ├── scenario.py       Operating scenario definitions     (stubbed)
 │   ├── vehicle.py        Task 2: EV / e-bike model          (stubbed)
 │   ├── fleet.py          Task 2: fleet performance model    (stubbed)
@@ -42,9 +43,22 @@ Costs in the CSVs are in **US dollars** (the PDF lists most of them in $1000s).
 
 ## Setup
 
-### 1. Install Python
+### 1. Install uv (recommended) or Python
 
-You need Python **3.10 or newer** (developed on 3.12). Check what you have:
+We use [uv](https://docs.astral.sh/uv/) to manage Python and dependencies. It installs the right Python version for you and pins every package version in `uv.lock`, so everyone runs the same environment. Check whether you have it:
+
+```bash
+uv --version
+```
+
+If not, install it:
+
+- **macOS / Linux:** `curl -LsSf https://astral.sh/uv/install.sh | sh` (or `brew install uv`)
+- **Windows (PowerShell):** `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+
+With uv you can skip the Python install below and steps 4–5.
+
+**Without uv:** you need Python **3.10 or newer** (developed on 3.12). Check what you have:
 
 ```bash
 python3 --version
@@ -92,7 +106,17 @@ git lfs pull
 
 New binary files of these types are stored in LFS automatically (see `.gitattributes`). To add another type, run `git lfs track "*.ext"` and commit `.gitattributes`.
 
-### 4. Create and activate a virtual environment
+### 4. Install dependencies
+
+**With uv** (one command; creates `.venv/` and installs the package plus dev tools from `uv.lock`):
+
+```bash
+uv sync --extra dev
+```
+
+You don't need to activate anything: prefix commands with `uv run` (see [Running](#running)). After pulling changes that touch `pyproject.toml` or `uv.lock`, run `uv sync --extra dev` again. To add a dependency, use `uv add <package>` (or `uv add --optional dev <package>` for dev tools) and commit both `pyproject.toml` and `uv.lock`.
+
+### 5. Without uv: create a virtual environment and install with pip
 
 ```bash
 python3 -m venv .venv
@@ -100,9 +124,7 @@ source .venv/bin/activate        # macOS / Linux
 # .venv\Scripts\activate         # Windows (PowerShell or cmd)
 ```
 
-### 5. Install dependencies
-
-This installs the package in editable mode plus the dev tools:
+Then install the package in editable mode plus the dev tools:
 
 ```bash
 pip install --upgrade pip
@@ -115,29 +137,47 @@ Dependencies (declared in `pyproject.toml`):
 |------------|--------------------------------------------|
 | numpy      | Numerical calculations                     |
 | pandas     | Data tables, architecture enumeration      |
-| matplotlib | Tradespace plots                           |
+| matplotlib | Utility curves and tradespace plots        |
 | openpyxl   | Exporting model tables to Excel for Canvas |
 | pytest     | Tests (dev only)                           |
 
 ## Running
 
 ```bash
-python -m os4      # or just: os4
+uv run python -m os4      # or: uv run os4   (without uv: python -m os4 inside the activated venv)
 ```
 
-Right now this loads every input table and prints a summary:
+This loads every input table, prints the Task 1 results, and writes them to `outputs/`:
 
 ```
-Loaded 16 input tables:
-  bike_battery               3 rows
-  ...
-Model not implemented yet (see src/os4/utility.py, vehicle.py, fleet.py, tradespace.py).
+Task 1 (MAU):
+case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  rank
+   A                 0.4               0.35         0.83             0.7 0.613     3
+   B                 1.0               0.50         0.61             0.6 0.639     2
+   C                 0.3               0.35         0.91             0.8 0.651     1
+  wrote outputs/task1_cases.csv
+  wrote outputs/task1_cases.md
+  wrote outputs/task1_sau_curves.png
+  wrote outputs/task1_mau_breakdown.png
+```
+
+| Output | Contents |
+|---|---|
+| `task1_cases.md` | Task 1 report: summary table, both figures embedded, full breakdown, weight sensitivity |
+| `task1_cases.csv` | Cases A–C: raw values, each SAU, weighted contributions kᵢ·uᵢ, MAU, rank |
+| `task1_sau_curves.png` | The four Appendix A SAU curves with Cases A–C marked |
+| `task1_mau_breakdown.png` | Stacked bars of each case's MAU split by weighted attribute |
+
+For the weight sensitivity sweep (each weight ±0.1, others renormalized, with the resulting A/B/C ranking):
+
+```bash
+uv run python -c "from os4.utility import weight_sensitivity; print(weight_sensitivity().round(3))"
 ```
 
 Run the tests:
 
 ```bash
-pytest
+uv run pytest      # without uv: pytest
 ```
 
 ## Assignment tasks
