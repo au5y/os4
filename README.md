@@ -1,6 +1,6 @@
 # Team - H1-13 OS4
 
-> **📊 Results explorer: https://au5y.github.io/os4/** — interactive Tasks 1–3 (utility curves, architecture candidates, tradespace with Pareto fronts). Rebuilt by CI on every push to `main`; live once [PR #1](https://github.com/au5y/os4/pull/1) is merged.
+> **📊 Results explorer: https://au5y.github.io/os4/** — interactive Tasks 1–3 (utility curves, architecture candidates, tradespace with Pareto fronts). Rebuilt by CI on every push to `main`.
 
 ## Authors
 - Sanjay Bisht
