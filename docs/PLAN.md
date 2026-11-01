@@ -169,7 +169,7 @@ MAU<sub>case c</sub> = (0.15) × (0.30) + (0.25) × (0.35) + (0.35) × (0.91) + 
 
 | #   | Decision                                                                                       | Why it matters                                                              | Suggested default                                                                                                                            |
 | --- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | **Service-area boundary and node network** (Lechmere/Cambridge Crossing, Kendall/MIT, Central) | Sets trip distances, which set cycle time, throughput and wait              | 3 nodes. Lechmere–Kendall ≈ 1.5 km, Kendall–Central ≈ 1.5 km, Lechmere–Central ≈ 2.5 km. Measure the real distances on a map.                |
+| D1  | **Service-area boundary and node network** (Lechmere/Cambridge Crossing, Kendall/MIT, Central) | Sets trip distances, which set cycle time, throughput and wait              | 3 nodes. Measured road distances: Lechmere–Kendall 1.9 km, Kendall–Central 1.6 km, Lechmere–Central 3.3 km (see Q1).                        |
 | D2  | **Primary operating scenario** (pull from an OS3 report, with a sentence on why)               | The model has to show it meets this scenario                                | Weekday commuter service: road vehicles in dedicated lanes inside the boundary, demand from Appendix B                                       |
 | D3  | **Speed limit and achieved speed**                                                             | Caps average road speed; at a ~21 km/h cap about half the road variants hit it, so bigger motors buy no speed | Posted 20 mph (32 km/h) in Kendall and Central squares and on most local streets; arterials 25 mph unless posted. Signals and congestion hold peak speeds near 13 mph (~21 km/h), so use that as the average-speed cap. See Q3. |
 | D4  | **Demand outside MIT/Kendall**                                                                 | Appendix B only gives Kendall-origin demand                                 | Use Kendall as the design node (that is where the SAU wait time is measured). Optionally scale it for the other nodes.                       |
@@ -178,7 +178,17 @@ MAU<sub>case c</sub> = (0.15) × (0.30) + (0.25) × (0.35) + (0.35) × (0.91) + 
 
 ## Assumptions Made
 
-> **Q1 / D1, decided (from OS3A):** The OS3A boundary (Fig. 1) [[2]](references.md#ref-2) runs from Central Sq in the west, north through East Cambridge, east to Cambridge Crossing, and south along the Charles/MIT. That matches the assignment, so the **boundary is settled; only the distances remain.** OS3A also puts South Station/Boston in the *context* boundary, which is outside the system. That is useful for a Task 4 scenario.
+> **Q1 / D1, decided (from OS3A):** The OS3A boundary (Fig. 1) [[2]](references.md#ref-2) runs from Central Sq in the west, north through East Cambridge, east to Cambridge Crossing, and south along the Charles/MIT. That matches the assignment, so the **boundary is settled.** OS3A also puts South Station/Boston in the *context* boundary, which is outside the system. That is useful for a Task 4 scenario.
+
+> **Node distances (measured Nov. 1, 2026).** Station coordinates from OpenStreetMap via Nominatim [[22]](references.md#ref-22): Lechmere 42.37128, −71.07615; Kendall/MIT 42.36242, −71.08572; Central 42.36532, −71.10356. Road and bike routes from OSRM on OpenStreetMap data [[23]](references.md#ref-23), [[24]](references.md#ref-24), both directions (one-way streets make them differ). The model uses the mean of the two driving directions.
+>
+> | Pair | Straight line | Drive (each direction) | Bike (each direction) | **Model distance** | Time at 21 km/h |
+> | --- | --- | --- | --- | --- | --- |
+> | Lechmere–Kendall | 1.26 km | 1.65 / 2.11 km | 1.58 / 1.63 km | **1.9 km** | 5.4 min |
+> | Kendall–Central | 1.50 km | 1.60 / 1.60 km | 1.64 / 1.63 km | **1.6 km** | 4.6 min |
+> | Lechmere–Central | 2.35 km | 3.62 / 2.91 km | 2.99 / 3.17 km | **3.3 km** | 9.4 min |
+>
+> **Finding:** Lechmere–Central breaks the 7-minute in-boundary travel-time requirement [[1]](references.md#ref-1) at the ~21 km/h achieved speed (Q3): 8.3 min even in the shorter direction. Meeting it needs ~28 km/h average on that link, which needs dedicated lanes or signal priority on that link (routing via Kendall is longer, 3.5 km). Google Maps was not checked (no API key).
 
 > **Q2 / D2, decided (from OS3A):** OS3A points to **weekday a.m.-peak last-mile service from Kendall T** (MOE 1 sets the a.m. peak as its measurement condition; MOE 4 covers demand-responsive pickups). MIT P&T [[15]](references.md#ref-15) asked for *"small on-demand EV shuttles from a central hub"* and warned that empty shuttles are not financially viable. Proposal: on-demand small road EVs and/or e-bikes from a Kendall hub serving Lechmere and Central. OS3B is not in the repo yet; check whether it suggests something different.
 

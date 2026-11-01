@@ -49,3 +49,11 @@ IEEE-style bibliography for [PLAN.md](PLAN.md). In-line tags such as [[6]](#ref-
 <a id="ref-20"></a>[20] Commonwealth of Massachusetts, "Self-Driving Systems in Massachusetts," Mass.gov. [Online]. Available: https://www.mass.gov/self-driving-systems-in-massachusetts (OS3A [11])
 
 <a id="ref-21"></a>[21] City of Cambridge, "Red Line Closures 2026." [Online]. Available: https://cambridgema.gov/streetsandtransportation/redlineclosures2026 (OS3A [18])
+
+## Maps and routing
+
+<a id="ref-22"></a>[22] OpenStreetMap contributors, "Nominatim geocoding search" (station nodes 4572514863, 5325254494, 13895170625), OpenStreetMap Foundation. [Online]. Available: https://nominatim.openstreetmap.org
+
+<a id="ref-23"></a>[23] Project OSRM, "Open Source Routing Machine, demo server (car profile)," route service v1, OpenStreetMap data. [Online]. Available: https://router.project-osrm.org
+
+<a id="ref-24"></a>[24] FOSSGIS e.V., "OSRM routing server (bike profile)," OpenStreetMap data. [Online]. Available: https://routing.openstreetmap.de
