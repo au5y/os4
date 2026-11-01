@@ -1,0 +1,4 @@
+id,name,road_variant,headway_min,n_vehicles,source
+ezride,EZRide-level shuttle (every 10 min),C8-P1-G3-M4-A3,10,,"[18] 8-12 min weekday headways, midpoint"
+mbta_bus,MBTA-bus-level service (every 15 min),C8-P1-G3-M4-A3,15,,"[17] 15-30 min headways, frequent end"
+mit_shuttle,MIT daytime shuttles (5 vehicles),C6-P1-G3-M3-A3,,5,"[15] 5 daytime MIT shuttles (OS3A); 14 seats (team), C6 is the closest chassis (16)"

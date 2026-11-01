@@ -14,13 +14,16 @@ Columns are shipped as they come out of ``tradespace()``: the code iterates over
 whatever columns exist, so new metrics appear in the explorer without changes here.
 """
 
+import html
 import json
 import math
+import re
 import shutil
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
+import markdown
 import numpy as np
 import pandas as pd
 
@@ -502,12 +505,70 @@ def meta_payload(scenario: Scenario, summaries: dict[str, dict], mixed_cap: int)
     }
 
 
+REPORT_PAGE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OS4 · {title}</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap report" id="main">
+<p class="muted small">Rendered from <code>outputs/{source}</code>, written by <code>python -m os4</code>.</p>
+{body}
+</main>
+<script src="data/meta.js"></script>
+<script src="assets/common.js"></script>
+<script>OS4.util.header("reports.html");</script>
+</body>
+</html>
+"""
+IMG_SRC = re.compile(r'<img alt="([^"]*)" src="(?:media/)?([^"/]+)"')
+
+
+def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
+    """Render the Markdown reports in ``src_dir`` (``task*.md``) as pages of the explorer.
+
+    Each report becomes ``report_<stem>.html`` (title from its first heading) with its images copied
+    to ``img/``; ``reports.html`` lists them. Missing reports are skipped, so the site still builds
+    when only part of ``python -m os4`` has run.
+    """
+    img_dir = out_dir / "img"
+    reports, paths = [], []
+    for md_path in sorted(Path(src_dir).glob("task*.md")):
+        text = md_path.read_text(encoding="utf-8")
+        title = next((line.lstrip("# ").strip() for line in text.splitlines() if line.startswith("# ")), md_path.stem)
+        body = markdown.markdown(text, extensions=["tables", "fenced_code"])
+        body = body.replace("<table>", '<div class="table-wrap"><table>').replace("</table>", "</table></div>")
+        for _, src in IMG_SRC.findall(body):
+            found = next((p for p in (md_path.parent / "media" / src, md_path.parent / src) if p.exists()), None)
+            if found:
+                img_dir.mkdir(exist_ok=True)
+                shutil.copy2(found, img_dir / src)
+                paths.append(img_dir / src)
+        body = IMG_SRC.sub(r'<img alt="\1" src="img/\2"', body)
+        page = out_dir / f"report_{md_path.stem}.html"
+        page.write_text(REPORT_PAGE.format(title=html.escape(title), source=md_path.name, body=body), encoding="utf-8")
+        reports.append((page.name, title, md_path.name))
+        paths.append(page)
+    items = "\n".join(f'<li><a href="{href}">{html.escape(title)}</a> <span class="muted small">({source})</span></li>'
+                      for href, title, source in reports) or "<li>No reports yet: run <code>python -m os4</code>.</li>"
+    index = out_dir / "reports.html"
+    index.write_text(REPORT_PAGE.format(
+        title="Reports", source="task*.md",
+        body=f"<h1>Reports</h1>\n<p>The Markdown reports the model writes next to its figures.</p>\n<ul>\n{items}\n</ul>"),
+        encoding="utf-8")
+    return [index] + paths
+
+
 def write_site(scenario: Scenario, out_dir: Path = OUTPUT_DIR / "site", n_road=None, n_bike=None,
-               mixed_cap: int = MIXED_CAP) -> list[Path]:
+               mixed_cap: int = MIXED_CAP, reports_dir: Path | None = OUTPUT_DIR) -> list[Path]:
     """Write the static results explorer to ``out_dir``; returns the files written.
 
     ``n_road`` / ``n_bike`` override the tradespace fleet-size grids (``None`` keeps
-    ``tradespace``'s defaults); tests pass small grids.
+    ``tradespace``'s defaults); tests pass small grids. The Markdown reports in ``reports_dir``
+    are rendered as pages (``write_reports``); ``None`` skips them.
     """
     out_dir = Path(out_dir)
     if out_dir.exists():
@@ -530,5 +591,7 @@ def write_site(scenario: Scenario, out_dir: Path = OUTPUT_DIR / "site", n_road=N
         _write_js(data_dir / "task1.js", "task1", task1_payload()),
         _write_js(data_dir / "task2.js", "task2", task2_payload(scenario, merge_picks(picks))),
     ] + paths
+    if reports_dir is not None:
+        write_reports(reports_dir, out_dir)
     pages = sorted(p for p in out_dir.rglob("*") if p.is_file() and p.parent != data_dir)
     return pages + paths

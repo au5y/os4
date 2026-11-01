@@ -23,13 +23,13 @@ The assignment asks for a tradespace exploration of an autonomous, battery-elect
 | 5 | 20% | Concept recommendation | Not started | slides |
 | 6 | 10% | Life-cycle / extensibility memo | Not started | slides |
 
-**Due:** Thursday, November 12, 2026, 10:00am. The slides go to Canvas as a single PDF; the model (this code plus `outputs/os4_model.xlsx`) is submitted separately as a ZIP.
+**Due:** Thursday, November 12, 2026, 10:00am. The slides go to Canvas as a single PDF; the model (this code plus `outputs/media/os4_model.xlsx`) is submitted separately as a ZIP.
 
 Every modeling decision and open question is in [`docs/PLAN.md`](docs/PLAN.md) (questions are numbered **Q#**; code that depends on one is tagged with its number). The main ones so far:
 
 - **Scenario:** weekday on-demand last-mile service from a Kendall hub to Lechmere and Central; links 1.9 / 1.6 / 3.3 km measured on OpenStreetMap; road speed capped at 21 km/h (20 mph posted, signals); e-bikes a fixed 18 km/h assist.
 - **MoPs:** peak throughput is the demand actually served (Q11); availability is *service* availability, the chance the vehicles in service can carry each hour's demand (Q14); travel time is the average Kendall trip; cost is vehicle capital only (Q15).
-- **Design space:** every feasible Appendix C/D vehicle, road fleets 5–300 (step 5) and bike fleets 25–750 (step 25), alone or mixed: ~7.4 million architectures. Table 1 thresholds (1,500 trips/day, 150/h peak, 50/h off-peak) screen architectures out before scoring.
+- **Design space:** every feasible Appendix C/D vehicle, road fleets 1–300 and bike fleets 5–750 with steps that widen as fleets grow (road step 1 up to 15; bikes step 5 up to 50), alone or mixed: ~3.9 million architectures. The reference architecture and anchors (EZRide, MBTA bus and MIT shuttle service levels, `data/anchors.csv`) are plotted on every tradespace. Table 1 thresholds (1,500 trips/day, 150/h peak, 50/h off-peak) screen architectures out before scoring.
 - **E-bike batteries:** fixed (Appendix B) and removable with spare packs (team proposal) are both kept as alternate pathways.
 - **Weights:** Appendix A for the official MAU; `os3a_reweight` (Task 1 reflection) and `os3a_extended` (adds travel time) as team proposals.
 
@@ -58,13 +58,13 @@ os4/
 │   ├── model.py           Task 2: evaluate one architecture; the five architectures
 │   ├── tradespace.py      Task 3: pruning, vectorized tradespace, Pareto front, charts, report
 │   ├── plots.py           Task 1 and Task 2 figures and reports
-│   ├── export.py          Excel backup with live formulas (outputs/os4_model.xlsx)
+│   ├── export.py          Excel backup with live formulas (outputs/media/os4_model.xlsx)
 │   ├── site.py            Results explorer generator (outputs/site/)
 │   ├── site_template/     Its HTML/CSS/JS (vanilla, no build step)
 │   └── __main__.py        Entry point (`python -m os4`)
 ├── tests/                 pytest tests
 ├── .github/workflows/     CI: tests, model run, artifacts, GitHub Pages, releases
-└── outputs/               Generated reports, figures, workbook, site (git-ignored)
+└── outputs/               Generated (git-ignored): Markdown reports; media/ figures, CSVs, workbook; site/ explorer
 ```
 
 Costs in the CSVs are in **US dollars** (the PDF lists most of them in $1000s).
@@ -176,7 +176,7 @@ uv run python -m os4      # or: uv run os4   (without uv: python -m os4 inside t
 uv run pytest             # tests (~20 s; without uv: pytest)
 ```
 
-`python -m os4` runs Tasks 1–3, the results explorer and the Excel backup, and writes everything to `outputs/`. It takes about 2 minutes and ~4 GB of memory, because the full tradespace has ~7.4 million architectures. It prints the key tables as it goes, for example:
+`python -m os4` runs Tasks 1–3, the results explorer and the Excel backup, and writes everything to `outputs/`. It takes about 1–2 minutes and a few GB of memory, because the full tradespace has ~3.9 million architectures. It prints the key tables as it goes, for example:
 
 ```
 Task 1 (MAU):

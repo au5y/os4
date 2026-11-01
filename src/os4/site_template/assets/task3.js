@@ -130,8 +130,8 @@
       filterEls[key] = [lo, hi];
       fbox.appendChild(el("div", { class: "f" }, [el("span", { text: label }), el("div", { class: "range" }, [lo, "–", hi])]));
     };
-    range("nr", "N road", "n_road", "5");
-    range("nb", "N bike", "n_bike", "25");
+    range("nr", "N road", "n_road", "1");
+    range("nb", "N bike", "n_bike", "5");
     range("cost", "cost ($M)", "cost", "0.1", 1e6);
     const minU = numInput("e.g. 0.9", (v) => { state.f.minU = v; applyFilters(); }, "0.01");
     minU.max = "1";
