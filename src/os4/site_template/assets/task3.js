@@ -611,6 +611,10 @@
     for (const k of orderedNames(c)) {
       dl.append(el("dt", { text: U.label(k) }), el("dd", { text: U.fmt(k, c.C.get(i, k)) }));
     }
+    for (const k of ["road_variant", "bike_variant"]) {
+      const decoded = U.decodeVariant(c.C.get(i, k));
+      if (decoded) dl.append(el("dt", { text: U.label(k) + " parts" }), el("dd", { class: "parts", text: decoded }));
+    }
     const unpin = el("button", { type: "button", text: "Unpin" });
     unpin.addEventListener("click", () => pin(null));
     details.append(head, dl, el("p", null, [unpin]));

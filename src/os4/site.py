@@ -24,6 +24,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from os4.data import load
 from os4.model import architecture_table
 from os4.plots import LABELS, OUTPUT_DIR, case_table
 from os4.scenario import Scenario
@@ -453,6 +454,34 @@ def case_summary(df: pd.DataFrame) -> dict:
             "sizes": {col: sorted(int(v) for v in df[col].unique() if v > 0) for col in ("n_road", "n_bike")}}
 
 
+# Appendix C (road) and D (e-bike) component tables, decoded in the explorer: a variant id such as
+# C5-P1-G3-M2-A3 is chassis-battery-charger-motor-autonomy; B3-E2-G2-K1-S2 is frame-battery-charger-motor
+# plus the removable-battery spares per bike.
+COMPONENT_TABLES = {
+    "road": [("C", "chassis", "road_chassis", "Chassis (body, seats, base energy use)"),
+             ("P", "battery", "road_battery", "Battery pack"),
+             ("G", "charger", "road_charger", "Charger"),
+             ("M", "motor", "road_motor", "Motor and inverter"),
+             ("A", "autonomy", "road_autonomy", "Autonomy system (SAE J3016 level)")],
+    "bike": [("B", "frame", "bike_frame", "E-bike frame (Level 4 autonomy for riding empty is built in)"),
+             ("E", "battery", "bike_battery", "Battery pack"),
+             ("G", "charger", "bike_charger", "Charger"),
+             ("K", "motor", "bike_motor", "Motor")],
+}
+COMPONENT_UNITS = {"pax": "seats", "weight_kg": "kg", "cost_usd": "$", "nominal_wh_per_km": "Wh/km",
+                   "capacity_kwh": "kWh", "power_kw": "kW", "added_wh_per_km": "+Wh/km", "sae_level": "SAE level"}
+
+
+def components_payload() -> dict:
+    """Every component table from Appendices C and D, for the explorer's reference page and tooltips."""
+    out = {}
+    for kind, tables in COMPONENT_TABLES.items():
+        out[kind] = [{"prefix": prefix, "part": part, "title": title, "source": "Appendix C" if kind == "road"
+                      else "Appendix D", "units": COMPONENT_UNITS, "rows": records(load(name))}
+                     for prefix, part, name, title in tables]
+    return out
+
+
 def meta_payload(scenario: Scenario, summaries: dict[str, dict], mixed_cap: int) -> dict:
     grid = {}
     for col in ("n_road", "n_bike"):
@@ -469,6 +498,7 @@ def meta_payload(scenario: Scenario, summaries: dict[str, dict], mixed_cap: int)
                   for k, s in summaries.items()},
         "mixed_cap": mixed_cap,
         "labels": COLUMN_LABELS,
+        "components": components_payload(),
     }
 
 

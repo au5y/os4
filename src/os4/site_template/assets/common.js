@@ -190,12 +190,56 @@
     return a;
   };
 
+  // ---------- component codes (Appendix C / D) ----------
+  // A road variant id is chassis-battery-charger-motor-autonomy (C5-P1-G3-M2-A3); an e-bike id is
+  // frame-battery-charger-motor (B3-E2-G2-K1), plus -S<k> for k removable spare packs per bike.
+  function componentIndex() {
+    const idx = { road: {}, bike: {} };
+    const comps = (OS4.meta && OS4.meta.components) || {};
+    for (const kind of ["road", "bike"]) {
+      for (const t of comps[kind] || []) for (const row of t.rows) idx[kind][row.id] = { table: t, row };
+    }
+    return idx;
+  }
+  let COMPONENTS = null;
+  function describePart(entry) {
+    const { table, row } = entry;
+    const u = table.units || {};
+    const bits = Object.entries(row)
+      .filter(([k]) => k !== "id")
+      .map(([k, v]) => (k === "cost_usd" ? "$" + Number(v).toLocaleString() : (k === "sae_level" ? "SAE L" + v : v + " " + (u[k] || k))));
+    return row.id + " " + table.part + ": " + bits.join(", ");
+  }
+  // Decode one variant id into one line per component; null if it isn't a variant id.
+  U.decodeVariant = function (id) {
+    if (typeof id !== "string") return null;
+    COMPONENTS = COMPONENTS || componentIndex();
+    const parts = id.split("-");
+    const kind = /^C\d/.test(parts[0]) ? "road" : /^B\d/.test(parts[0]) ? "bike" : null;
+    if (!kind) return null;
+    const lines = [];
+    for (const p of parts) {
+      if (/^S[\d.]+$/.test(p)) lines.push(p + ": removable battery, " + p.slice(1) + " spare pack(s) per bike (pooled)");
+      else if (COMPONENTS[kind][p]) lines.push(describePart(COMPONENTS[kind][p]));
+    }
+    if (kind === "bike" && !parts.some((p) => /^S/.test(p))) lines.push("fixed battery (Appendix B); L4 autonomy built into the frame");
+    return lines.length ? lines.join("\n") : null;
+  };
+  // Decode every variant id inside a string such as "12×C2-P2-G3-M2-A3 + 60×B2-E1-G2-K2".
+  U.decodeText = function (text) {
+    if (typeof text !== "string") return null;
+    const ids = text.match(/[CB]\d(?:-[A-Z][\d.]+)+/g);
+    if (!ids) return null;
+    return ids.map((id) => id + "\n" + (U.decodeVariant(id) || "")).join("\n\n");
+  };
+
   // ---------- header ----------
   const PAGES = [
     ["index.html", "Overview"],
     ["task1.html", "Task 1 · Utility"],
     ["task2.html", "Task 2 · Model"],
     ["task3.html", "Task 3 · Tradespace"],
+    ["components.html", "Components"],
   ];
   U.header = function (current) {
     const nav = U.el("nav", { "aria-label": "Pages" }, [U.el("a", { class: "brand", href: "index.html", text: "OS4 explorer" })]);
@@ -301,6 +345,11 @@
       } else if (typeof v === "boolean") {
         td.appendChild(U.el("span", { class: v ? "yes" : "no", text: v ? "✓ yes" : "– no" }));
       } else td.textContent = c.fmt ? c.fmt(v, r) : U.fmt(c.key, v);
+      const decoded = U.decodeText(v);
+      if (decoded) {
+        td.title = decoded;
+        td.classList.add("decoded");
+      }
       return td;
     }
     function render() {

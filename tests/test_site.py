@@ -119,3 +119,15 @@ def test_task1_and_task2_payloads(site):
     t2 = _data(out, "task2")
     assert len(t2["architectures"]) == 5
     assert t2["variants"]["n"] > 100
+
+
+def test_components_reference(site):
+    # The Appendix C / D tables behind every variant id ship with meta.js and get their own page.
+    out, _ = site
+    assert (out / "components.html").exists() and (out / "assets" / "components.js").exists()
+    comps = _data(out, "meta")["components"]
+    road = {t["prefix"]: t for t in comps["road"]}
+    bike = {t["prefix"]: t for t in comps["bike"]}
+    assert list(road) == ["C", "P", "G", "M", "A"] and list(bike) == ["B", "E", "G", "K"]
+    assert len(road["C"]["rows"]) == 8 and road["C"]["rows"][4]["id"] == "C5"
+    assert {r["id"] for r in road["A"]["rows"]} == {"A3", "A4", "A5"}
