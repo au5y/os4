@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OS4 · Task 3 tradespace</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap" id="main">
+  <h1>Task 3 · Tradespace</h1>
+  <p class="muted" id="intro">Utility vs. fleet cost (vehicle capital cost, log scale) for every architecture that meets the Table 1 thresholds.</p>
+
+  <div class="toolbar">
+    <span class="seg" role="radiogroup" aria-label="Battery case" id="case-toggle"></span>
+    <label>Utility <select id="utility"></select></label>
+    <label>Color by <select id="color-by">
+      <option value="type">fleet type</option>
+      <option value="n_road">fleet size: N road</option>
+      <option value="n_bike">fleet size: N bike</option>
+      <option value="total">fleet size: N road + N bike</option>
+    </select></label>
+    <button type="button" id="reset-view">Reset zoom</button>
+  </div>
+
+  <div class="filters" id="filters" aria-label="Filters"></div>
+  <p class="muted small" id="counts" aria-live="polite"></p>
+
+  <div class="layout-3">
+    <div class="chart-card">
+      <div class="legend" id="legend"></div>
+      <div class="canvas-box" id="canvas-box">
+        <canvas id="chart" role="img" aria-label="Utility versus fleet cost scatter plot; the table below lists the same points"></canvas>
+        <div class="tooltip" id="tooltip" hidden></div>
+      </div>
+      <p class="muted small">Scroll to zoom, drag to pan, double-click to reset. Hover a point for details; click to pin it. The table below lists the same filtered points.</p>
+    </div>
+    <aside class="details" id="details" aria-live="polite"></aside>
+  </div>
+
+  <h2>Filtered architectures</h2>
+  <div id="table"></div>
+</main>
+<script src="data/meta.js"></script>
+<script src="data/task2.js"></script>
+<script src="data/task3_fixed.js"></script>
+<script src="data/task3_removable.js"></script>
+<script src="assets/common.js"></script>
+<script src="assets/task3.js"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OS4 · Task 1 utility</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap" id="main">
+  <h1>Task 1 · Stakeholder utility</h1>
+  <p class="muted">Single-attribute utilities are piecewise linear between the Appendix A points (clamped outside the table); the multi-attribute utility is additive, <i>U</i> = Σ <i>k<sub>i</sub></i> · <i>u<sub>i</sub></i>(<i>x<sub>i</sub></i>), with weights that sum to 1.</p>
+  <div id="formula"></div>
+
+  <h2>Cases A–C (Appendix A weights)</h2>
+  <div id="cases"></div>
+
+  <h2>Single-attribute utility curves</h2>
+  <p class="muted">Hover (or focus and use ← →) to read any point off a curve. Cases A–C are marked on the four Appendix A curves. The two proposed curves come from our OS3A MOEs and are <b>proposed, for team review</b>; they only enter the extended MAU.</p>
+  <div class="legend" id="sau-legend"></div>
+  <div class="sau-grid" id="saus"></div>
+
+  <h2>MAU under each weight set</h2>
+  <p class="muted">The extended set adds the two proposed attributes, which cases A–C don't specify, so it only scores model architectures (Task 3 utility toggle).</p>
+  <div id="weights"></div>
+  <h3>Case MAU and rank by weight set</h3>
+  <div id="weight-sets"></div>
+
+  <h2>Weight sensitivity</h2>
+  <p class="muted">Each Appendix A weight moved by ±0.1, the others rescaled to keep the sum at 1. Highlighted rows change the A/B/C ranking.</p>
+  <div id="sensitivity"></div>
+</main>
+<script src="data/meta.js"></script>
+<script src="data/task1.js"></script>
+<script src="assets/common.js"></script>
+<script src="assets/task1.js"></script>
+</body>
+</html>

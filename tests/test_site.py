@@ -1,0 +1,121 @@
+import json
+import re
+
+import pytest
+
+from os4.scenario import primary_scenario
+from os4.site import arch_id, case_frames, highlight_architectures, sample_rows, write_site
+from os4.tradespace import pareto_front
+
+GRID = {"n_road": (0, 5, 10, 20), "n_bike": (0, 25, 50, 100)}
+CAP = 300
+ASSIGN = re.compile(r'^window\.OS4 = window\.OS4 \|\| \{\};\nwindow\.OS4\["(\w+)"\] = (.*);\n$', re.S)
+
+
+@pytest.fixture(scope="module")
+def site(tmp_path_factory):
+    out = tmp_path_factory.mktemp("site")
+    paths = write_site(primary_scenario(), out, mixed_cap=CAP, **GRID)
+    return out, paths
+
+
+@pytest.fixture(scope="module")
+def frames():
+    return case_frames(primary_scenario(), **GRID)
+
+
+def _data(out, name):
+    match = ASSIGN.match((out / "data" / f"{name}.js").read_text(encoding="utf-8"))
+    assert match, name
+    assert match.group(1) == name
+    return json.loads(match.group(2))
+
+
+def test_writes_index_and_one_page_per_task(site):
+    out, paths = site
+    for page in ("index.html", "task1.html", "task2.html", "task3.html", "selected.html"):
+        assert (out / page).exists(), page
+        assert out / page in paths
+    for html in out.glob("*.html"):
+        text = html.read_text(encoding="utf-8")
+        # Static site: everything is local, nothing fetched.
+        assert "http://" not in text and "https://" not in text
+    for js in (out / "assets").glob("*.js"):
+        text = js.read_text(encoding="utf-8")
+        assert "fetch(" not in text and "XMLHttpRequest" not in text
+
+
+def test_every_data_js_assigns_valid_json(site):
+    out, _ = site
+    names = sorted(p.stem for p in (out / "data").glob("*.js"))
+    assert names == ["meta", "task1", "task2", "task3_fixed", "task3_removable"]
+    for name in names:
+        assert isinstance(_data(out, name), dict)
+
+
+def test_task3_sample_is_capped_and_keeps_the_front(site, frames):
+    out, _ = site
+    for key, df in frames.items():
+        payload = _data(out, f"task3_{key}")
+        table = payload["table"]
+        assert payload["shown"]["mixed"] <= CAP
+        assert payload["totals"]["all"] == len(df)
+        assert payload["shown"]["road-only"] == payload["totals"]["road-only"]
+        assert payload["shown"]["bike-only"] == payload["totals"]["bike-only"]
+        assert len(table["data"]["fleet_cost_usd"]) == table["n"] == payload["shown"]["all"]
+        # Every column of the tradespace is shipped.
+        assert set(df.columns) <= {c["name"] for c in table["columns"]}
+        dicts, data = table["dicts"], table["data"]
+
+        def shipped_id(i):
+            return arch_id({"road_variant": dicts["road_variant"][data["road_variant"][i]] if data["n_road"][i] else None,
+                            "n_road": data["n_road"][i],
+                            "bike_variant": dicts["bike_variant"][data["bike_variant"][i]] if data["n_bike"][i] else None,
+                            "n_bike": data["n_bike"][i]})
+
+        shipped = {shipped_id(i) for i in range(table["n"])}
+        for utility in payload["utilities"]:
+            front = pareto_front(df, utility)
+            assert {arch_id(r) for _, r in front.iterrows()} <= shipped
+            assert len(payload["fronts"][utility]) == len(front)
+            costs = [data["fleet_cost_usd"][i] for i in payload["fronts"][utility]]
+            assert costs == sorted(costs)
+
+
+def test_sample_rows_respects_cap(frames):
+    df = frames["removable"]
+    idx = sample_rows(df, mixed_cap=50)
+    assert idx.is_unique
+    assert set(pareto_front(df).index) <= set(idx)
+    front_mixed = sum((pareto_front(df, u)["fleet_type"] == "mixed").sum() for u in ("mau", "mau_os3a_extended"))
+    assert df.loc[idx, "fleet_type"].eq("mixed").sum() <= max(50, front_mixed)
+    assert (df.loc[idx, "fleet_type"] != "mixed").sum() == (df["fleet_type"] != "mixed").sum()
+    assert sample_rows(df, mixed_cap=50).equals(idx)  # seeded
+
+
+def test_highlights_unique_with_reasons(frames, site):
+    out, _ = site
+    hl = highlight_architectures(frames)
+    assert 10 <= len(hl) <= 60
+    assert hl["id"].is_unique
+    assert hl["reason"].str.len().gt(0).all()
+    assert hl["case"].str.len().gt(0).all()
+    # One cheapest road-only pick per chassis present in the data.
+    road = frames["fixed"].query("fleet_type == 'road-only'")
+    for chassis in road["road_chassis"].dropna().unique():
+        assert hl["reason"].str.contains(f"cheapest road-only {chassis} ").any()
+    shipped = _data(out, "task2")["highlights"]
+    assert len({r["id"] for r in shipped}) == len(shipped)
+    assert all(r["reason"] for r in shipped)
+
+
+def test_task1_and_task2_payloads(site):
+    out, _ = site
+    t1 = _data(out, "task1")
+    assert {s["attribute"] for s in t1["saus"]} >= {"passenger_volume", "peak_throughput", "wait_time",
+                                                    "availability", "travel_time", "bike_share"}
+    assert [s["proposed"] for s in t1["saus"] if s["attribute"] in ("travel_time", "bike_share")] == [True, True]
+    assert [c["mau"] for c in t1["cases"]] == pytest.approx([0.613, 0.6385, 0.651], abs=1e-3)
+    t2 = _data(out, "task2")
+    assert len(t2["architectures"]) == 5
+    assert t2["variants"]["n"] > 100
