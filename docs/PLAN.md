@@ -1,15 +1,15 @@
 # Game plan: Tasks 1 & 2
 # Task 1 approach:
--- Determmine SAU function(s). I used the slope and point slope form to come up with SAU function. 
+-- Determine SAU function(s). I used the slope and point slope form to come up with SAU function. 
  Note that SAU function is the rule that I used to measure x into a utility score (U). 
 
 # Passenger trips/day SAU function( x = trips/day) & U<sub>m</sub> means utility slope 
- |x1 | x2 | U1 | U2|
- |:--|---:|:----|---:|
- | 0 | 500 | 0 |0.2|
- |500| 1000 | 0.2| 0.4|
- |1000| 1500 | 0.4| 0.8|
- |1500| 2000 | 0.8| 1.0|
+ | x1   |   x2 | U1  |  U2 |
+ | :--- | ---: | :-- | --: |
+ | 0    |  500 | 0   | 0.2 |
+ | 500  | 1000 | 0.2 | 0.4 |
+ | 1000 | 1500 | 0.4 | 0.8 |
+ | 1500 | 2000 | 0.8 | 1.0 |
 
 For the purposes of validation, calculate the function formula for changes X & change U:
 
@@ -34,12 +34,12 @@ U<sub>case c</sub> = 0.2 + 0.0004(750-500) = 0.3
 + U<sub>case c</sub> = 0.3 @ 750 passenger trips/day ** Calculated 
 
 # Peak passenger throughput SAU function( x = passenger trips/hour) & U<sub>m</sub> means utility slope 
- |x1 | x2 | U1 | U2|
- |:--|---:|:----|---:|
- | 0 | 50 | 0 |0.2|
- |50| 100 | 0.2| 0.5|
- |100| 150 | 0.5| 0.9|
- |150| 200 | 0.9| 1.0|
+ | x1  |  x2 | U1  |  U2 |
+ | :-- | --: | :-- | --: |
+ | 0   |  50 | 0   | 0.2 |
+ | 50  | 100 | 0.2 | 0.5 |
+ | 100 | 150 | 0.5 | 0.9 |
+ | 150 | 200 | 0.9 | 1.0 |
 
 For the purposes of validation, calculate the function formula for changes X & change U:
 
@@ -64,13 +64,13 @@ U<sub>case b</sub> = 0.5 @ 100 passenger trips/hour ** in appendix A (AM: this l
 U<sub>case c</sub> = 0.2 + 0.006(75-50) = 0.35 ** calculated
 
 # Average wait time, at MIT/kendall square node (minutes) SAU function( x = minutes) & U<sub>m</sub> means utility slope 
- |x1 | x2 | U1 | U2|
- |:--|---:|:----|---:|
- | 0 | 5 | 1 |0.95|
- |5| 10 | 0.95| 0.75|
- |10| 15 | 0.75| 0.4|
- |15| 20 | 0.4| 0.2|
- |20| 30 | 0.2| 0|
+ | x1  |  x2 | U1   |   U2 |
+ | :-- | --: | :--- | ---: |
+ | 0   |   5 | 1    | 0.95 |
+ | 5   |  10 | 0.95 | 0.75 |
+ | 10  |  15 | 0.75 |  0.4 |
+ | 15  |  20 | 0.4  |  0.2 |
+ | 20  |  30 | 0.2  |    0 |
 
 For the purposes of validation, calculate the function formula for changes X & change U:
 
@@ -98,6 +98,65 @@ U<sub>case b</sub> = 0.75 - 0.07(12-10) = 0.61 (AM: sign was +, slope is negativ
 
 U<sub>case c</sub> = 0.95 - 0.04(6-5) = 0.91 (AM: sign was +, slope is negative; 0.91 is right) ** calculated
 
+# Availability (dml4)
+ | x1  |  x2 | U1  |  U2 |
+ | :-- | --: | :-- | --: |
+ | 0   | 0.2 | 0   | 0.2 |
+ | 0.2 | 0.4 | 0.2 | 0.4 |
+ | 0.4 | 0.6 | 0.4 | 0.6 |
+ | 0.6 | 0.8 | 0.6 | 0.8 |
+ | 0.8 | 1.0 | 0.8 | 1.0 |
+
++ 0 to 0.2 -- U<sub>m</sub> (0.2-0)/(0.2-0) = 1 | equation <sub>1</sub> -- U = 0 + 1(x-0)
++ 0.2 to 0.4 -- U<sub>m</sub> (0.4-0.2)/(0.4-0.2) = 1 | equation <sub>2</sub> -- U = 0.2 + 1(x-0.2)
++ 0.4 to 0.6 -- U<sub>m</sub> (0.6-0.4)/(0.6-0.4) = 1 | equation <sub>3</sub> -- U = 0.4 + 1(x-0.4)
++ 0.6 to 0.8 -- U<sub>m</sub> (0.8-0.6)/(0.8-0.6) = 1 | equation <sub>4</sub> -- U = 0.6 + 1(x-0.6)
++ 0.8 to 1 -- U<sub>m</sub> (1-0.8)/(1-0.8) = 1 | equation <sub>5</sub> -- U = 0.8 + 1(x-0.8)
+
+From the above SAU functions, we can derive U<sub>case a</sub> at 0.7, U<sub>case b</sub> at 0.6 & U<sub>case c</sub> at 0.8 availability (dml4).
+
+0.7 is between 0.6 to 0.8, use equation <sub>4</sub> to calculate U<sub>case a</sub> 
+
+# Availability (dml4)
+
+U<sub>case a</sub> = 0.6 + 1(0.7-0.6) = 0.7 ** Calculated
+
+U<sub>case b</sub> = o.6 ** in appendix A
+
+U<sub>case c</sub> = 0.8 ** in appendix A
+
+# Results table Utility for Cases A, B, & C
+
+| Case | U<sub>passenger volume</sub> | U<sub>peak throughput | U<sub>average wait</sub> | U<sub>availability</sub> |
+| ---- | ------------------: | --------------: | ----------------: | -----------: |
+| A    | 0.40                | 0.35            | 0.83              | 0.70         |
+| B    | 1.00                | 0.50            | 0.61              | 0.60         |
+| C    | 0.30                | 0.35            | 0.91              | 0.80         |
+
+                        Table 1 - results 
+
+| w<sub>passenger volume</sub> | w<sub>peak throughput | w<sub>average wait</sub> | w<sub>availability</sub> |
+| ------------------: | --------------: | ----------------: | -----------: |
+| 0.15               | 0.25            | 0.35             | 0.25         |
+
+                        Table 2 - Weights  
+# Multi-attribute utility (MAU)
+    For reference: 
+        w = weights
+        U = utility score 
+
+Formula
+
+ MAU = w<sub>volume</sub> x U<sub>volume</sub> + w<sub>peak throughput</sub> x U<sub>peak throughput</sub> + w<sub>average wait time</sub> x U<sub>average wait</sub> + w<sub>availability</sub> x U<sub>availability</sub>
+
+MAU<sub>case a</sub> = (0.15) x (0.40) + (0.35) x (0.25) + (0.83) x (0.35) + (0.70) x (0.25) = 0.613
+
+MAU<sub>case b</sub> = (1) x (0.15) + (0.5) x (0.25) + (0.61) x (0.35) + (0.60) x (0.25) = 0.639
+
+MAU<sub>case C</sub> = (0.15) x (0.30) + (0.35) x (0.25) + (0.91) x (0.35) + (0.80) x (0.25) = 0.651
+
+
+
 
 **How to use this doc:** questions for the team are marked **❓ Q#**. Lines marked **From OS3A** are proposed answers drawn from `resources/OS3A_H2_Team13.pdf`; confirm or override them. Write the decision under **Answer:** (replace _TBD_) and initial it.
 
@@ -105,14 +164,14 @@ U<sub>case c</sub> = 0.95 - 0.04(6-5) = 0.91 (AM: sign was +, slope is negative;
 
 ## Team decisions needed first (these block Task 2)
 
-| # | Decision | Why it matters | Suggested default |
-|---|----------|----------------|-------------------|
-| D1 | **Service-area boundary and node network** (Lechmere/Cambridge Crossing, Kendall/MIT, Central) | Sets trip distances, which set cycle time, throughput and wait | 3 nodes. Lechmere–Kendall ≈ 1.5 km, Kendall–Central ≈ 1.5 km, Lechmere–Central ≈ 2.5 km. Measure the real distances on a map. |
-| D2 | **Primary operating scenario** (pull from an OS3 report, with a sentence on why) | The model has to show it meets this scenario | Weekday commuter service: road vehicles in dedicated lanes inside the boundary, demand from Appendix B |
-| D3 | **Posted speed limit** | Caps average speed, so most motors will hit the cap | 25 mph ≈ 40 km/h on arterials (Cambridge defaults to 20 mph on many city streets, so check and cite) |
-| D4 | **Demand outside MIT/Kendall** | Appendix B only gives Kendall-origin demand | Use Kendall as the design node (that is where the SAU wait time is measured). Optionally scale it for the other nodes. |
-| D5 | **What the e-bike speed equation does** | `700·P/W` gives about 5–8 km/h for bikes with a rider, which is unrealistic | Add rider pedal power (~0.1 kW) or use a fixed assisted speed (~18–20 km/h, under the 20 mph class-1/2 cap). Must be justified on the slide. |
-| D6 | **Autonomy level vs. scenario** | The constraints tie L3/L4/L5 to where vehicles operate | Primary scenario inside the boundary → A3 allowed. Leave A4/A5 in the vector for the Task 4 scenario that goes outside the boundary. |
+| #   | Decision                                                                                       | Why it matters                                                              | Suggested default                                                                                                                            |
+| --- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | **Service-area boundary and node network** (Lechmere/Cambridge Crossing, Kendall/MIT, Central) | Sets trip distances, which set cycle time, throughput and wait              | 3 nodes. Lechmere–Kendall ≈ 1.5 km, Kendall–Central ≈ 1.5 km, Lechmere–Central ≈ 2.5 km. Measure the real distances on a map.                |
+| D2  | **Primary operating scenario** (pull from an OS3 report, with a sentence on why)               | The model has to show it meets this scenario                                | Weekday commuter service: road vehicles in dedicated lanes inside the boundary, demand from Appendix B                                       |
+| D3  | **Posted speed limit**                                                                         | Caps average speed, so most motors will hit the cap                         | 25 mph ≈ 40 km/h on arterials (Cambridge defaults to 20 mph on many city streets, so check and cite)                                         |
+| D4  | **Demand outside MIT/Kendall**                                                                 | Appendix B only gives Kendall-origin demand                                 | Use Kendall as the design node (that is where the SAU wait time is measured). Optionally scale it for the other nodes.                       |
+| D5  | **What the e-bike speed equation does**                                                        | `700·P/W` gives about 5–8 km/h for bikes with a rider, which is unrealistic | Add rider pedal power (~0.1 kW) or use a fixed assisted speed (~18–20 km/h, under the 20 mph class-1/2 cap). Must be justified on the slide. |
+| D6  | **Autonomy level vs. scenario**                                                                | The constraints tie L3/L4/L5 to where vehicles operate                      | Primary scenario inside the boundary → A3 allowed. Leave A4/A5 in the vector for the Task 4 scenario that goes outside the boundary.         |
 
 > **❓ Q1:** D1: Which nodes and boundary do we use, and what are the measured node-to-node distances (km)?
 > **Answer:** _TBD_
@@ -150,11 +209,11 @@ with k = {volume 0.15, peak 0.25, wait 0.35, availability 0.25}.
 
 **Expected results** (hand-checked; the code must reproduce them):
 
-| Case | u_vol | u_peak | u_wait | u_avail | **MAU** |
-|---|---|---|---|---|---|
-| A | 0.40 | 0.35 | 0.83 | 0.70 | **0.613** |
-| B | 1.00 | 0.50 | 0.61 | 0.60 | **0.639** |
-| C | 0.30 | 0.35 | 0.91 | 0.80 | **0.651** |
+| Case | u_vol | u_peak | u_wait | u_avail | **MAU**   |
+| ---- | ----- | ------ | ------ | ------- | --------- |
+| A    | 0.40  | 0.35   | 0.83   | 0.70    | **0.613** |
+| B    | 1.00  | 0.50   | 0.61   | 0.60    | **0.639** |
+| C    | 0.30  | 0.35   | 0.91   | 0.80    | **0.651** |
 
 The interesting point for the slide is that C has the lowest volume yet ranks highest, because wait time carries the largest weight (0.35). All three cases fall within about 0.04 of each other, so their ranking depends on the weights.
 
@@ -193,14 +252,14 @@ The interesting point for the slide is that C has the lowest volume yet ranks hi
 
 ### Design vector
 
-| Decision | Road options | Bike options |
-|---|---|---|
-| Chassis / frame | C1–C8 | B1–B3 |
-| Battery | P1–P7 (weight ≤ ⅓ chassis) | E1–E3 (weight ≤ ½ frame) |
-| Charger | G1–G3 | G1–G2 |
-| Motor | M1–M4 | K1–K3 |
-| Autonomy | A3/A4/A5 | fixed L4 (in frame cost) |
-| Fleet size | N_road: e.g. 0–60, step 5 | N_bike: e.g. 0–300, step 25 |
+| Decision        | Road options               | Bike options                |
+| --------------- | -------------------------- | --------------------------- |
+| Chassis / frame | C1–C8                      | B1–B3                       |
+| Battery         | P1–P7 (weight ≤ ⅓ chassis) | E1–E3 (weight ≤ ½ frame)    |
+| Charger         | G1–G3                      | G1–G2                       |
+| Motor           | M1–M4                      | K1–K3                       |
+| Autonomy        | A3/A4/A5                   | fixed L4 (in frame cost)    |
+| Fleet size      | N_road: e.g. 0–60, step 5  | N_bike: e.g. 0–300, step 25 |
 
 Feasible vehicle variants after the battery constraint:
 - **Road:** C1–C2 → P1–P4; C3–C4 → P1–P5; C5 → P1–P6; C6–C7 → P1–P6; C8 → P1–P7. That gives 43 chassis/battery pairs × 3 chargers × 4 motors × 3 autonomy levels = **1,548**.
