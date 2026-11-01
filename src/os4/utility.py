@@ -47,6 +47,22 @@ def sau(attribute: str, x: float | np.ndarray) -> float | np.ndarray:
     return float(u) if np.ndim(u) == 0 else u
 
 
+def sau_inverse(attribute: str, u: float | np.ndarray) -> float | np.ndarray:
+    """Attribute level ``x`` that gives utility ``u`` (the inverse of ``sau``).
+
+    Every SAU is strictly monotone (rising, or falling for wait time), so each
+    utility in [0, 1] maps back to exactly one x on the same straight-line
+    segments; ``u`` outside [0, 1] is clamped. Useful for reading a target off a
+    curve, e.g. the wait time that still scores 0.9.
+    """
+    table = sau_table(attribute).sort_values("utility")
+    utilities = table["utility"].to_numpy()
+    if np.any(np.diff(utilities) <= 0):
+        raise ValueError(f"SAU for {attribute!r} is not strictly monotone, so it has no unique inverse")
+    x = np.interp(u, utilities, table["x"].to_numpy())
+    return float(x) if np.ndim(x) == 0 else x
+
+
 def load_weights(weight_set: str = "appendix_a") -> dict[str, float]:
     """Return a set of MAU weights keyed by attribute (see ``WEIGHT_SETS``).
 

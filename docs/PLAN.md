@@ -182,14 +182,18 @@ Here are my thoughts
 
 - Across the range from 8 to 12 minutes pickup wait time, utility drops by 0.83 - 0.61 = 0.22 ** important for us to note in the write up. Our MOE #4 EZride wait times are also wait times for Case A and Case B. Therefore scenario is valid. 
 
+  (AM: EZRide's 8–12 minutes is a *headway*, how often a shuttle comes [[18]](references.md#ref-18), not how long a rider waits. The *Transit Operations and Capacity* page defines headway as "the time between vehicles past a given point" [[5]](references.md#ref-5) (see the Appendix). A rider who arrives at a random time waits on average half the headway, so EZRide's average wait is about **4–6 minutes**, not 8–12. On equation <sub>1</sub>/<sub>2</sub> that is U = 1 − 0.01(4) = **0.96** at 4 min and U = 0.95 − 0.04(6 − 5) = **0.91** at 6 min. So EZRide scores *better* than Cases A (0.83) and B (0.61), not the same; the 8- and 12-minute utilities above are correct for Cases A and B but don't represent EZRide. Our OS3A MOE #4 baseline lists EZRide "every 8–12 min", which is where the headway got read as a wait. The model's wait time (Q12) uses the same headway / 2 rule.)
+
 SAU function validation Table 4
 
-| Measure | Utility bounds | Direction | Equation check | Cases |
-|----------|----------|----------|----------|----------|
-| Passenger volume    | U = 0 at 0 trips/day; U = 1 at 2000 trips/day         |          |  Returns all 5 in appendix A table(s)        | 750, 1000, 2000         |
-| Peak Throughput   |U = 0 at 0 trips/hr; U = 1 at 200 trips/hr          |          |          |          | 75, 100, 75 |
-| Average wait times    |U = 0 at 30 min; U = 1 at 0 min          |          |          |          |
-| Availability    | U = 0 at 0; U = 1 at 1.0         |          |          |          |
+| Measure | Utility bounds | Direction | Equation check (x → U) | Inverse check (U → x) | Cases (A, B, C) |
+|----------|----------|----------|----------|----------|----------|
+| Passenger volume | U = 0 at 0 trips/day; U = 1 at 2000 trips/day | Increasing | Returns all 5 points in the Appendix A table | U = 0.40, 1.00, 0.30 → 1000, 2000, 750 | 1000 → 0.40; 2000 → 1.00; 750 → 0.30 |
+| Peak throughput | U = 0 at 0 trips/hr; U = 1 at 200 trips/hr | Increasing | Returns all 5 points in the Appendix A table | U = 0.35, 0.50, 0.35 → 75, 100, 75 | 75 → 0.35; 100 → 0.50; 75 → 0.35 |
+| Average wait time | U = 0 at 30 min; U = 1 at 0 min | Decreasing | Returns all 6 points in the Appendix A table | U = 0.83, 0.61, 0.91 → 8, 12, 6 | 8 → 0.83; 12 → 0.61; 6 → 0.91 |
+| Availability | U = 0 at 0; U = 1 at 1.0 | Increasing (U = x) | Returns all 6 points in the Appendix A table | U = 0.70, 0.60, 0.80 → 0.7, 0.6, 0.8 | 0.7 → 0.70; 0.6 → 0.60; 0.8 → 0.80 |
+
+Every check is automated in `tests/test_utility.py`: table points (`test_sau_reproduces_table_points`), bounds (`test_sau_clamps_to_unit_interval`), direction (`test_sau_is_monotone`), x → U for the cases (`test_case_saus_match_hand_calc`), and U → x with `utility.sau_inverse` (`test_sau_inverse_recovers_case_inputs`, plus `test_sau_inverse_round_trips` over each whole curve). The inverse also reads targets off a curve: U = 0.9 needs 1,750 trips/day, 150 trips/hr, a 6.25 min wait, or 0.9 availability.
 
 
 

@@ -11,6 +11,7 @@ from os4.utility import (
     load_weights,
     mau,
     sau,
+    sau_inverse,
     weight_sensitivity,
     weighted_mau,
 )
@@ -114,3 +115,21 @@ def test_extended_mau_best_worst_and_missing_values():
     assert weighted_mau(worst, weights) == pytest.approx(0.0)
     with pytest.raises(ValueError):
         weighted_mau({"passenger_volume": 1000}, weights)
+
+
+@pytest.mark.parametrize("attribute", ATTRIBUTES + PROPOSED_ATTRIBUTES)
+def test_sau_inverse_round_trips(attribute):
+    table = load(f"sau_{attribute}")
+    x = np.linspace(table.iloc[:, 0].min(), table.iloc[:, 0].max(), 201)
+    np.testing.assert_allclose(sau_inverse(attribute, sau(attribute, x)), x, atol=1e-9)
+    u = np.linspace(0, 1, 101)
+    np.testing.assert_allclose(sau(attribute, sau_inverse(attribute, u)), u, atol=1e-12)
+
+
+def test_sau_inverse_recovers_case_inputs():
+    # Yonis's hand-calculated utilities map back to the Task 1 case levels.
+    assert sau_inverse("passenger_volume", 0.30) == pytest.approx(750)
+    assert sau_inverse("peak_throughput", 0.35) == pytest.approx(75)
+    assert sau_inverse("wait_time", 0.83) == pytest.approx(8)
+    assert sau_inverse("wait_time", 0.61) == pytest.approx(12)
+    assert sau_inverse("availability", 0.70) == pytest.approx(0.7)
