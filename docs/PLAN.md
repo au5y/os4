@@ -190,7 +190,7 @@ SAU function validation Table 4
 | Peak Throughput   |U = 0 at 0 trips/hr; U = 1 at 200 trips/hr          | positive slope        |  Returns all 5 in appendix A table(s)          | 75, 100, 75 |
 | Average wait times    |U = 0 at 30 min; U = 1 at 0 min          |  negative slope        |    Returns all 6 in appendix A table(s)        |  8, 12, 6        |
 | Availability    | U = 0 at 0; U = 1 at 1.0         |  positive slope        |    Returns all 6 in appendix A table(s)        |  0.7, 0.6, 0.8        |
-| MOE #4 pickup wait time (mins)    | U = 0 at 0; U = 1 at 1.0         |  positive slope        |    Returns results similar to Case A & case B       |  8, 12       |
+| MOE #4 pickup wait time (mins)    | U = 0 at 8; U = 12 at 1.0         |  positive slope        |    Returns results similar to Case A & case B       |  8, 12       |
 
 
 **How to use this doc:** open questions for the team are marked **❓ Q#**. Write the decision under **Answer:** (replace _TBD_) and initial it. Lines marked **decided (from OS3A)** adopt the answer proposed by `resources/OS3A_H2_Team13.pdf` [[2]](references.md#ref-2); override them if the team disagrees.
