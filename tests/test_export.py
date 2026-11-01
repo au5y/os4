@@ -14,3 +14,15 @@ def test_task1_workbook_has_formulas_and_python_checks(tmp_path):
     assert str(cases["J4"].value).startswith("=Weights!")
     assert cases["L4"].value == 0.613
     assert {"x_wait_time", "u_wait_time", "m_wait_time", "x_travel_time"} <= set(wb.defined_names)
+
+
+def test_full_model_workbook_adds_task2_sheets(tmp_path):
+    from os4.export import export_model
+    from os4.scenario import primary_scenario
+
+    wb = load_workbook(export_model(primary_scenario(), tmp_path / "model.xlsx"))
+    assert wb.sheetnames[-3:] == ["Scenario", "Variants", "Architectures"]
+    variants = wb["Variants"]
+    assert variants.max_row - 4 == 1578
+    assert str(variants["X5"].value).startswith("=")  # weight formula
+    assert {"road_speed_cap", "demand_trips", "v_variant_id"} <= set(wb.defined_names)

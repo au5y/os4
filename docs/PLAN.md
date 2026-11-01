@@ -265,6 +265,18 @@ Safety (MOE 3), stop announcements (MOE 6) and accessibility (Q21) stay **pass/f
 
 ## Task 2: system model (3 slides + backup)
 
+**Status (first pass, for review).** `scenario.primary_scenario()`, `vehicle.py`, `fleet.py` and `model.py` are implemented; `python -m os4` writes `outputs/task2_variants.csv` (1,578 feasible vehicles) and `outputs/task2_architectures.csv` (the 5-architecture table). Defaults used until the team decides, each tagged in the code:
+- **Q11:** peak throughput = fleet capacity (`throughput_measure="capacity"`; `"served"` is the alternative).
+- **Q12:** demand-weighted wait over the day: headway / 2 at the Kendall hub, scaled by 1 / (1 − ρ) as demand nears capacity, capped at 30 min. Bikes return to the hub after each trip and use the same model.
+- **Q13 deadhead:** 1.0. Every vehicle returns to Kendall empty, because Appendix B only gives Kendall-origin demand.
+- **Q14:** capacity-weighted availability for mixed fleets.
+- **Bike speed (Q5):** 18 km/h fixed assist, the low end of 18–20 km/h.
+
+**Findings to discuss:**
+- **E-bike availability is 0.14–0.42 under Appendix B,** far below the 0.75 benchmark. Small batteries (0.5–3 kWh) and slow chargers mean bikes charge much longer than they ride. A bike-only fleet needs ~150 bikes to cover the peak. Battery swapping would be a justified deviation worth proposing.
+- **Large shuttles look cheapest** (4 × C6 for $351k vs 12 × C2 for $718k) because Appendix B's 0.75 load factor fills a 16-seat shuttle with 12 riders per trip. For on-demand service at 150 trips/h that is optimistic; consider a lower load factor for big chassis, or a load factor tied to demand per departure.
+- **The 21 km/h cap binds for 55% of road variants,** so motors above M2 rarely buy speed on small chassis.
+
 ### Design vector
 
 | Decision        | Road options               | Bike options                |

@@ -2,45 +2,91 @@
 
 Kept separate from the design vector so Tasks 3-4 can re-run the same model
 under a different scenario (e.g. the Task 4 Red Line shutdown or winter case, Q20).
-Values marked TBD depend on team decisions D1-D6 in ``docs/PLAN.md``.
+Values trace to the team decisions D1-D6 / Q1-Q14 in ``docs/PLAN.md``.
 """
 
 from dataclasses import dataclass, field
 
 import pandas as pd
 
+from os4.data import load
+
 
 @dataclass(frozen=True)
 class Scenario:
     name: str
-    # D3 / Q3: posted speed limit that caps road-vehicle average speed.
+    # D3 / Q3: cap on road-vehicle *average* speed (achieved, not posted).
     speed_limit_kmh: float
     # D1 / Q1: node-to-node distances, keyed by (node_a, node_b).
     node_distances_km: dict[tuple[str, str], float]
-    # Q13: average passenger trip length and empty-repositioning fraction.
+    # Q13: average passenger trip length and empty-repositioning distance as a fraction of it.
     avg_trip_km: float
     deadhead_fraction: float
-    # D4 / Q4: hourly demand at the design node (columns: hour, trips_per_hour).
+    # D4 / Q4: demand at the design node (columns: hour, trips_per_hour), one row per bin.
     demand: pd.DataFrame
     # D5 / Q5: fixed assisted e-bike speed; None means use the Appendix B formula.
     bike_assisted_speed_kmh: float | None = None
     bike_speed_limit_kmh: float | None = None
+    # Q13: bikes follow bike routes, so their trip length can differ; None means avg_trip_km.
+    bike_trip_km: float | None = None
     # D6 / Q6: road autonomy levels allowed in this scenario.
     allowed_autonomy: tuple[str, ...] = ("A3", "A4", "A5")
     design_node: str = "Kendall"
+    # Q11: "capacity" (what the fleet can carry) or "served" (min of capacity and peak demand).
+    throughput_measure: str = "capacity"
+    # Q12: wait reported for an empty or overloaded fleet (the wait SAU reaches 0 at 30 min).
+    max_wait_min: float = 30.0
     # Appendix B constants.
     dwell_s: float = 60.0
     load_factor: float = 0.75
     notes: list[str] = field(default_factory=list)
 
+    @property
+    def demand_bin_h(self) -> float:
+        """Width of each demand bin [h] (Appendix B uses 2-hour bins)."""
+        hours = self.demand["hour"].to_numpy()
+        return float(hours[1] - hours[0])
+
+    @property
+    def peak_demand_per_h(self) -> float:
+        return float(self.demand["trips_per_hour"].max())
+
 
 def primary_scenario() -> Scenario:
     """Weekday a.m.-peak last-mile service from Kendall (D2 / Q2).
 
-    Demand comes from ``demand_mit_kendall.csv``; the other fields need the
-    team's answers to Q1, Q3, Q5, Q6 and Q13.
+    On-demand trips start at the Kendall hub and go to Lechmere or Central;
+    vehicles return to the hub empty, because Appendix B only gives
+    Kendall-origin demand.
     """
-    raise NotImplementedError
+    return Scenario(
+        name="primary: weekday on-demand last-mile from Kendall",
+        # Q3: 20 mph posted, but signals/congestion hold achieved speed near 13 mph.
+        speed_limit_kmh=21.0,
+        # Q1: OSRM driving distances, mean of both directions.
+        node_distances_km={
+            ("Lechmere", "Kendall"): 1.9,
+            ("Kendall", "Central"): 1.6,
+            ("Lechmere", "Central"): 3.3,
+        },
+        # Q13: mean of the two Kendall-origin links (1.9 and 1.6 km).
+        avg_trip_km=1.75,
+        # Q13 (open): every trip returns to Kendall empty. 0.5 would mean half the
+        # returns carry a passenger; run it as a sensitivity.
+        deadhead_fraction=1.0,
+        demand=load("demand_mit_kendall"),
+        # Q5: fixed assisted speed, low end of 18-20 km/h (OS3A anchor: 15-18 km/h door to door).
+        bike_assisted_speed_kmh=18.0,
+        # Class 1/2 e-bike assist cap, 20 mph.
+        bike_speed_limit_kmh=32.0,
+        # Q13: both Kendall bike links are 1.6 km.
+        bike_trip_km=1.6,
+        # Q6: inside the boundary, A3 is the minimum; A4/A5 stay in the design vector.
+        allowed_autonomy=("A3", "A4", "A5"),
+        notes=[
+            "Q11, Q12, Q13 deadhead and Q14 use the defaults in fleet.py until the team decides.",
+        ],
+    )
 
 
 def task4_scenario() -> Scenario:

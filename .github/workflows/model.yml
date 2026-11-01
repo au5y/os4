@@ -1,0 +1,49 @@
+# Runs the tests and the model on every push/PR and uploads outputs/ (xlsx, CSVs, figures)
+# as a downloadable artifact. Pushing a tag like v1.0-os4 also publishes a GitHub Release
+# with the outputs attached, which is the copy to submit.
+name: model
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # only used by the release step on tags
+    steps:
+      # LFS files (assignment PDFs, slides) aren't needed to run the model.
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --extra dev
+
+      - name: Test
+        run: uv run pytest -q
+
+      - name: Run model
+        run: uv run python -m os4
+
+      - name: Upload outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: os4-outputs-${{ github.sha }}
+          path: outputs/
+          if-no-files-found: error
+
+      - name: Publish release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            outputs/os4_model.xlsx outputs/*.csv outputs/*.png outputs/*.md \
+            --title "OS4 model $GITHUB_REF_NAME" --generate-notes
