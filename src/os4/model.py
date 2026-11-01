@@ -57,7 +57,7 @@ def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
     and range, the four MoPs (``passenger_volume``, ``peak_throughput``,
     ``wait_time``, ``availability``), their SAUs, ``mau``, and ``fleet_cost_usd``.
 
-    Also reports the two proposed attributes (``travel_time``, ``bike_share``)
+    Also reports the proposed attributes (``travel_time``; ``bike_share`` is parked, not weighted)
     and ``mau_os3a_extended`` so Task 3 can compare weightings (PLAN.md Q8).
     """
     mops = {

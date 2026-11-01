@@ -133,3 +133,10 @@ def test_sau_inverse_recovers_case_inputs():
     assert sau_inverse("wait_time", 0.83) == pytest.approx(8)
     assert sau_inverse("wait_time", 0.61) == pytest.approx(12)
     assert sau_inverse("availability", 0.70) == pytest.approx(0.7)
+
+
+def test_bike_share_is_parked():
+    # Removed from the extended weights (PLAN.md H); its SAU stays available for later.
+    assert "bike_share" not in load_weights("os3a_extended")
+    assert load_weights("os3a_extended")["travel_time"] == pytest.approx(0.15)
+    assert sau("bike_share", 0.11) == pytest.approx(0.3)

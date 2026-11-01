@@ -503,7 +503,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
             f"### Pareto front ({len(front)} architectures)\n\n"
             f"{_md_table(_front_table(front))}\n"
             "### With the team's extended MAU\n\n"
-            f"Scored with the `os3a_extended` weights (adds travel time and bike share, PLAN.md Q8); "
+            f"Scored with the `os3a_extended` weights (adds travel time, PLAN.md Q8; bike share is parked); "
             f"the front has {len(front_ext)} architectures.\n\n"
             f"![Tradespace with the extended MAU]({png_ext.name})\n\n"
         )

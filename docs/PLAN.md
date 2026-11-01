@@ -294,10 +294,12 @@ The slope column on the workbook's SAU sheet reproduces every U<sub>m</sub> in Y
 
 | Attribute | Traces to | SAU points (x → U) | Computed from |
 | --- | --- | --- | --- |
-| In-boundary travel time (min) | Table 1 (7 min max between any two locations) [[1]](references.md#ref-1); OS3A MOE 1 (predictable commute time) | 0 → 1.0, 4 → 0.95, 7 → 0.8, 10 → 0.5, 15 → 0.2, 20 → 0 | Link distance (Q1) ÷ achieved speed (Q3). At 21 km/h: 5.4 / 4.6 / 9.4 min, so only Lechmere–Central misses 7 min |
-| Bike share of served trips | OS3A MOE 2 (bike commute share, 11% baseline) | 0 → 0, 0.11 → 0.3, 0.25 → 0.6, 0.5 → 0.9, 1.0 → 1.0 | Bike trips ÷ total served trips |
+| In-boundary travel time (min) | Table 1 (7 min max between any two locations) [[1]](references.md#ref-1); OS3A MOE 1 (predictable commute time) | 0 → 1.0, 4 → 0.95, 7 → 0.8, 10 → 0.5, 15 → 0.2, 20 → 0 | Average Kendall trip (1.75 km road, 1.6 km bike) ÷ speed (Q13, Q3): 5.0 min for a capped road fleet |
+| ~~Bike share of served trips~~ (removed from the weights, kept for later) | OS3A MOE 2 (bike commute share, 11% baseline) | 0 → 0, 0.11 → 0.3, 0.25 → 0.6, 0.5 → 0.9, 1.0 → 1.0 | Bike trips ÷ total served trips |
 
-Safety (MOE 3), stop announcements (MOE 6) and accessibility (Q21) stay **pass/fail screens**, not weighted attributes. Extended weights (`os3a_extended`): keep the `os3a_reweight` priorities for the Appendix A four, scaled by 0.75, and give 0.25 to the new pair: **volume 0.08 / peak 0.18 / wait 0.27 / availability 0.22 / travel time 0.15 / bike share 0.10.** Wait plus travel time (0.42) then covers the door-to-door experience behind MOE 1 and MOE 4.
+Safety (MOE 3), stop announcements (MOE 6) and accessibility (Q21) stay **pass/fail screens**, not weighted attributes. Extended weights (`os3a_extended`): keep the `os3a_reweight` priorities for the Appendix A four, scaled by 0.85, and give 0.15 to travel time: **volume 0.08 / peak 0.21 / wait 0.30 / availability 0.26 / travel time 0.15.** Wait plus travel time (0.45) then covers the door-to-door experience behind MOE 1 and MOE 4.
+
+**Bike share was removed from the weights (team decision, 2026-11-01).** It rewarded a type of solution (fleets that contain bikes) rather than an outcome, it doesn't match MOE 2 (which is commuters' own cycling), and it pulls against accessibility (Q21). Its SAU (`data/sau_bike_share.csv`) and the `bike_share` column are kept, so a sustainability attribute can come back later; a solution-neutral candidate is energy per passenger-km from the Appendix B consumption equation.
 
 ---
 
@@ -405,7 +407,7 @@ Use `python -m os4` to write `outputs/os4_model.xlsx` (with tabs for inputs, the
 > **❓ G:** The three Pareto architectures for the Task 3 table. **Open**; review them in the results explorer.
 > **Answer:** _TBD_
 
-> **❓ H:** The proposed travel-time and bike-share SAU curves (extended MAU). **Open**; shown for review on the explorer's Task 1 page.
+> **❓ H:** The proposed travel-time SAU curve (extended MAU). **Open**; shown for review on the explorer's Task 1 page. Bike share was removed from the weights; a sustainability attribute (e.g. energy per passenger-km) can be added back later.
 > **Answer:** _TBD_
 
 > **❓ I:** Extra sensitivity runs (32 km/h posted speed, 0.5 deadhead). Needed? The load-factor chart already covers the "what-if" the rubric asks about.
