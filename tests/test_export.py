@@ -27,3 +27,25 @@ def test_full_model_workbook_adds_task2_sheets(tmp_path):
     assert variants.max_row - 4 == len(all_variants(primary_scenario()))
     assert str(variants["Y5"].value).startswith("=")  # weight formula
     assert {"road_speed_cap", "demand_trips", "v_variant_id"} <= set(wb.defined_names)
+
+
+def test_every_formula_function_opens_in_excel(tmp_path):
+    # openpyxl writes formula text verbatim, so any function added in Excel 2010 or later (e.g. NORM.S.DIST)
+    # must carry an _xlfn. prefix or Excel shows #NAME?. Every function used must be a classic one.
+    import re
+
+    from openpyxl.utils import FORMULAE
+
+    from os4.export import export_model
+    from os4.scenario import primary_scenario
+
+    wb = load_workbook(export_model(primary_scenario(), tmp_path / "model.xlsx"))
+    used = set()
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for cell in row:
+                if isinstance(cell.value, str) and cell.value.startswith("="):
+                    used |= set(re.findall(r"([A-Z][A-Z0-9.]*)\(", cell.value))
+    unknown = {f for f in used if f not in FORMULAE and not f.startswith("_xlfn.")}
+    assert not unknown, f"functions Excel may not recognise without an _xlfn. prefix: {sorted(unknown)}"
+    assert "NORMSDIST" in used

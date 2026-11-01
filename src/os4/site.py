@@ -53,7 +53,7 @@ CASE_LABELS = {
     "removable": "With removable e-bike batteries (team proposal)",
 }
 PROPOSED_LABELS = {
-    "travel_time": ("In-boundary travel time, longest link", "minutes"),
+    "travel_time": ("In-boundary travel time, average Kendall trip", "minutes"),
     "bike_share": ("E-bike share of served trips", "fraction of trips"),
 }
 # Display names for known columns; anything else is shown under its own name.
@@ -72,7 +72,7 @@ COLUMN_LABELS = {
     "peak_throughput": "peak throughput (trips/h)",
     "wait_time": "avg wait (min)",
     "availability": "availability",
-    "travel_time": "travel time, longest link (min)",
+    "travel_time": "travel time, average Kendall trip (min)",
     "bike_share": "bike share",
     "fleet_cost_usd": "fleet cost",
     "mau": "MAU (Appendix A)",

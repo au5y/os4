@@ -462,8 +462,10 @@ def _architectures_sheet(wb: Workbook, scenario: Scenario, refs: dict[str, dict[
             3: f"=SUMPRODUCT((demand_trips<B{i})*demand_trips+(demand_trips>=B{i})*B{i})*bin_h",
             4: f'=IF(throughput_measure="served",MIN(B{i},MAX(demand_trips)),B{i})',
             # Service availability (Q14): demand-weighted P(capacity in service >= demand), normal approximation.
-            6: f"=IF(B{i}=0,0,SUMPRODUCT(demand_trips*NORM.S.DIST((B{i}-demand_trips)"
-               f"/SQRT(SUMIF({a_rng},$A{i},$P${part_first}:$P${part_last})),TRUE))/SUM(demand_trips))",
+            # NORMSDIST, not NORM.S.DIST: Excel 2010+ functions need an _xlfn. prefix in the file, and
+            # openpyxl writes formula text verbatim, so the newer name would show #NAME? in Excel.
+            6: f"=IF(B{i}=0,0,SUMPRODUCT(demand_trips*NORMSDIST((B{i}-demand_trips)"
+               f"/SQRT(SUMIF({a_rng},$A{i},$P${part_first}:$P${part_last}))))/SUM(demand_trips))",
             7: f"=SUMIF({a_rng},$A{i},$O${part_first}:$O${part_last})",
         }
         for c, f in cells.items():
