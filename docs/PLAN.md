@@ -125,35 +125,46 @@ U<sub>case b</sub> = o.6 ** in appendix A
 
 U<sub>case c</sub> = 0.8 ** in appendix A
 
-# Results table Utility for Cases A, B, & C
+# Table 1: Utility scores for Cases A, B, and C
 
-| Case | U<sub>passenger volume</sub> | U<sub>peak throughput | U<sub>average wait</sub> | U<sub>availability</sub> |
-| ---- | ------------------: | --------------: | ----------------: | -----------: |
-| A    | 0.40                | 0.35            | 0.83              | 0.70         |
-| B    | 1.00                | 0.50            | 0.61              | 0.60         |
-| C    | 0.30                | 0.35            | 0.91              | 0.80         |
+| Case | Passenger volume utility | Peak throughput utility | Average wait utility | Availability utility |
+|:----:|-------------------------:|------------------------:|---------------------:|---------------------:|
+| A    | 0.40                     | 0.35                    | 0.83                 | 0.70                 |
+| B    | 1.00                     | 0.50                    | 0.61                 | 0.60                 |
+| C    | 0.30                     | 0.35                    | 0.91                 | 0.80                 |
 
-                        Table 1 - results 
+**Table 2: Attribute weights**
 
-| w<sub>passenger volume</sub> | w<sub>peak throughput | w<sub>average wait</sub> | w<sub>availability</sub> |
-| ------------------: | --------------: | ----------------: | -----------: |
-| 0.15               | 0.25            | 0.35             | 0.25         |
+| Attribute | Weight |
+|:----------|-------:|
+| Passenger volume | 0.15 |
+| Peak throughput | 0.25 |
+| Average wait | 0.35 |
+| Availability | 0.25 |
 
-                        Table 2 - Weights  
 # Multi-attribute utility (MAU)
-    For reference: 
-        w = weights
-        U = utility score 
+For reference: *w* = weight; *U* = utility score.
 
-Formula
+**Formula**
 
- MAU = w<sub>volume</sub> x U<sub>volume</sub> + w<sub>peak throughput</sub> x U<sub>peak throughput</sub> + w<sub>average wait time</sub> x U<sub>average wait</sub> + w<sub>availability</sub> x U<sub>availability</sub>
+MAU = *w*<sub>volume</sub> × *U*<sub>volume</sub> + *w*<sub>peak throughput</sub> × *U*<sub>peak throughput</sub> + *w*<sub>average wait</sub> × *U*<sub>average wait</sub> + *w*<sub>availability</sub> × *U*<sub>availability</sub>
 
 MAU<sub>case a</sub> = (0.15) x (0.40) + (0.35) x (0.25) + (0.83) x (0.35) + (0.70) x (0.25) = 0.613
 
 MAU<sub>case b</sub> = (1) x (0.15) + (0.5) x (0.25) + (0.61) x (0.35) + (0.60) x (0.25) = 0.639
 
 MAU<sub>case C</sub> = (0.15) x (0.30) + (0.35) x (0.25) + (0.91) x (0.35) + (0.80) x (0.25) = 0.651
+
+# Final results
+
+| Case | Passenger volume utility | Peak throughput utility | Average wait utility | Availability utility | MAU   |
+|:----:|-------------------------:|------------------------:|---------------------:|---------------------:|------:|
+| A    | 0.40                     | 0.35                    | 0.83                 | 0.70                 | 0.613 |
+| B    | 1.00                     | 0.50                    | 0.61                 | 0.60                 | 0.639 |
+| C    | 0.30                     | 0.35                    | 0.91                 | 0.80                 | 0.651 |
+
+                                Table 3 
+
 
 
 
