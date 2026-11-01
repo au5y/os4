@@ -13,7 +13,7 @@ uv run python -m os4       # run Tasks 1-3 and write everything to outputs/
 ## Layout
 
 - `data/`: assignment tables as CSV (Appendix A SAUs and weights, Appendix B demand, Appendix C/D components) plus the team's proposed SAUs and weight sets.
-- `src/os4/`: `utility.py` (Task 1 SAU/MAU), `scenario.py` (operating scenarios), `vehicle.py` (Appendix B vehicle equations), `fleet.py` (fleet performance), `model.py` (`evaluate`, five architectures, requirement checks), `tradespace.py` (Task 3 grid, pruning, Pareto front), `plots.py` (figures and Markdown reports), `export.py` (Excel backup with live formulas).
+- `src/os4/`: `utility.py` (Task 1 SAU/MAU), `scenario.py` (operating scenarios), `vehicle.py` (Appendix B vehicle equations), `fleet.py` (fleet performance), `model.py` (`evaluate`, five architectures, requirement checks), `tradespace.py` (Task 3 grid, pruning, Pareto front), `plots.py` (figures and Markdown reports), `export.py` (Excel backup with live formulas), `site.py` + `site_template/` (static results explorer written to `outputs/site/`; vanilla JS, data as `data/*.js` globals so it opens from `file://`; it iterates over whatever tradespace columns exist).
 - `outputs/`: generated; git-ignored. CI (`.github/workflows/model.yml`) uploads it as an artifact on every PR and push to `main`; a `v*` tag publishes a Release.
 - `resources/`: PDFs and slides in Git LFS; `resources/rubric.md` is the grading rubric (check deliverables against it).
 

@@ -37,6 +37,8 @@ os4/
 │   ├── fleet.py          Task 2: fleet performance model    (stubbed)
 │   ├── model.py          Task 2: (fleet, scenario) -> MoPs, MAU, cost (stubbed)
 │   ├── tradespace.py     Tasks 3-4: enumeration, Pareto     (stubbed)
+│   ├── site.py           Static results explorer (outputs/site/)
+│   ├── site_template/    Its HTML/CSS/JS (vanilla, no build step)
 │   ├── export.py         Excel export for the ZIP submission (stubbed)
 │   └── __main__.py       Entry point (`python -m os4`)
 ├── tests/                pytest tests
@@ -189,6 +191,24 @@ Run the tests:
 ```bash
 uv run pytest      # without uv: pytest
 ```
+
+## Results explorer
+
+`python -m os4` also writes a static, interactive website to `outputs/site/` (`os4.site.write_site`):
+
+```bash
+uv run python -m os4
+# then open outputs/site/index.html in a browser (double-click it; no server needed)
+```
+
+Or download the `os4-outputs-<sha>` artifact from the latest CI run on GitHub (Actions → model) and open `site/index.html` from it.
+
+- **Task 1:** interactive SAU curves (the four Appendix A ones plus the two proposed ones) with Cases A–C, MAU under each weight set, weight sensitivity.
+- **Task 2:** the five current architectures, ~50 highlighted candidates (cheapest per chassis/frame, Pareto knee, evenly spaced front points, best MAU per dollar), each with the reason it was picked, and a filterable table of every vehicle variant.
+- **Task 3:** utility-vs-cost scatter (log cost, zoom/pan, hover, click to pin), Pareto front and utopia point, fixed vs. removable battery case, Appendix A vs. extended MAU, color by fleet type or size, filters, and a linked table. All road-only and bike-only architectures and every front point are included; mixed fleets are a seeded stratified sample (the page says "showing X of Y").
+- **Selecting:** click ☆ on any architecture; the selection is kept in your browser and can be exported as CSV from the ★ Selected page.
+
+The data sit in `outputs/site/data/*.js` (plain JSON assigned to `window.OS4`), so the pages work from `file://` with no network access.
 
 ## Assignment tasks
 
