@@ -15,7 +15,7 @@ from os4.tradespace import (
 from os4.vehicle import all_variants, get_variant
 
 COMPARED = ["fleet_capacity_per_h", "passenger_volume", "peak_throughput", "wait_time", "availability",
-            "travel_time", "bike_share", "fleet_cost_usd", "mau", "mau_os3a_extended"]
+            "vehicle_availability", "travel_time", "bike_share", "fleet_cost_usd", "mau", "mau_os3a_extended"]
 
 
 @pytest.fixture(scope="module")
@@ -23,9 +23,13 @@ def scenario():
     return primary_scenario()
 
 
+# A small grid keeps the tests quick; the report uses the full Q10 grid.
+SMALL_ROAD, SMALL_BIKE = range(0, 61, 5), range(0, 301, 25)
+
+
 @pytest.fixture(scope="module")
 def space(scenario):
-    return tradespace(scenario)
+    return tradespace(scenario, SMALL_ROAD, SMALL_BIKE)
 
 
 def test_vectorized_matches_model_evaluate(scenario, space):
@@ -71,11 +75,12 @@ def test_utopia_point(space):
 
 
 def test_screening_drops_exactly_the_threshold_failures(scenario, space):
-    full = tradespace(scenario, screen=False)
+    full = tradespace(scenario, SMALL_ROAD, SMALL_BIKE, screen=False)
     failing = ((full["fleet_capacity_per_h"] < scenario.min_peak_throughput)
                | (full["fleet_capacity_per_h"] < scenario.min_offpeak_throughput)
                | (full["passenger_volume"] < scenario.min_daily_volume))
     assert space.attrs["screened_out"] == failing.sum()
+    assert space.attrs["threshold_failures"]["peak_throughput"] == (full["fleet_capacity_per_h"] < 150).sum()
     assert len(space) == (~failing).sum()
     assert space["meets_thresholds"].all()
     # Screening happens before scoring, so the survivors' scores are unchanged.
@@ -83,3 +88,14 @@ def test_screening_drops_exactly_the_threshold_failures(scenario, space):
     pd.testing.assert_frame_equal(kept.drop(columns="meets_thresholds"),
                                   space.reset_index(drop=True).drop(columns="meets_thresholds"),
                                   check_dtype=False)
+
+
+def test_peak_throughput_is_served_demand(scenario, space):
+    assert scenario.throughput_measure == "served"
+    assert (space["peak_throughput"] <= scenario.peak_demand_per_h + 1e-9).all()
+
+
+def test_travel_time_is_average_kendall_trip(scenario):
+    # A capped road fleet covers the 1.75 km Kendall trip at 21 km/h: 5.0 min.
+    row = evaluate(Fleet(road=get_variant("C2-P2-G3-M2-A3", scenario), n_road=12), scenario)
+    assert row["travel_time"] == pytest.approx(60 * 1.75 / 21)

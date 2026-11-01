@@ -32,8 +32,9 @@ class Scenario:
     # D6 / Q6: road autonomy levels allowed in this scenario.
     allowed_autonomy: tuple[str, ...] = ("A3", "A4", "A5")
     design_node: str = "Kendall"
-    # Q11: "capacity" (what the fleet can carry) or "served" (min of capacity and peak demand).
-    throughput_measure: str = "capacity"
+    # Q11 (decided): "served" = min(capacity, peak demand), the demand the fleet actually serves;
+    # "capacity" (what the fleet could carry) is kept as the alternative.
+    throughput_measure: str = "served"
     # Q12: wait reported for an empty or overloaded fleet (the wait SAU reaches 0 at 30 min).
     max_wait_min: float = 30.0
     # Table 1 requirements. Thresholds are hard: architectures that miss one are screened out of

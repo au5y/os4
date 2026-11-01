@@ -92,13 +92,51 @@ def average_wait_min(fleet: Fleet, scenario: Scenario) -> float:
     return _wait_min(fleet, scenario)
 
 
-def fleet_availability(fleet: Fleet, scenario: Scenario) -> float:
-    """Availability MoP: capacity-weighted average of vehicle availability (Q14)."""
+def vehicle_availability(fleet: Fleet, scenario: Scenario) -> float:
+    """Capacity-weighted average of the Appendix B vehicle availabilities (the pre-Q14 availability MoP)."""
     parts = [(v["availability"], _part_capacity(v, n, scenario)) for v, n in fleet.members()]
     total = sum(c for _, c in parts)
     if total == 0:
         return 0.0
     return sum(a * c for a, c in parts) / total
+
+
+def fleet_availability(fleet: Fleet, scenario: Scenario) -> float:
+    """Availability MoP as *service* availability (Q14): can a rider get a vehicle when they ask?
+
+    Each vehicle is in service (not charging) with probability equal to its
+    Appendix B availability a, independently. In each demand bin the fleet
+    serves its demand if the in-service vehicles' capacity covers it, so the
+    service availability is P(capacity in service >= demand), averaged over the
+    day weighted by demand. That capacity has mean sum(N a c) and variance
+    sum(N a (1 - a) c^2), with c = one vehicle's capacity (trips/h); the
+    probability uses the normal approximation, which is accurate for the
+    fleet sizes modeled. Spare vehicles push it toward 1 even when each
+    vehicle's own availability is low.
+    """
+    parts = [(v["availability"], n, vehicle_capacity_per_h(v, scenario)) for v, n in fleet.members()]
+    mean = sum(n * a * c for a, n, c in parts)
+    var = sum(n * a * (1 - a) * c**2 for a, n, c in parts)
+    demand = scenario.demand["trips_per_hour"].to_numpy(dtype=float)
+    return float(service_probability(mean, var, demand) @ demand / demand.sum())
+
+
+def service_probability(mean, var, demand):
+    """P(capacity in service >= demand) under the normal approximation (vectorized over fleets and bins)."""
+    mean, var = np.asarray(mean, dtype=float), np.asarray(var, dtype=float)
+    sd = np.sqrt(var)[..., None]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        z = (mean[..., None] - demand) / sd
+    return np.where(sd > 0, normal_cdf(z), (mean[..., None] >= demand).astype(float))
+
+
+def normal_cdf(z):
+    """Standard normal CDF, vectorized (Abramowitz & Stegun 7.1.26 erf, error < 1.5e-7)."""
+    x = np.abs(np.asarray(z, dtype=float)) / np.sqrt(2.0)
+    t = 1.0 / (1.0 + 0.3275911 * x)
+    poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))))
+    erf = 1.0 - poly * np.exp(-x * x)
+    return 0.5 * (1.0 + np.where(np.asarray(z) >= 0, erf, -erf))
 
 
 def fleet_cost_usd(fleet: Fleet) -> float:

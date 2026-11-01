@@ -407,15 +407,15 @@ def _variants_sheet(wb: Workbook, scenario: Scenario) -> dict[str, str]:
 def _architectures_sheet(wb: Workbook, scenario: Scenario, refs: dict[str, dict[str, str]]) -> None:
     ws = wb.create_sheet("Architectures")
     ws.cell(row=1, column=1, value="Task 2: five architectures (fleet model as formulas)").font = TITLE
-    ws.cell(row=2, column=1, value="Fleet parts look up their vehicle on the Variants sheet. Wait time comes from "
-                                   "os4.fleet (a demand-weighted queue over the day's bins, Q12) and is entered as "
-                                   "a value.").font = NOTE
+    ws.cell(row=2, column=1, value="Fleet parts look up their vehicle on the Variants sheet. Availability is service "
+                                   "availability (Q14). Wait time comes from os4.fleet (a demand-weighted queue over "
+                                   "the day's bins, Q12) and is entered as a value.").font = NOTE
     archs = representative_architectures(scenario)
     python = architecture_table(scenario).set_index("architecture")
 
     part_headers = ["architecture", "part", "variant_id", "N", "speed_kmh", "range_km", "availability", "pax",
                     "vehicle_cost_usd", "trip_km", "cycle_min", "capacity_per_vehicle_h", "effective_vehicles",
-                    "part_capacity_h", "part_cost_usd"]
+                    "part_capacity_h", "part_cost_usd", "part_capacity_variance"]
     _header(ws, 4, part_headers)
     lookups = {"speed_kmh": "v_speed_kmh", "range_km": "v_range_km", "availability": "v_availability",
                "pax": "v_pax", "vehicle_cost_usd": "v_cost_usd"}
@@ -437,10 +437,12 @@ def _architectures_sheet(wb: Workbook, scenario: Scenario, refs: dict[str, dict[
                 13: f"=D{r}*G{r}",
                 14: f"=M{r}*L{r}",
                 15: f"=I{r}*D{r}",
+                # Variance of the capacity in service: N a (1 - a) c^2 (service availability, Q14).
+                16: f"=D{r}*G{r}*(1-G{r})*L{r}^2",
             }
             for c, f in formulas.items():
                 ws.cell(row=r, column=c, value=f)
-            for c in range(5, 16):
+            for c in range(5, 17):
                 ws.cell(row=r, column=c).fill = FORMULA_FILL
                 ws.cell(row=r, column=c).number_format = "0.000"
             r += 1
@@ -459,8 +461,9 @@ def _architectures_sheet(wb: Workbook, scenario: Scenario, refs: dict[str, dict[
             2: f"=SUMIF({a_rng},$A{i},$N${part_first}:$N${part_last})",
             3: f"=SUMPRODUCT((demand_trips<B{i})*demand_trips+(demand_trips>=B{i})*B{i})*bin_h",
             4: f'=IF(throughput_measure="served",MIN(B{i},MAX(demand_trips)),B{i})',
-            6: f"=IF(B{i}=0,0,SUMPRODUCT(({a_rng}=$A{i})*$G${part_first}:$G${part_last}"
-               f"*$N${part_first}:$N${part_last})/B{i})",
+            # Service availability (Q14): demand-weighted P(capacity in service >= demand), normal approximation.
+            6: f"=IF(B{i}=0,0,SUMPRODUCT(demand_trips*NORM.S.DIST((B{i}-demand_trips)"
+               f"/SQRT(SUMIF({a_rng},$A{i},$P${part_first}:$P${part_last})),TRUE))/SUM(demand_trips))",
             7: f"=SUMIF({a_rng},$A{i},$O${part_first}:$O${part_last})",
         }
         for c, f in cells.items():

@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import pytest
 
@@ -9,6 +11,8 @@ from os4.fleet import (
     fleet_availability,
     fleet_capacity_per_h,
     fleet_cost_usd,
+    normal_cdf,
+    vehicle_availability,
     vehicle_capacity_per_h,
 )
 from os4.scenario import primary_scenario
@@ -58,10 +62,36 @@ def test_volume_capped_by_demand(scenario):
     assert daily_passenger_volume(Fleet(road=car, n_road=500), scenario) == pytest.approx(total_demand)
 
 
-def test_mixed_availability_between_parts(scenario):
+def test_vehicle_availability_between_parts(scenario):
     car, bike = get_variant("C2-P2-G3-M2-A3", scenario), get_variant("B2-E1-G2-K2", scenario)
-    a = fleet_availability(Fleet(road=car, n_road=8, bike=bike, n_bike=60), scenario)
+    a = vehicle_availability(Fleet(road=car, n_road=8, bike=bike, n_bike=60), scenario)
     assert bike["availability"] < a < car["availability"]
+
+
+def test_service_availability_hand_calc(scenario):
+    # 12 C2 cars: each in service w.p. a = 0.92206 with c = 60/11 x 4 x 0.75 = 16.36 trips/h.
+    # Capacity in service ~ Normal(12 a c, 12 a (1-a) c^2); P(>= demand) per bin, demand-weighted.
+    car = get_variant("C2-P2-G3-M2-A3", scenario)
+    a, c = car["availability"], vehicle_capacity_per_h(car, scenario)
+    mean, sd = 12 * a * c, math.sqrt(12 * a * (1 - a)) * c
+    demand = scenario.demand["trips_per_hour"].to_numpy(float)
+    expected = sum(d * 0.5 * (1 + math.erf((mean - d) / (sd * math.sqrt(2)))) for d in demand) / demand.sum()
+    assert fleet_availability(Fleet(road=car, n_road=12), scenario) == pytest.approx(expected, abs=1e-6)
+
+
+def test_service_availability_rises_with_spares(scenario):
+    # Bikes are only ~0.42 available each, but a pool of spares still serves almost every rider.
+    bike = get_variant("B2-E1-G2-K2", scenario)
+    values = [fleet_availability(Fleet(bike=bike, n_bike=n), scenario) for n in (60, 94, 120, 150, 200)]
+    assert values == sorted(values)
+    assert values[-1] > 0.99 > bike["availability"]
+    assert fleet_availability(Fleet(), scenario) == 0
+
+
+def test_normal_cdf_matches_erf():
+    z = np.linspace(-8, 8, 801)
+    exact = np.array([0.5 * (1 + math.erf(v / math.sqrt(2))) for v in z])
+    np.testing.assert_allclose(normal_cdf(z), exact, atol=2e-7)
 
 
 @pytest.mark.parametrize("n", [0, 1, 5, 25, 100, 300])
