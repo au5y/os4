@@ -192,8 +192,11 @@ SAU function validation Table 4
 | Peak throughput | U = 0 at 0 trips/hr; U = 1 at 200 trips/hr | Increasing | Returns all 5 points in the Appendix A table | U = 0.35, 0.50, 0.35 → 75, 100, 75 | 75 → 0.35; 100 → 0.50; 75 → 0.35 |
 | Average wait time | U = 0 at 30 min; U = 1 at 0 min | Decreasing | Returns all 6 points in the Appendix A table | U = 0.83, 0.61, 0.91 → 8, 12, 6 | 8 → 0.83; 12 → 0.61; 6 → 0.91 |
 | Availability | U = 0 at 0; U = 1 at 1.0 | Increasing (U = x) | Returns all 6 points in the Appendix A table | U = 0.70, 0.60, 0.80 → 0.7, 0.6, 0.8 | 0.7 → 0.70; 0.6 → 0.60; 0.8 → 0.80 |
+| MOE #4 pickup wait time (EZRide) | Same curve as average wait time: U = 1 at 0 min; U = 0 at 30 min | Decreasing | Headways of 8 and 12 min give U = 0.83 and 0.61, the same as Cases A and B; as average waits (half the headway, 4–6 min) U = 0.96–0.91 | U = 0.96, 0.91 → 4, 6 min | Headway 8, 12 min → average wait 4, 6 min |
 
 Every check is automated in `tests/test_utility.py`: table points (`test_sau_reproduces_table_points`), bounds (`test_sau_clamps_to_unit_interval`), direction (`test_sau_is_monotone`), x → U for the cases (`test_case_saus_match_hand_calc`), and U → x with `utility.sau_inverse` (`test_sau_inverse_recovers_case_inputs`, plus `test_sau_inverse_round_trips` over each whole curve). The inverse also reads targets off a curve: U = 0.9 needs 1,750 trips/day, 150 trips/hr, a 6.25 min wait, or 0.9 availability.
+
+(AM: Yonis added the MOE #4 row in parallel; merged here. Its bounds and direction follow the wait-time curve (U falls from 1 at 0 min to 0 at 30 min), and EZRide's 8–12 min are headways, so its average wait is 4–6 min; see the note under the MOE #4 check above.)
 
 
 
