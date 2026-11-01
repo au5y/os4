@@ -213,7 +213,9 @@ def plot_tradespace(df: pd.DataFrame, path: Path, highlight: pd.DataFrame | None
         # the rest to a column at the right, ordered by utility so the lines don't cross.
         cheapest = highlight["fleet_cost_usd"].idxmin()
         right = highlight.drop(index=cheapest).sort_values(utility, ascending=False)
-        slots = [(cheapest, (0.1, 0.87))] + [(i, (1.6, 0.74 - 0.055 * k)) for k, i in enumerate(right.index)]
+        top = highlight[utility].min() - 0.12  # below the cluster, whichever MAU is plotted
+        slots = [(cheapest, (0.1, highlight.loc[cheapest, utility] - 0.07))]
+        slots += [(i, (1.6, top - 0.055 * k)) for k, i in enumerate(right.index)]
         for i, text_xy in slots:
             row = highlight.loc[i]
             xy = (row["fleet_cost_usd"] / 1e6, row[utility])
@@ -259,11 +261,13 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
             "wait_time", "availability", "mau", "fleet_cost_usd"]
     counts = df["fleet_type"].value_counts()
     on_front = front["fleet_type"].value_counts()
+    on_front_ext = front_ext["fleet_type"].value_counts()
     type_rows = pd.DataFrame({
         "fleet type": FLEET_TYPES,
         "architectures": [counts.get(t, 0) for t in FLEET_TYPES],
         "on Pareto front": [on_front.get(t, 0) for t in FLEET_TYPES],
         "best MAU": [round(df.loc[df["fleet_type"] == t, "mau"].max(), 3) for t in FLEET_TYPES],
+        "on extended-MAU front": [on_front_ext.get(t, 0) for t in FLEET_TYPES],
     })
     fmt = front[cols].copy()
     fmt["fleet_cost_usd"] = fmt["fleet_cost_usd"].map(lambda c: f"${c:,.0f}")
@@ -284,7 +288,8 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"{_md_table(fmt)}\n"
         "## With the team's extended MAU\n\n"
         "Same architectures scored with the `os3a_extended` weights (adds travel time and bike share, PLAN.md Q8). "
-        f"The front has {len(front_ext)} architectures.\n\n"
+        f"The front has {len(front_ext)} architectures, and mixed fleets now dominate it (see the table above): "
+        "rewarding bike share and travel time changes which architectures are worth considering.\n\n"
         f"![Tradespace with the extended MAU]({png_ext.name})\n"
     )
     return [csv_path, front_path, png, png_ext, md_path]
