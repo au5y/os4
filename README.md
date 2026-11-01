@@ -20,7 +20,7 @@ os4/
 ├── docs/references.md    Bibliography for the sources tagged in PLAN.md
 ├── data/                 Input tables from the assignment, as CSV
 │   ├── sau_*.csv           Appendix A: single-attribute utility points
-│   │                       (sau_travel_time / sau_bike_share: team-proposed SAUs)
+│   │                       (sau_travel_time: team-proposed SAU; sau_bike_share: parked)
 │   ├── mau_weights.csv     Appendix A: stakeholder weights
 │   ├── mau_weights_proposed.csv  Team-proposed weight sets from OS3A (PLAN.md Q8)
 │   ├── mau_test_cases.csv  Task 1: Cases A, B, C

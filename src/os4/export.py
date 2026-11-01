@@ -48,7 +48,7 @@ UNITS = {
 }
 SOURCES = {a: "Appendix A" for a in ATTRIBUTES} | {
     "travel_time": "Team proposal: Table 1 (7 min max) and OS3A MOE 1",
-    "bike_share": "Team proposal: OS3A MOE 2 (11% baseline)",
+    "bike_share": "Parked (not weighted): OS3A MOE 2 (11% baseline)",
 }
 
 
@@ -103,7 +103,7 @@ def _readme(wb: Workbook) -> None:
         ("Weight sets", BOLD),
         ("appendix_a: the given stakeholder weights (used for the Task 1 results).", None),
         ("os3a_reweight: team proposal from our OS3A MOEs; moves weight from volume to availability.", None),
-        ("os3a_extended: adds travel time and bike trip share (proposed SAUs); scores Task 2+ architectures.", None),
+        ("os3a_extended: adds the proposed travel-time SAU; scores Task 2+ architectures (bike share is parked).", None),
     ]
     for row, (text, font) in enumerate(lines, start=1):
         cell = ws.cell(row=row, column=1, value=text)
@@ -162,8 +162,8 @@ def _weights_sheet(wb: Workbook) -> dict[str, dict[str, str]]:
     notes = [
         "os3a_reweight: wait stays largest (OS3A MOE 4 is a direct match); weight moves from volume to",
         "availability because reliability (MOE 1) dominated the stakeholder evidence. See docs/PLAN.md Q8.",
-        "os3a_extended: keeps the os3a_reweight priorities for the Appendix A four (x0.75) and gives 0.25",
-        "to the proposed travel-time and bike-share attributes.",
+        "os3a_extended: keeps the os3a_reweight priorities for the Appendix A four (x0.85) and gives 0.15",
+        "to the proposed travel-time attribute. Bike share is kept as an SAU but not weighted (parked).",
     ]
     for i, text in enumerate(notes, start=total_row + 2):
         ws.cell(row=i, column=1, value=text).font = NOTE
@@ -212,7 +212,7 @@ def _cases_sheet(wb: Workbook, refs: dict[str, dict[str, str]]) -> None:
             col += 4
     ws.cell(row=last + 2, column=1,
             value="Hand check (Appendix A weights): A 0.613, B 0.639 (0.6385), C 0.651. "
-                  "os3a_extended is not scored here: the cases give no travel time or bike share.").font = NOTE
+                  "os3a_extended is not scored here: the cases give no travel time.").font = NOTE
     _widths(ws, {1: 7, **{c: 14 for c in range(2, 2 + 2 * n + 4 * len(four_attribute_sets))}})
     ws.row_dimensions[3].height = 32
     ws.freeze_panes = "B4"

@@ -19,6 +19,7 @@ from os4.data import load
 
 ATTRIBUTES = ("passenger_volume", "peak_throughput", "wait_time", "availability")
 # In-boundary travel time (Table 1: 7 min; OS3A MOE 1) and e-bike share of served trips (OS3A MOE 2).
+# Bike share has an SAU but is not in any weight set (parked; PLAN.md H).
 PROPOSED_ATTRIBUTES = ("travel_time", "bike_share")
 WEIGHT_SETS = ("appendix_a", "os3a_reweight", "os3a_extended")
 
@@ -132,7 +133,7 @@ def evaluate_cases(weights: Mapping[str, float] | None = None) -> pd.DataFrame:
 def compare_weight_sets() -> pd.DataFrame:
     """MAU and rank of each case under every weight set that covers only the Appendix A attributes.
 
-    ``os3a_extended`` is left out: cases A-C give no travel time or bike share,
+    ``os3a_extended`` is left out: cases A-C give no travel time,
     so it can only score the Task 2 model's architectures.
     """
     rows = evaluate_cases()[["case"]].copy()
