@@ -1,0 +1,101 @@
+import numpy as np
+import pandas as pd
+import pytest
+
+from os4.fleet import Fleet
+from os4.model import evaluate
+from os4.scenario import primary_scenario
+from os4.tradespace import (
+    enumerate_architectures,
+    pareto_front,
+    prune_variants,
+    tradespace,
+    utopia_point,
+)
+from os4.vehicle import all_variants, get_variant
+
+COMPARED = ["fleet_capacity_per_h", "passenger_volume", "peak_throughput", "wait_time", "availability",
+            "vehicle_availability", "travel_time", "bike_share", "fleet_cost_usd", "mau", "mau_os3a_extended"]
+
+
+@pytest.fixture(scope="module")
+def scenario():
+    return primary_scenario()
+
+
+# A small grid keeps the tests quick; the report uses the full Q10 grid.
+SMALL_ROAD, SMALL_BIKE = range(0, 61, 5), range(0, 301, 25)
+
+
+@pytest.fixture(scope="module")
+def space(scenario):
+    return tradespace(scenario, SMALL_ROAD, SMALL_BIKE)
+
+
+def test_vectorized_matches_model_evaluate(scenario, space):
+    rows = space.sample(60, random_state=0)
+    for _, r in rows.iterrows():
+        fleet = Fleet(road=get_variant(r.road_variant, scenario) if r.n_road else None, n_road=int(r.n_road),
+                      bike=get_variant(r.bike_variant, scenario) if r.n_bike else None, n_bike=int(r.n_bike))
+        expected = evaluate(fleet, scenario)
+        for col in COMPARED:
+            assert r[col] == pytest.approx(expected[col], rel=1e-9, abs=1e-9), col
+
+
+def test_small_grid_matches_enumerate(scenario):
+    variants = prune_variants(all_variants(scenario))
+    subset = pd.concat([variants[variants.kind == "road"].head(2), variants[variants.kind == "bike"].head(2)])
+    assert len(tradespace(scenario, [0, 5, 10], [0, 25], subset, screen=False)) == len(
+        enumerate_architectures(scenario, [0, 5, 10], [0, 25], subset))
+
+
+def test_pruning_keeps_only_non_dominated(scenario):
+    variants = all_variants(scenario)
+    kept = prune_variants(variants)
+    assert 0 < len(kept) < len(variants)
+    # A4/A5 only add cost and weight in this scenario, so every surviving road variant is A3.
+    assert set(kept.loc[kept.kind == "road", "autonomy"]) == {"A3"}
+
+
+def test_pareto_front_is_non_dominated(space):
+    front = pareto_front(space)
+    assert front["fleet_cost_usd"].is_monotonic_increasing
+    assert front["mau"].is_monotonic_increasing
+    # No architecture is at least as cheap and strictly better than a front point.
+    for _, p in front.sample(min(20, len(front)), random_state=0).iterrows():
+        better = (space["fleet_cost_usd"] <= p["fleet_cost_usd"]) & (space["mau"] > p["mau"] + 1e-12)
+        assert not better.any()
+
+
+def test_utopia_point(space):
+    cost, util = utopia_point(space)
+    assert cost == space["fleet_cost_usd"].min()
+    assert util == space["mau"].max()
+    assert np.isfinite(space.select_dtypes("number").to_numpy()).all()
+
+
+def test_screening_drops_exactly_the_threshold_failures(scenario, space):
+    full = tradespace(scenario, SMALL_ROAD, SMALL_BIKE, screen=False)
+    failing = ((full["fleet_capacity_per_h"] < scenario.min_peak_throughput)
+               | (full["fleet_capacity_per_h"] < scenario.min_offpeak_throughput)
+               | (full["passenger_volume"] < scenario.min_daily_volume))
+    assert space.attrs["screened_out"] == failing.sum()
+    assert space.attrs["threshold_failures"]["peak_throughput"] == (full["fleet_capacity_per_h"] < 150).sum()
+    assert len(space) == (~failing).sum()
+    assert space["meets_thresholds"].all()
+    # Screening happens before scoring, so the survivors' scores are unchanged.
+    kept = full[~failing].reset_index(drop=True)
+    pd.testing.assert_frame_equal(kept.drop(columns="meets_thresholds"),
+                                  space.reset_index(drop=True).drop(columns="meets_thresholds"),
+                                  check_dtype=False)
+
+
+def test_peak_throughput_is_served_demand(scenario, space):
+    assert scenario.throughput_measure == "served"
+    assert (space["peak_throughput"] <= scenario.peak_demand_per_h + 1e-9).all()
+
+
+def test_travel_time_is_average_kendall_trip(scenario):
+    # A capped road fleet covers the 1.75 km Kendall trip at 21 km/h: 5.0 min.
+    row = evaluate(Fleet(road=get_variant("C2-P2-G3-M2-A3", scenario), n_road=12), scenario)
+    assert row["travel_time"] == pytest.approx(60 * 1.75 / 21)

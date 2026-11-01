@@ -19,6 +19,7 @@ from os4.data import load
 
 ATTRIBUTES = ("passenger_volume", "peak_throughput", "wait_time", "availability")
 # In-boundary travel time (Table 1: 7 min; OS3A MOE 1) and e-bike share of served trips (OS3A MOE 2).
+# Bike share has an SAU but is not in any weight set (parked; PLAN.md H).
 PROPOSED_ATTRIBUTES = ("travel_time", "bike_share")
 WEIGHT_SETS = ("appendix_a", "os3a_reweight", "os3a_extended")
 
@@ -45,6 +46,22 @@ def sau(attribute: str, x: float | np.ndarray) -> float | np.ndarray:
     table = sau_table(attribute).sort_values("x")
     u = np.interp(x, table["x"].to_numpy(), table["utility"].to_numpy())
     return float(u) if np.ndim(u) == 0 else u
+
+
+def sau_inverse(attribute: str, u: float | np.ndarray) -> float | np.ndarray:
+    """Attribute level ``x`` that gives utility ``u`` (the inverse of ``sau``).
+
+    Every SAU is strictly monotone (rising, or falling for wait time), so each
+    utility in [0, 1] maps back to exactly one x on the same straight-line
+    segments; ``u`` outside [0, 1] is clamped. Useful for reading a target off a
+    curve, e.g. the wait time that still scores 0.9.
+    """
+    table = sau_table(attribute).sort_values("utility")
+    utilities = table["utility"].to_numpy()
+    if np.any(np.diff(utilities) <= 0):
+        raise ValueError(f"SAU for {attribute!r} is not strictly monotone, so it has no unique inverse")
+    x = np.interp(u, utilities, table["x"].to_numpy())
+    return float(x) if np.ndim(x) == 0 else x
 
 
 def load_weights(weight_set: str = "appendix_a") -> dict[str, float]:
@@ -116,7 +133,7 @@ def evaluate_cases(weights: Mapping[str, float] | None = None) -> pd.DataFrame:
 def compare_weight_sets() -> pd.DataFrame:
     """MAU and rank of each case under every weight set that covers only the Appendix A attributes.
 
-    ``os3a_extended`` is left out: cases A-C give no travel time or bike share,
+    ``os3a_extended`` is left out: cases A-C give no travel time,
     so it can only score the Task 2 model's architectures.
     """
     rows = evaluate_cases()[["case"]].copy()

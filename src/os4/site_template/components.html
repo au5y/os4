@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OS4 components</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap" id="main">
+  <h1>Components</h1>
+  <p class="muted">Every architecture is built from these Appendix C (road vehicle) and Appendix D (e-bike) components. Hover any variant id in a table to see this decoded; this page lists them all.</p>
+  <h2>Reading a variant id</h2>
+  <ul>
+    <li><strong>Road vehicle</strong> <code>C5-P1-G3-M2-A3</code> = chassis C5 · battery P1 · charger G3 · motor M2 · autonomy A3.</li>
+    <li><strong>E-bike</strong> <code>B3-E2-G2-K1</code> = frame B3 · battery E2 · charger G2 · motor K1. Level 4 autonomy (riding empty to a rider) is built into the frame.</li>
+    <li><strong>Removable battery</strong> <code>B3-E2-G2-K1-S2</code> = the same bike with swappable packs and 2 spare packs per bike, pooled across the fleet (S0.5 = one spare per two bikes). Team proposal, not in Appendix D.</li>
+    <li><strong>Architecture</strong> <code>12×C2-P2-G3-M2-A3 + 60×B2-E1-G2-K2</code> = 12 of that road vehicle plus 60 of that e-bike.</li>
+    <li>Feasibility: a road battery may weigh at most 1/3 of its chassis, a bike battery at most 1/2 of its frame. Every vehicle also carries 100 kg per seat.</li>
+  </ul>
+  <div id="tables"></div>
+</main>
+<script src="data/meta.js"></script>
+<script src="assets/common.js"></script>
+<script src="assets/components.js"></script>
+</body>
+</html>
