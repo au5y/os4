@@ -21,16 +21,16 @@ import matplotlib.ticker  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from os4.fleet import Fleet  # noqa: E402
+from os4.fleet import Fleet, service_probability  # noqa: E402
 from os4.model import architecture_table, evaluate_many, meets_thresholds, requirement_flags  # noqa: E402
 from os4.plots import GRID, INK, INK_2, OUTPUT_DIR, SERIES, SURFACE, _md_table, _style  # noqa: E402
 from os4.scenario import Scenario  # noqa: E402
 from os4.utility import ATTRIBUTES, load_weights, sau  # noqa: E402
 from os4.vehicle import all_variants  # noqa: E402
 
-# Q10 defaults from docs/PLAN.md: road 5-60 step 5, bikes 25-300 step 25 (0 = that part absent).
-N_ROAD = tuple(range(0, 61, 5))
-N_BIKE = tuple(range(0, 301, 25))
+# Q10 (decided): road 5-300 step 5, bikes 25-750 step 25 (0 = that part absent).
+N_ROAD = tuple(range(0, 301, 5))
+N_BIKE = tuple(range(0, 751, 25))
 FLEET_TYPES = ("road-only", "bike-only", "mixed")
 # Same validated categorical slots as Task 1; shapes are the secondary encoding.
 TYPE_STYLE = {
@@ -90,17 +90,23 @@ def evaluate_tradespace(fleets: list[Fleet], scenario: Scenario) -> pd.DataFrame
 
 
 def _part_arrays(rows: pd.DataFrame, n: np.ndarray, trip_km: float, scenario: Scenario) -> dict[str, np.ndarray]:
-    """Per-part capacity, departures, availability and cost; mirrors ``os4.fleet``."""
+    """Per-part capacity, departures, availability, cost and travel time; mirrors ``os4.fleet``."""
     speed = rows["speed_kmh"].to_numpy(float)
     cycle = 60.0 * trip_km * (1.0 + scenario.deadhead_fraction) / speed + scenario.dwell_s / 60.0
-    effective = n * rows["availability"].to_numpy(float)
+    per_vehicle = 60.0 / cycle * rows["pax"].to_numpy(float) * scenario.load_factor
+    a = rows["availability"].to_numpy(float)
     return {
-        "capacity": effective * 60.0 / cycle * rows["pax"].to_numpy(float) * scenario.load_factor,
-        "departures": effective * 60.0 / cycle,
-        "availability": rows["availability"].to_numpy(float),
+        "capacity": n * a * per_vehicle,
+        "capacity_var": n * a * (1.0 - a) * per_vehicle**2,
+        "departures": n * a * 60.0 / cycle,
+        "availability": a,
         "cost": n * rows["cost_usd"].to_numpy(float),
-        "speed": np.where(n > 0, speed, np.inf),
+        "travel": 60.0 * trip_km / speed,
     }
+
+
+CHUNK_ROWS = 400_000
+PLOT_SAMPLE = 300_000  # points drawn per fleet type in a scatter; fronts are always computed on every row
 
 
 def tradespace(
@@ -113,10 +119,11 @@ def tradespace(
     """Score every road-only, bike-only and mixed architecture on the fleet-size grids.
 
     One row per architecture with the same MoPs, SAUs, MAUs and cost as
-    ``model.evaluate``, computed with numpy over the whole grid. With ``screen``,
-    architectures that miss a Table 1 threshold (``model.meets_thresholds``) are
-    dropped right after capacity and volume are known, before the wait and
-    utility calculations; ``df.attrs["screened_out"]`` holds how many.
+    ``model.evaluate``, computed with numpy in chunks of ``CHUNK_ROWS``. With
+    ``screen``, architectures that miss a Table 1 threshold
+    (``model.meets_thresholds``) are dropped right after capacity and volume are
+    known, before the wait and utility calculations. ``df.attrs`` records
+    ``screened_out`` and ``threshold_failures`` (counts over the whole grid).
     """
     variants = prune_variants(all_variants(scenario)) if variants is None else variants
     road = variants[variants["kind"] == "road"].reset_index(drop=True)
@@ -131,44 +138,65 @@ def tradespace(
         (np.array([-1]), np.arange(len(bike))),
         (np.arange(len(road)), np.arange(len(bike))),
     ):
+        if len(r_idx) == 0 or len(b_idx) == 0:
+            continue
         nr_opts = nr if r_idx[0] >= 0 else np.array([0])
         nb_opts = nb if b_idx[0] >= 0 else np.array([0])
-        grid = np.array(np.meshgrid(r_idx, nr_opts, b_idx, nb_opts, indexing="ij")).reshape(4, -1)
-        blocks.append(grid)
-    ri, n_r, bi, n_b = np.concatenate(blocks, axis=1)
+        blocks.append(np.array(np.meshgrid(r_idx, nr_opts, b_idx, nb_opts, indexing="ij")).reshape(4, -1))
+    grid = np.concatenate(blocks, axis=1)
 
-    blank = road.iloc[[0]].copy()  # placeholder row for an absent part (n = 0 zeroes it out)
-    road_rows = pd.concat([road, blank], ignore_index=True).iloc[np.where(ri >= 0, ri, len(road))]
-    bike_rows = pd.concat([bike, bike.iloc[[0]]], ignore_index=True).iloc[np.where(bi >= 0, bi, len(bike))]
+    failures = {"daily_volume": 0, "peak_throughput": 0, "offpeak_throughput": 0}
+    chunks = [_score_chunk(grid[:, i:i + CHUNK_ROWS], road, bike, scenario, screen, failures)
+              for i in range(0, grid.shape[1], CHUNK_ROWS)]
+    df = pd.concat(chunks, ignore_index=True)
+    for col in ("fleet_type", "road_variant", "bike_variant"):
+        df[col] = df[col].astype("category")
+    df.attrs["screened_out"] = int(grid.shape[1] - len(df))
+    df.attrs["grid_size"] = int(grid.shape[1])
+    df.attrs["threshold_failures"] = failures
+    return df
+
+
+def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scenario: Scenario, screen: bool,
+                 failures: dict[str, int]) -> pd.DataFrame:
+    ri, n_r, bi, n_b = grid
+    # Placeholder row for an absent part (its n = 0 zeroes it out).
+    road_rows = pd.concat([road, road.iloc[[0]] if len(road) else bike.iloc[[0]]], ignore_index=True).iloc[
+        np.where(ri >= 0, ri, len(road))]
+    bike_rows = pd.concat([bike, bike.iloc[[0]] if len(bike) else road.iloc[[0]]], ignore_index=True).iloc[
+        np.where(bi >= 0, bi, len(bike))]
     bike_km = scenario.bike_trip_km if scenario.bike_trip_km is not None else scenario.avg_trip_km
     rp = _part_arrays(road_rows, n_r.astype(float), scenario.avg_trip_km, scenario)
     bp = _part_arrays(bike_rows, n_b.astype(float), bike_km, scenario)
 
     capacity = rp["capacity"] + bp["capacity"]
-    departures = rp["departures"] + bp["departures"]
     demand = scenario.demand["trips_per_hour"].to_numpy(float)
     volume = np.minimum(demand[None, :], capacity[:, None]).sum(axis=1) * scenario.demand_bin_h
+    failures["daily_volume"] += int((volume < scenario.min_daily_volume).sum())
+    failures["peak_throughput"] += int((capacity < scenario.min_peak_throughput).sum())
+    failures["offpeak_throughput"] += int((capacity < scenario.min_offpeak_throughput).sum())
 
     # Early exit: drop architectures that break a Table 1 threshold before the costlier steps.
     keep = meets_thresholds(capacity, volume, scenario) if screen else np.ones(len(capacity), dtype=bool)
     rp = {k: v[keep] for k, v in rp.items()}
     bp = {k: v[keep] for k, v in bp.items()}
-    capacity, departures, volume = capacity[keep], departures[keep], volume[keep]
+    capacity, volume = capacity[keep], volume[keep]
     n_r, n_b = n_r[keep], n_b[keep]
     road_rows, bike_rows = road_rows[keep], bike_rows[keep]
 
+    departures = rp["departures"] + bp["departures"]
     peak = np.minimum(capacity, scenario.peak_demand_per_h) if scenario.throughput_measure == "served" else capacity
-
     with np.errstate(divide="ignore", invalid="ignore"):
         rho = demand[None, :] / capacity[:, None]
         wait_bins = np.where(rho < 1.0, (30.0 / departures[:, None]) / (1.0 - rho), scenario.max_wait_min)
         wait_bins = np.minimum(wait_bins, scenario.max_wait_min)
         wait = np.where(departures > 0, (wait_bins * demand).sum(axis=1) / demand.sum(), scenario.max_wait_min)
-        avail = np.where(capacity > 0,
-                         (rp["availability"] * rp["capacity"] + bp["availability"] * bp["capacity"]) / capacity, 0.0)
+        vehicle_avail = np.where(capacity > 0, (rp["availability"] * rp["capacity"]
+                                                + bp["availability"] * bp["capacity"]) / capacity, 0.0)
         bike_share = np.where(capacity > 0, bp["capacity"] / capacity, 0.0)
-    slowest = np.minimum(rp["speed"], bp["speed"])
-    travel = 60.0 * max(scenario.node_distances_km.values()) / slowest
+        travel = np.where(capacity > 0, (rp["travel"] * rp["capacity"] + bp["travel"] * bp["capacity"]) / capacity,
+                          20.0)
+    service = service_probability(capacity, rp["capacity_var"] + bp["capacity_var"], demand) @ demand / demand.sum()
 
     df = pd.DataFrame({
         "fleet_type": np.select([n_b == 0, n_r == 0], ["road-only", "bike-only"], "mixed"),
@@ -180,7 +208,8 @@ def tradespace(
         "passenger_volume": volume,
         "peak_throughput": peak,
         "wait_time": wait,
-        "availability": avail,
+        "availability": service,
+        "vehicle_availability": vehicle_avail,
         "travel_time": travel,
         "bike_share": bike_share,
         "fleet_cost_usd": rp["cost"] + bp["cost"],
@@ -189,9 +218,7 @@ def tradespace(
     df["mau"] = sum(weights[a] * sau(a, df[a].to_numpy()) for a in ATTRIBUTES)
     extended = load_weights("os3a_extended")
     df["mau_os3a_extended"] = sum(w * sau(a, df[a].to_numpy()) for a, w in extended.items())
-    df = pd.concat([df, requirement_flags(df, scenario)], axis=1)
-    df.attrs["screened_out"] = int((~keep).sum())
-    return df
+    return pd.concat([df, requirement_flags(df, scenario)], axis=1)
 
 
 def pareto_front(df: pd.DataFrame, utility: str = "mau", cost: str = "fleet_cost_usd") -> pd.DataFrame:
@@ -217,7 +244,8 @@ def plot_tradespace(df: pd.DataFrame, path: Path, highlight: pd.DataFrame | None
     for fleet_type, size, alpha in (("mixed", 5, 0.25), ("road-only", 14, 0.7), ("bike-only", 22, 0.85)):
         part = df[df["fleet_type"] == fleet_type]
         color, marker = TYPE_STYLE[fleet_type]
-        ax.scatter(part["fleet_cost_usd"] / 1e6, part[utility], s=size, marker=marker, color=color,
+        drawn = part.sample(PLOT_SAMPLE, random_state=0) if len(part) > PLOT_SAMPLE else part
+        ax.scatter(drawn["fleet_cost_usd"] / 1e6, drawn[utility], s=size, marker=marker, color=color,
                    alpha=alpha, linewidths=0, rasterized=True, label=f"{fleet_type} ({len(part):,})")
     front = pareto_front(df, utility)
     ax.step(front["fleet_cost_usd"] / 1e6, front[utility], where="post", color=INK, linewidth=2, alpha=0.5,
@@ -259,21 +287,70 @@ def plot_tradespace(df: pd.DataFrame, path: Path, highlight: pd.DataFrame | None
 
 
 def _requirement_rows(df: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
-    """How many architectures fail each Table 1 requirement (``df`` unscreened)."""
+    """How many architectures fail each Table 1 requirement.
+
+    Thresholds are counted over the whole grid during screening (``df.attrs``); the desired goals and
+    the availability benchmark are counted over the architectures that pass the thresholds.
+    """
+    grid, failures, n = df.attrs["grid_size"], df.attrs["threshold_failures"], len(df)
     rows = [
-        ("daily volume", f">= {scenario.min_daily_volume:,.0f} trips/day", "threshold",
-         df["passenger_volume"] < scenario.min_daily_volume),
+        ("daily volume", f">= {scenario.min_daily_volume:,.0f} trips/day", "threshold", failures["daily_volume"], grid),
         ("peak throughput", f">= {scenario.min_peak_throughput:g} trips/h", "threshold",
-         df["fleet_capacity_per_h"] < scenario.min_peak_throughput),
+         failures["peak_throughput"], grid),
         ("off-peak throughput", f">= {scenario.min_offpeak_throughput:g} trips/h", "threshold",
-         df["fleet_capacity_per_h"] < scenario.min_offpeak_throughput),
-        ("wait in boundary", f"<= {scenario.goal_wait_min:g} min", "desired", ~df["meets_wait_goal"]),
-        ("travel time, longest link", f"<= {scenario.goal_travel_min:g} min", "desired", ~df["meets_travel_goal"]),
-        ("availability", f">= {scenario.benchmark_availability:g}", "benchmark", ~df["meets_availability_benchmark"]),
+         failures["offpeak_throughput"], grid),
+        ("wait in boundary", f"<= {scenario.goal_wait_min:g} min", "desired", int((~df["meets_wait_goal"]).sum()), n),
+        ("travel time, average Kendall trip", f"<= {scenario.goal_travel_min:g} min", "desired",
+         int((~df["meets_travel_goal"]).sum()), n),
+        ("service availability", f">= {scenario.benchmark_availability:g}", "benchmark",
+         int((~df["meets_availability_benchmark"]).sum()), n),
     ]
-    return pd.DataFrame([(name, target, kind, f"{int(fail.sum()):,}", f"{fail.mean():.1%}")
-                         for name, target, kind, fail in rows],
+    return pd.DataFrame([(name, target, kind, f"{fail:,} of {total:,}", f"{fail / total:.1%}")
+                         for name, target, kind, fail, total in rows],
                         columns=["requirement", "target", "type", "architectures failing", "share"])
+
+
+LOAD_FACTORS = (0.25, 0.5, 0.75, 1.0)
+LOAD_FACTOR_COLORS = ("#86b6ef", "#3987e5", "#1c5cab", "#0d366b")  # ordinal ramp steps 250/400/550/700
+
+
+def load_factor_fronts(scenario: Scenario, load_factors=LOAD_FACTORS) -> dict[float, pd.DataFrame]:
+    """Pareto front of the full design space at each average load factor (Appendix B uses 0.75)."""
+    fronts = {}
+    for lf in load_factors:
+        df = tradespace(replace(scenario, load_factor=lf))
+        front = pareto_front(df).copy()
+        front.attrs = {"architectures": len(df), "screened_out": df.attrs["screened_out"]}
+        fronts[lf] = front
+        del df
+    return fronts
+
+
+def plot_load_factor_fronts(fronts: dict[float, pd.DataFrame], path: Path, baseline: float = 0.75) -> Path:
+    """One chart: the Pareto front at each load factor, points shaped by fleet type."""
+    fig, ax = plt.subplots(figsize=(10, 6), facecolor=SURFACE)
+    _style(ax)
+    for (lf, front), color in zip(fronts.items(), LOAD_FACTOR_COLORS):
+        x, y = front["fleet_cost_usd"] / 1e6, front["mau"]
+        ax.step(x, y, where="post", color=color, linewidth=2.6 if lf == baseline else 1.6,
+                label=f"{lf:.0%} full{' (Appendix B)' if lf == baseline else ''}: {len(front)} on front", zorder=3)
+        for fleet_type in FLEET_TYPES:
+            part = front[front["fleet_type"] == fleet_type]
+            ax.scatter(part["fleet_cost_usd"] / 1e6, part["mau"], s=22, marker=TYPE_STYLE[fleet_type][1],
+                       color=color, edgecolor=SURFACE, linewidth=0.6, zorder=4)
+    handles, labels = ax.get_legend_handles_labels()
+    handles += [plt.Line2D([], [], marker=TYPE_STYLE[t][1], linestyle="", color=INK_2, label=t) for t in FLEET_TYPES]
+    legend = ax.legend(handles=handles, loc="lower right", frameon=True, fontsize=8.5)
+    legend.get_frame().set_edgecolor(GRID)
+    _cost_axis(ax)
+    ax.set_xlabel("fleet cost ($M, vehicle capital cost, log scale)", fontsize=9, color=INK_2)
+    ax.set_ylabel("multi-attribute utility", fontsize=9, color=INK_2)
+    ax.set_title("Pareto front by average load factor (share of seats filled per trip)", loc="left", fontsize=13,
+                 color=INK, fontweight="bold")
+    fig.tight_layout()
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path
 
 
 # Ordinal blue ramp (palette steps 250-700): light = small fleet, dark = large fleet.
@@ -361,7 +438,7 @@ def _cost_axis(ax: plt.Axes) -> None:
 def _front_table(front: pd.DataFrame) -> pd.DataFrame:
     cols = ["fleet_type", "road_variant", "n_road", "bike_variant", "n_bike", "fleet_capacity_per_h",
             "wait_time", "availability", "mau", "fleet_cost_usd"]
-    fmt = front[cols].copy()
+    fmt = front[cols].astype({"fleet_type": str, "road_variant": object, "bike_variant": object})
     fmt["fleet_cost_usd"] = fmt["fleet_cost_usd"].map(lambda c: f"${c:,.0f}")
     return fmt.fillna("-").round(3)
 
@@ -387,9 +464,10 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "fixed": ("Fixed e-bike batteries (Appendix B as given)", replace(scenario, bike_spare_options=(0.0,))),
         "removable": ("With removable e-bike batteries (team proposal)", scenario),
     }
-    paths, sections, summary = [], [], []
+    paths, sections, summary, frames = [], [], [], {}
     for key, (title, case) in cases.items():
         df = tradespace(case)
+        frames[key] = df
         front = pareto_front(df)
         front_ext = pareto_front(df, "mau_os3a_extended")
         cost0, util0 = utopia_point(df)
@@ -429,14 +507,27 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
             f"the front has {len(front_ext)} architectures.\n\n"
             f"![Tradespace with the extended MAU]({png_ext.name})\n\n"
         )
-    unscreened = tradespace(scenario, screen=False)
+    requirements = _requirement_rows(frames["removable"], scenario)
+    frames.clear()
+    fronts = load_factor_fronts(scenario)
+    lf_png = plot_load_factor_fronts(fronts, out_dir / "task3_load_factor_fronts.png", scenario.load_factor)
+    lf_rows = pd.DataFrame([{
+        "load factor": f"{lf:.0%}",
+        "architectures meeting thresholds": f"{f.attrs['architectures']:,}",
+        "front (road / bike / mixed)": " / ".join(str((f["fleet_type"] == t).sum())
+                                                  for t in ("road-only", "bike-only", "mixed")),
+        "cheapest on front": f"{_describe(f.iloc[0])}: ${f.iloc[0]['fleet_cost_usd']:,.0f}",
+        "best MAU": round(f["mau"].max(), 3),
+    } for lf, f in fronts.items()])
+    paths.append(lf_png)
     md_path = out_dir / "task3_tradespace.md"
     md_path.write_text(
         "# Task 3: Tradespace\n\n"
         f"Generated by `python -m os4` for the scenario *{scenario.name}*. "
         f"Fleet sizes: road {min(n for n in N_ROAD if n)}–{max(N_ROAD)} step {N_ROAD[2] - N_ROAD[1]}, "
         f"bikes {min(n for n in N_BIKE if n)}–{max(N_BIKE)} step {N_BIKE[2] - N_BIKE[1]} (PLAN.md Q10). "
-        "Dominated vehicle variants are pruned first (`prune_variants`), so every road vehicle in the space is A3.\n\n"
+        "Dominated vehicle variants are pruned first (`prune_variants`), so every road vehicle in the space is A3. "
+        "Peak throughput is the demand actually served (Q11) and costs are vehicle capital only (Q15).\n\n"
         "The tradespace is run twice: with **fixed e-bike batteries** (Appendix B as given), and with the team's "
         "**removable-battery** option, where a bike swaps packs in "
         f"{scenario.bike_swap_h * 60:g} min and the fleet buys "
@@ -446,10 +537,18 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "## Requirements (Table 1)\n\n"
         "Thresholds screen architectures out before scoring; desired goals and the availability benchmark are "
         "flags only. Counts are over the whole grid (removable-battery case) before screening.\n\n"
-        f"{_md_table(_requirement_rows(unscreened, scenario))}\n"
-        "No architecture meets the 7-minute travel goal: the longest link (Lechmere–Central, "
-        f"{max(scenario.node_distances_km.values()):g} km) takes at least "
-        f"{unscreened['travel_time'].min():.1f} min at the {scenario.speed_limit_kmh:g} km/h road cap.\n\n"
+        f"{_md_table(requirements)}\n"
+        "Travel time is the average Kendall trip (1.75 km road, 1.6 km bike; team decision): 5.0 min at the "
+        f"{scenario.speed_limit_kmh:g} km/h road cap. The longest link (Lechmere–Central, "
+        f"{max(scenario.node_distances_km.values()):g} km) would take ≥ 9.4 min and is left for later. "
+        "Availability is *service* availability (Q14): the chance the vehicles in service can carry the hour's "
+        "demand, so spare vehicles raise it.\n\n"
+        "## Load-factor sensitivity\n\n"
+        "Appendix B assumes trips average 75% full; the model keeps 0.75 as the baseline. The same design space "
+        "scored at 25%, 50%, 75% and 100% (the removable-battery case, which also contains every fixed-battery "
+        "option):\n\n"
+        f"![Pareto front by load factor]({lf_png.name})\n\n"
+        f"{_md_table(lf_rows)}\n"
         + "".join(sections)
     )
     return paths + [md_path]

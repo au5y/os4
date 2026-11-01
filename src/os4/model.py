@@ -12,10 +12,12 @@ from os4.fleet import (
     average_wait_min,
     cycle_time_min,
     daily_passenger_volume,
+    _trip_km,
     fleet_availability,
     fleet_capacity_per_h,
     fleet_cost_usd,
     peak_throughput,
+    vehicle_availability,
     vehicle_capacity_per_h,
 )
 from os4.scenario import Scenario
@@ -80,6 +82,7 @@ def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
         for col in ("speed_kmh", "range_km", "availability", "cost_usd"):
             row[f"{part}_{col}"] = np.nan if vehicle is None else float(vehicle[col])
     row["fleet_capacity_per_h"] = capacity
+    row["vehicle_availability"] = vehicle_availability(fleet, scenario)
     row |= mops | proposed
     for a, x in (mops | proposed).items():
         row[f"u_{a}"] = float(sau(a, x))
@@ -136,11 +139,18 @@ def hand_calc_check(scenario: Scenario) -> pd.DataFrame:
 
 
 def _travel_time_min(fleet: Fleet, scenario: Scenario) -> float:
-    """In-vehicle time [min] for the longest link (Lechmere-Central), the worst case for Table 1's 7 min.
+    """In-vehicle time [min] of the average Kendall trip (team decision; was the longest link).
 
-    Uses the slowest vehicle type in the fleet; an empty fleet gets the SAU's zero-utility time.
+    Each part's time is its trip length / speed (1.75 km road, 1.6 km bike), weighted by the
+    share of trips it carries (its capacity). An empty fleet gets the SAU's zero-utility time.
     """
-    speeds = [v["speed_kmh"] for v, _ in fleet.members()]
-    if not speeds:
+    parts = [(_trip_km(v, scenario) / v["speed_kmh"] * 60.0, fleet_capacity_per_h(Fleet(**_part(v, n)), scenario))
+             for v, n in fleet.members()]
+    total = sum(c for _, c in parts)
+    if total == 0:
         return 20.0
-    return 60.0 * max(scenario.node_distances_km.values()) / min(speeds)
+    return sum(t * c for t, c in parts) / total
+
+
+def _part(vehicle: pd.Series, n: int) -> dict:
+    return {"road": vehicle, "n_road": n} if vehicle["kind"] == "road" else {"bike": vehicle, "n_bike": n}
