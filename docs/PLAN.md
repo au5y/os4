@@ -165,6 +165,38 @@ MAU<sub>case C</sub> = (0.15) x (0.30) + (0.35) x (0.25) + (0.91) x (0.35) + (0.
 
                                 Table 3 
 
+# For Task 1 - validation 
+
+Here are my thoughts 
+    1. Incorporate test scenarios 
+        - Use MOE # 1, 4, , & 8 to test and analyze the Utility outcome. 
+    2. We can use the equations and reproduce the data - we can either start with x and look for U or the other way around.
+
+# Our MOEs from OS-3 assignment. - Test scenarios
+ MOE #4 pickup waits:
+   - EZride shuttle 8- 12 minutes 
+        - Start with the lower end of the range of wait times @ 8 minutes. 
+        
+            I am going to reference equation <sub>2</sub> 0.95 - 0.04 (x - 5) since 8 minutes is between 5- 10 minutes. 
+
+        U <sub>@ 8 minutes test</sub> = 0.95 - 0.04 (8 - 5) = 0.83
+
+      - Start with the upper end of the range of wait times @ 12 minutes. I am going to reference equation <sub>3</sub> U = 0.75 - 0.07 (x - 10) since 12 minutes is between 10- 15 minutes. 
+
+      U <sub>@ 12 minutes test</sub> = 0.75 - 0.07 (12 - 10) = 0.61
+
+- Across the range from 8 to 12 minutes pickup wait time, utility drops by 0.83 - 0.61 = 0.22 ** important for us to note in the write up. Our MOE #4 EZride wait times are also wait times for Case A and Case B. Therefore scenario is valid. 
+
+SAU function validation Table 4
+
+| Measure | Utility bounds | Direction | Equation check | Cases |
+|----------|----------|----------|----------|----------|
+| Passenger volume    | U = 0 at 0 trips/day; U = 1 at 2000 trips/day         |          |  Returns all 5 in appendix A table(s)        | 750, 1000, 2000         |
+| Peak Throughput   |U = 0 at 0 trips/hr; U = 1 at 200 trips/hr          |          |          |          | 75, 100, 75 |
+| Average wait times    |U = 0 at 30 min; U = 1 at 0 min          |          |          |          |
+| Availability    | U = 0 at 0; U = 1 at 1.0         |          |          |          |
+
+
 
 
 
