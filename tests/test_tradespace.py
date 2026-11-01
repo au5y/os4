@@ -6,7 +6,12 @@ from os4.fleet import Fleet
 from os4.model import evaluate
 from os4.scenario import primary_scenario
 from os4.tradespace import (
+    KNEE_PLATEAU,
+    N_BIKE,
+    N_ROAD,
     enumerate_architectures,
+    front_comparison,
+    knee_window,
     pareto_front,
     prune_variants,
     tradespace,
@@ -99,3 +104,29 @@ def test_travel_time_is_average_kendall_trip(scenario):
     # A capped road fleet covers the 1.75 km Kendall trip at 21 km/h: 5.0 min.
     row = evaluate(Fleet(road=get_variant("C2-P2-G3-M2-A3", scenario), n_road=12), scenario)
     assert row["travel_time"] == pytest.approx(60 * 1.75 / 21)
+
+
+def test_front_comparison_flags_dominated_points(space):
+    front = pareto_front(space)
+    on_front = front.iloc[[len(front) // 2]].assign(architecture="on front")
+    worse = on_front.assign(architecture="worse", mau=on_front["mau"] - 0.01,
+                            fleet_cost_usd=on_front["fleet_cost_usd"] + 1)
+    result = front_comparison(space, pd.concat([on_front, worse]))
+    assert list(result["dominated"]) == [False, True]
+
+
+def test_knee_window_spans_cheapest_point_to_plateau(space):
+    (x0, x1), (y0, y1) = knee_window(space)
+    front = pareto_front(space)
+    assert x0 < space["fleet_cost_usd"].min() and y1 > front["mau"].max()
+    plateau = front[front["mau"] >= front["mau"].max() - KNEE_PLATEAU].iloc[0]
+    assert x1 > plateau["fleet_cost_usd"] and y0 < plateau["mau"]
+
+
+def test_fleet_grids_widen_with_size():
+    assert N_ROAD[:16] == tuple(range(16))
+    assert N_BIKE[:11] == tuple(range(0, 51, 5))
+    for grid in (N_ROAD, N_BIKE):
+        steps = np.diff(grid)
+        assert (np.diff(steps) >= 0).all()
+    assert max(N_ROAD) == 300 and max(N_BIKE) == 750

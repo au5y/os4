@@ -4,7 +4,7 @@
 fleet-size grids with the same equations as ``os4.fleet`` / ``os4.model``,
 vectorized over architectures (``test_tradespace.py`` checks it matches
 ``model.evaluate``). ``pareto_front`` and ``utopia_point`` summarize it, and
-``write_task3`` writes the figure and report to ``outputs/``.
+``write_task3`` writes the report to ``outputs/`` and its figures and CSVs to ``outputs/media/``.
 """
 
 from collections.abc import Iterable
@@ -22,15 +22,42 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from os4.fleet import Fleet, service_probability  # noqa: E402
-from os4.model import architecture_table, evaluate_many, meets_thresholds, requirement_flags  # noqa: E402
-from os4.plots import GRID, INK, INK_2, OUTPUT_DIR, SERIES, SURFACE, _md_table, _style  # noqa: E402
+from os4.model import (  # noqa: E402
+    architecture_table,
+    evaluate_many,
+    meets_thresholds,
+    reference_and_anchor_table,
+    requirement_flags,
+)
+from os4.plots import (  # noqa: E402
+    GRID,
+    INK,
+    INK_2,
+    OUTPUT_DIR,
+    SERIES,
+    SURFACE,
+    _md_table,
+    _style,
+    media_dir,
+    media_link,
+)
 from os4.scenario import Scenario  # noqa: E402
 from os4.utility import ATTRIBUTES, load_weights, sau  # noqa: E402
 from os4.vehicle import all_variants  # noqa: E402
 
-# Q10 (decided): road 5-300 step 5, bikes 25-750 step 25 (0 = that part absent).
-N_ROAD = tuple(range(0, 301, 5))
-N_BIKE = tuple(range(0, 751, 25))
+
+def progressive_grid(segments: Iterable[tuple[int, int, int]]) -> tuple[int, ...]:
+    """Fleet sizes from (start, stop, step) segments, stop inclusive, with 0 (= that part absent) first."""
+    return tuple(sorted({0} | {n for start, stop, step in segments for n in range(start, stop + 1, step)}))
+
+
+# Q10: steps widen as fleets grow. Small fleets (a few buses, a few bikes next to them) decide where the
+# front starts, so they get step 1 (road) or 5 (bikes); past the knee cost rises linearly with N while
+# utility is flat, so coarse steps lose nothing.
+ROAD_SEGMENTS = ((1, 15, 1), (20, 50, 5), (60, 100, 10), (125, 300, 25))
+BIKE_SEGMENTS = ((5, 50, 5), (75, 200, 25), (250, 750, 50))
+N_ROAD = progressive_grid(ROAD_SEGMENTS)
+N_BIKE = progressive_grid(BIKE_SEGMENTS)
 FLEET_TYPES = ("road-only", "bike-only", "mixed")
 # Same validated categorical slots as Task 1; shapes are the secondary encoding.
 TYPE_STYLE = {
@@ -235,10 +262,63 @@ def utopia_point(df: pd.DataFrame, utility: str = "mau", cost: str = "fleet_cost
     return float(df[cost].min()), float(df[utility].max())
 
 
+# Reference architecture and anchors (``model.reference_and_anchor_table``): one marker each. The
+# reference is ink; anchors are filled with the fourth categorical slot (unused by the fleet types) so
+# they stand apart from both the fleet-type colors and the ringed front points.
+MARKER_STYLE = ("D", "h", "p", "X", "P")
+LABEL_BOX = dict(boxstyle="round,pad=0.2", facecolor=SURFACE, edgecolor="none", alpha=0.85)
+KNEE_LABELS = 6  # front points labeled in the knee zoom
+
+
+def _draw_markers(ax: plt.Axes, markers: pd.DataFrame, utility: str, view, scale: float = 1e6,
+                  label_roles: tuple[str, ...] = ("reference", "anchor"), label_right: bool = False,
+                  log_x: bool = False) -> None:
+    """Reference (filled diamond) and anchors (filled, fourth palette slot), each with its own legend entry.
+
+    ``view`` is ((cost lo, cost hi), (utility lo, utility hi)) in data units. A marker outside it is
+    pinned just inside the nearest edge and its label gives the actual MAU and cost. Rows whose role is
+    in ``label_roles`` get a short direct label (pinned markers always do).
+    """
+    (x0, x1), (y0, y1) = view
+    inset_x = (lambda v: v * (x1 / x0) ** 0.03) if log_x else (lambda v: v + 0.03 * (x1 - x0))
+    n_pinned = 0  # labels of pinned markers are stacked so neighbors on an edge don't overlap
+    for (_, row), marker in zip(markers.iterrows(), MARKER_STYLE):
+        filled = row["role"] == "reference"
+        note = "" if row["meets_thresholds"] else ", misses Table 1"
+        cost = min(max(row["fleet_cost_usd"], inset_x(x0)), x1)
+        util = min(max(row[utility], y0 + 0.04 * (y1 - y0)), y1)
+        pinned = (cost, util) != (row["fleet_cost_usd"], row[utility])
+        xy = (cost / scale, util)
+        ax.scatter(*xy, marker=marker, s=130 if filled else 110,
+                   facecolor=INK if filled else SERIES[3], edgecolor=INK, linewidth=1.5, zorder=8,
+                   label=f"{'' if filled else 'Anchor: '}{row['architecture']}, {_describe(row)}{note}")
+        if row["role"] in label_roles or pinned:
+            text = row["architecture"].split(" (")[0].split(":")[0]
+            lift = 0
+            if pinned:
+                text += f"\nMAU {row[utility]:.2f}, ${row['fleet_cost_usd'] / 1e3:,.0f}k (off view)"
+                lift, n_pinned = 32 * n_pinned, n_pinned + 1
+            ax.annotate(text, xy, xytext=(11, lift) if label_right else (0, 12 + lift), textcoords="offset points",
+                        ha="left" if label_right else "center", va="center" if label_right else "bottom",
+                        fontsize=8.5, color=INK, zorder=8, bbox=LABEL_BOX)
+
+
+def _shrink_marker_handles(legend) -> None:
+    """Undo ``markerscale`` for the reference/anchor entries (it is there to enlarge the tiny scatter dots)."""
+    for handle, text in zip(legend.legend_handles, legend.get_texts()):
+        if text.get_text().startswith(("Reference", "Anchor")):
+            handle.set_sizes([70])
+
+
 def plot_tradespace(df: pd.DataFrame, path: Path, highlight: pd.DataFrame | None = None,
-                    utility: str = "mau", title: str = "Tradespace: utility vs. fleet cost") -> Path:
-    """Scatter utility vs. cost with the Pareto front and utopia point; save to ``path``."""
-    fig, ax = plt.subplots(figsize=(10, 6.2), facecolor=SURFACE)
+                    utility: str = "mau", title: str = "Tradespace: utility vs. fleet cost",
+                    markers: pd.DataFrame | None = None) -> Path:
+    """Scatter utility vs. cost with the Pareto front and utopia point; save to ``path``.
+
+    ``highlight`` rows (the Task 2 table) are circled and labeled; ``markers`` (reference and anchors)
+    get their own symbols and legend entries.
+    """
+    fig, ax = plt.subplots(figsize=(10, 7.4), facecolor=SURFACE)
     _style(ax)
     # Draw the (huge) mixed set first so the rarer road-only and bike-only points stay visible on top.
     for fleet_type, size, alpha in (("mixed", 5, 0.25), ("road-only", 14, 0.7), ("bike-only", 22, 0.85)):
@@ -270,15 +350,99 @@ def plot_tradespace(df: pd.DataFrame, path: Path, highlight: pd.DataFrame | None
             ax.annotate(row["architecture"], xy, xytext=text_xy, textcoords="data",
                         fontsize=8.5, color=INK, zorder=7, va="center",
                         arrowprops=dict(arrowstyle="-", color=INK_2, linewidth=0.8, shrinkA=2, shrinkB=6))
+    # Axis ranges cover the tradespace and the markers that meet Table 1; the rest are pinned to an edge.
+    shown = df if markers is None else pd.concat([df[["fleet_cost_usd", utility]],
+                                                  markers.loc[markers["meets_thresholds"], ["fleet_cost_usd", utility]]])
+    view = ((shown["fleet_cost_usd"].min() * 0.8, shown["fleet_cost_usd"].max() * 1.2),
+            (max(0, shown[utility].min() - 0.05), 1.02))
+    if markers is not None:
+        _draw_markers(ax, markers, utility, view, label_roles=("anchor",), label_right=True, log_x=True)
     _cost_axis(ax)
     ax.set_xlabel("fleet cost ($M, vehicle capital cost, log scale)", fontsize=9, color=INK_2)
     ax.set_ylabel("multi-attribute utility", fontsize=9, color=INK_2)
-    ax.set_ylim(max(0, df[utility].min() - 0.05), 1.02)
-    ax.set_xlim(df["fleet_cost_usd"].min() / 1e6 * 0.8, df["fleet_cost_usd"].max() / 1e6 * 1.2)
-    legend = ax.legend(loc="lower right", frameon=True, fontsize=8.5, markerscale=2.5)
-    legend.get_frame().set_edgecolor(GRID)
+    ax.set_ylim(*view[1])
+    ax.set_xlim(view[0][0] / 1e6, view[0][1] / 1e6)
+    legend = ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.11), ncol=2, frameon=False, fontsize=8.5,
+                       markerscale=2.5)
     for handle in legend.legend_handles:
         handle.set_alpha(1)
+    _shrink_marker_handles(legend)
+    ax.set_title(title, loc="left", fontsize=13, color=INK, fontweight="bold")
+    fig.tight_layout()
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path
+
+
+KNEE_DEPTH = 0.08  # the knee window shows utility from (best MAU - KNEE_DEPTH) up
+KNEE_PLATEAU = 0.002  # ... and cost up to where the front comes within this of the best MAU
+
+
+def knee_window(df: pd.DataFrame, utility: str = "mau",
+                markers: pd.DataFrame | None = None) -> tuple[tuple[float, float], tuple[float, float]]:
+    """(cost range, utility range) of the knee: from the cheapest feasible point to where the front plateaus.
+
+    The x range also covers the reference and the anchors that meet Table 1, so they can be read against
+    the front; anchors that miss it are pinned to the window's edge instead of stretching it.
+    """
+    front = pareto_front(df, utility)
+    best = front[utility].max()
+    plateau = front.loc[front[utility] >= best - KNEE_PLATEAU, "fleet_cost_usd"].iloc[0]
+    costs = [df["fleet_cost_usd"].min(), plateau]
+    if markers is not None:
+        costs += list(markers.loc[markers["meets_thresholds"], "fleet_cost_usd"])
+    lo, hi = min(costs), max(costs)
+    pad = 0.08 * (hi - lo)
+    return (lo - pad, hi + pad), (best - KNEE_DEPTH, best + 0.25 * KNEE_DEPTH)
+
+
+def plot_knee(df: pd.DataFrame, path: Path, markers: pd.DataFrame | None = None, utility: str = "mau",
+              title: str = "Tradespace knee") -> Path:
+    """Zoom on the knee of the front on linear axes, with the reference and anchors.
+
+    Front points are labeled with their fleet; markers outside the window are pinned to its edge
+    with their actual utility and cost in the label.
+    """
+    (x0, x1), (y0, y1) = knee_window(df, utility, markers)
+    fig, ax = plt.subplots(figsize=(10, 7), facecolor=SURFACE)
+    _style(ax)
+    window = df[df["fleet_cost_usd"].between(x0, x1) & df[utility].between(y0, y1)]
+    for fleet_type, size, alpha in (("mixed", 8, 0.3), ("road-only", 20, 0.7), ("bike-only", 26, 0.85)):
+        part = window[window["fleet_type"] == fleet_type]
+        color, marker = TYPE_STYLE[fleet_type]
+        drawn = part.sample(PLOT_SAMPLE, random_state=0) if len(part) > PLOT_SAMPLE else part
+        ax.scatter(drawn["fleet_cost_usd"] / 1e3, drawn[utility], s=size, marker=marker, color=color,
+                   alpha=alpha, linewidths=0, rasterized=True, label=f"{fleet_type} ({len(part):,} in view)")
+    front = pareto_front(df, utility)
+    ax.step(front["fleet_cost_usd"] / 1e3, front[utility], where="post", color=INK, linewidth=2, alpha=0.5,
+            label="Pareto front", zorder=4)
+    shown = front[front["fleet_cost_usd"].between(x0, x1) & front[utility].between(y0, y1)]
+    ax.scatter(shown["fleet_cost_usd"] / 1e3, shown[utility], s=40, facecolor="none", edgecolor=INK,
+               linewidth=1.2, zorder=5)
+    # Label up to KNEE_LABELS front points: the first to reach each of evenly spaced utility levels above
+    # the window's lowest front point (its label would sit among the pinned anchors). Points in the right
+    # 40% of the window get their label on the left so it stays inside the axes.
+    levels = np.linspace(shown[utility].min(), shown[utility].max(), KNEE_LABELS + 1)[1:]
+    picks = sorted({int(np.argmax(shown[utility].to_numpy() >= level)) for level in levels})
+    for _, row in shown.iloc[picks].iterrows():
+        right = row["fleet_cost_usd"] > x0 + 0.6 * (x1 - x0)
+        ax.annotate(_describe(row), (row["fleet_cost_usd"] / 1e3, row[utility]), xytext=(-8 if right else 8, -8),
+                    textcoords="offset points", ha="right" if right else "left", va="top", fontsize=7.5,
+                    color=INK_2, zorder=6, bbox=LABEL_BOX)
+    cost0, util0 = utopia_point(df, utility)
+    ax.scatter([cost0 / 1e3], [util0], marker="*", s=220, color=INK, edgecolor=SURFACE, linewidth=1.5, zorder=6,
+               label="utopia point")
+    if markers is not None:
+        _draw_markers(ax, markers, utility, ((x0, x1), (y0, y1)), scale=1e3)
+    ax.set_xlim(x0 / 1e3, x1 / 1e3)
+    ax.set_ylim(y0, y1)
+    ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"${v:,.0f}k"))
+    ax.set_xlabel("fleet cost ($k, vehicle capital cost, linear scale)", fontsize=9, color=INK_2)
+    ax.set_ylabel("multi-attribute utility", fontsize=9, color=INK_2)
+    legend = ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.11), ncol=2, frameon=False, fontsize=8)
+    for handle in legend.legend_handles:
+        handle.set_alpha(1)
+    _shrink_marker_handles(legend)
     ax.set_title(title, loc="left", fontsize=13, color=INK, fontweight="bold")
     fig.tight_layout()
     fig.savefig(path, dpi=200)
@@ -458,8 +622,9 @@ def _type_rows(df: pd.DataFrame, front: pd.DataFrame, front_ext: pd.DataFrame) -
 def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
     """Write the Task 3 report: the tradespace with fixed e-bike batteries (Appendix B as given) and
     with the removable-battery option, each with its scatter, fleet-size charts and Pareto front."""
-    out_dir.mkdir(parents=True, exist_ok=True)
+    media = media_dir(out_dir)
     highlight = architecture_table(scenario)
+    markers = reference_and_anchor_table(scenario)
     cases = {
         "fixed": ("Fixed e-bike batteries (Appendix B as given)", replace(scenario, bike_spare_options=(0.0,))),
         "removable": ("With removable e-bike batteries (team proposal)", scenario),
@@ -471,15 +636,16 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         front = pareto_front(df)
         front_ext = pareto_front(df, "mau_os3a_extended")
         cost0, util0 = utopia_point(df)
-        front_path = out_dir / f"task3_pareto_front_{key}.csv"
+        front_path = media / f"task3_pareto_front_{key}.csv"
         front.round(4).to_csv(front_path, index=False)
-        png = plot_tradespace(df, out_dir / f"task3_tradespace_{key}.png", highlight,
-                              title=f"Tradespace: {title}")
-        png_ext = plot_tradespace(df, out_dir / f"task3_tradespace_{key}_extended.png", highlight,
-                                  utility="mau_os3a_extended", title=f"Extended MAU: {title}")
-        road_png = plot_fleet_size(df, "road", out_dir / f"task3_fleet_size_road_{key}.png", subtitle=title)
-        bike_png = plot_fleet_size(df, "bike", out_dir / f"task3_fleet_size_bike_{key}.png", subtitle=title)
-        paths += [front_path, png, png_ext, road_png, bike_png]
+        png = plot_tradespace(df, media / f"task3_tradespace_{key}.png", highlight,
+                              title=f"Tradespace: {title}", markers=markers)
+        knee_png = plot_knee(df, media / f"task3_knee_{key}.png", markers, title=f"Knee of the front: {title}")
+        png_ext = plot_tradespace(df, media / f"task3_tradespace_{key}_extended.png", highlight,
+                                  utility="mau_os3a_extended", title=f"Extended MAU: {title}", markers=markers)
+        road_png = plot_fleet_size(df, "road", media / f"task3_fleet_size_road_{key}.png", subtitle=title)
+        bike_png = plot_fleet_size(df, "bike", media / f"task3_fleet_size_bike_{key}.png", subtitle=title)
+        paths += [front_path, png, knee_png, png_ext, road_png, bike_png]
         knee = front[front["mau"] >= 0.94].iloc[0]
         summary.append({
             "case": title,
@@ -492,25 +658,33 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         })
         sections.append(
             f"## {title}\n\n"
-            f"![Tradespace]({png.name})\n\n"
-            f"Utopia point: ${cost0:,.0f} and MAU {util0:.3f}. Circled points are the five Task 2 architectures.\n\n"
+            f"![Tradespace]({media_link(png)})\n\n"
+            f"Utopia point: ${cost0:,.0f} and MAU {util0:.3f}. Circled points are the five Task 2 architectures; "
+            "the filled diamond is the reference architecture and the hollow symbols are the anchors.\n\n"
             f"{_md_table(_type_rows(df, front, front_ext))}\n"
+            "### Knee of the front\n\n"
+            "Linear axes, from the cheapest feasible fleet to where the front comes within "
+            f"{KNEE_PLATEAU} of its best MAU. Labeled front points each add a visible step in utility; "
+            "anchors outside the window are pinned to its edge, with their actual values in the label.\n\n"
+            f"![Knee of the front]({media_link(knee_png)})\n\n"
+            "### Reference architecture and anchors against the front\n\n"
+            f"{_md_table(front_comparison(df, markers))}\n"
             "### Fleet size by vehicle type\n\n"
             "Each panel follows one vehicle type up its fleet-size range (light = few vehicles, dark = many) "
             "against the whole tradespace (gray) and this case's Pareto front; ringed points are on the front.\n\n"
-            f"![Fleet size by road chassis]({road_png.name})\n\n"
-            f"![Fleet size by e-bike frame]({bike_png.name})\n\n"
+            f"![Fleet size by road chassis]({media_link(road_png)})\n\n"
+            f"![Fleet size by e-bike frame]({media_link(bike_png)})\n\n"
             f"### Pareto front ({len(front)} architectures)\n\n"
             f"{_md_table(_front_table(front))}\n"
             "### With the team's extended MAU\n\n"
             f"Scored with the `os3a_extended` weights (adds travel time, PLAN.md Q8; bike share is parked); "
             f"the front has {len(front_ext)} architectures.\n\n"
-            f"![Tradespace with the extended MAU]({png_ext.name})\n\n"
+            f"![Tradespace with the extended MAU]({media_link(png_ext)})\n\n"
         )
     requirements = _requirement_rows(frames["removable"], scenario)
     frames.clear()
     fronts = load_factor_fronts(scenario)
-    lf_png = plot_load_factor_fronts(fronts, out_dir / "task3_load_factor_fronts.png", scenario.load_factor)
+    lf_png = plot_load_factor_fronts(fronts, media / "task3_load_factor_fronts.png", scenario.load_factor)
     lf_rows = pd.DataFrame([{
         "load factor": f"{lf:.0%}",
         "architectures meeting thresholds": f"{f.attrs['architectures']:,}",
@@ -524,8 +698,8 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
     md_path.write_text(
         "# Task 3: Tradespace\n\n"
         f"Generated by `python -m os4` for the scenario *{scenario.name}*. "
-        f"Fleet sizes: road {min(n for n in N_ROAD if n)}–{max(N_ROAD)} step {N_ROAD[2] - N_ROAD[1]}, "
-        f"bikes {min(n for n in N_BIKE if n)}–{max(N_BIKE)} step {N_BIKE[2] - N_BIKE[1]} (PLAN.md Q10). "
+        f"Fleet sizes (PLAN.md Q10), steps widening as fleets grow: road {_segments_text(ROAD_SEGMENTS)}; "
+        f"bikes {_segments_text(BIKE_SEGMENTS)}. "
         "Dominated vehicle variants are pruned first (`prune_variants`), so every road vehicle in the space is A3. "
         "Peak throughput is the demand actually served (Q11) and costs are vehicle capital only (Q15).\n\n"
         "The tradespace is run twice: with **fixed e-bike batteries** (Appendix B as given), and with the team's "
@@ -534,6 +708,17 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"{', '.join(f'{k:g}' for k in scenario.bike_spare_options if k > 0)} spare packs per bike (each spare adds "
         "its battery and a charger slot to the bike's cost). Pruning keeps only the spare counts worth buying.\n\n"
         f"{_md_table(pd.DataFrame(summary))}\n"
+        "## Reference architecture and anchors\n\n"
+        "The **reference** (PLAN.md F, proposed) was chosen from design reasoning before reading the "
+        "tradespace: C4 8-seat shuttles (MIT P&T's \"small on-demand EV shuttles from a central hub\"), A3 (the "
+        "minimum inside the boundary), M2 (smallest motor at the speed cap), G3 (fastest charger) and P2 (about a "
+        "service day of range), sized by load management at the peak, f >= P / (X * C_car) with X = 0.90. "
+        "The **anchors** (Q16) are today's services run through the same model (`data/anchors.csv`): the "
+        "Appendix C chassis closest to the real vehicle (C8, 30 seats, for buses; C6, 16 seats, for the 14-seat "
+        "MIT shuttles) at its cheapest spec that reaches the speed cap and the 0.75 availability benchmark. A "
+        "headway anchor gets the fewest vehicles whose model headway is at most the published one; the MIT "
+        "shuttles use their known fleet of 5.\n\n"
+        f"{_md_table(_marker_table(markers))}\n"
         "## Requirements (Table 1)\n\n"
         "Thresholds screen architectures out before scoring; desired goals and the availability benchmark are "
         "flags only. Counts are over the whole grid (removable-battery case) before screening.\n\n"
@@ -547,11 +732,62 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "Appendix B assumes trips average 75% full; the model keeps 0.75 as the baseline. The same design space "
         "scored at 25%, 50%, 75% and 100% (the removable-battery case, which also contains every fixed-battery "
         "option):\n\n"
-        f"![Pareto front by load factor]({lf_png.name})\n\n"
+        f"![Pareto front by load factor]({media_link(lf_png)})\n\n"
         f"{_md_table(lf_rows)}\n"
         + "".join(sections)
     )
     return paths + [md_path]
+
+
+def _marker_table(markers: pd.DataFrame) -> pd.DataFrame:
+    """Reference and anchors in the Task 2 table's terms, plus model vs. published headway."""
+    t = pd.DataFrame({
+        "architecture": markers["architecture"],
+        "role": markers["role"],
+        "fleet": markers.apply(_describe, axis=1),
+        "published headway (min)": markers["published_headway_min"].map(lambda h: "-" if pd.isna(h) else f"{h:g}"),
+        "model headway (min)": markers["model_headway_min"].round(1),
+        "capacity (trips/h)": markers["fleet_capacity_per_h"].round(0),
+        "wait (min)": markers["wait_time"].round(1),
+        "availability": markers["availability"].round(3),
+        "MAU": markers["mau"].round(3),
+        "fleet cost": markers["fleet_cost_usd"].map(lambda c: f"${c:,.0f}"),
+        "meets thresholds": markers["meets_thresholds"],
+    })
+    return t
+
+
+def front_comparison(df: pd.DataFrame, markers: pd.DataFrame, utility: str = "mau") -> pd.DataFrame:
+    """Where each reference/anchor sits against the Pareto front of ``df``.
+
+    ``same utility, cheapest`` is the cheapest front architecture with at least the marker's utility;
+    ``same cost, best`` is the best front architecture costing no more. The marker is dominated if
+    either beats it (the first strictly on cost, the second strictly on utility).
+    """
+    front = pareto_front(df, utility)
+    rows = []
+    for _, m in markers.iterrows():
+        cheaper = front[front[utility] >= m[utility]].head(1)
+        better = front[front["fleet_cost_usd"] <= m["fleet_cost_usd"]].tail(1)
+        dominated = ((len(cheaper) and cheaper["fleet_cost_usd"].iloc[0] < m["fleet_cost_usd"])
+                     or (len(better) and better[utility].iloc[0] > m[utility]))
+        rows.append({
+            "architecture": m["architecture"],
+            "fleet": _describe(m),
+            "MAU": round(m[utility], 3),
+            "cost": f"${m['fleet_cost_usd']:,.0f}",
+            "meets thresholds": bool(m["meets_thresholds"]),
+            "dominated": bool(dominated),
+            "same utility, cheapest": "-" if cheaper.empty else
+            f"{_describe(cheaper.iloc[0])}: ${cheaper['fleet_cost_usd'].iloc[0]:,.0f}",
+            "same cost, best": "-" if better.empty else
+            f"{_describe(better.iloc[0])}: MAU {better[utility].iloc[0]:.3f}",
+        })
+    return pd.DataFrame(rows)
+
+
+def _segments_text(segments) -> str:
+    return ", ".join(f"{a}–{b} step {c}" for a, b, c in segments)
 
 
 def _describe(row: pd.Series) -> str:

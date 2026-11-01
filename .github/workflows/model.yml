@@ -52,7 +52,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            outputs/os4_model.xlsx outputs/*.csv outputs/*.png outputs/*.md \
+            outputs/*.md outputs/media/* \
             --title "OS4 model $GITHUB_REF_NAME" --generate-notes
 
   pages:

@@ -4,7 +4,7 @@ import re
 import pytest
 
 from os4.scenario import primary_scenario
-from os4.site import arch_id, case_frames, highlight_architectures, sample_rows, write_site
+from os4.site import arch_id, case_frames, highlight_architectures, sample_rows, write_reports, write_site
 from os4.tradespace import pareto_front
 
 GRID = {"n_road": (0, 5, 10, 20), "n_bike": (0, 25, 50, 100)}
@@ -15,7 +15,7 @@ ASSIGN = re.compile(r'^window\.OS4 = window\.OS4 \|\| \{\};\nwindow\.OS4\["(\w+)
 @pytest.fixture(scope="module")
 def site(tmp_path_factory):
     out = tmp_path_factory.mktemp("site")
-    paths = write_site(primary_scenario(), out, mixed_cap=CAP, **GRID)
+    paths = write_site(primary_scenario(), out, mixed_cap=CAP, reports_dir=None, **GRID)
     return out, paths
 
 
@@ -131,3 +131,21 @@ def test_components_reference(site):
     assert list(road) == ["C", "P", "G", "M", "A"] and list(bike) == ["B", "E", "G", "K"]
     assert len(road["C"]["rows"]) == 8 and road["C"]["rows"][4]["id"] == "C5"
     assert {r["id"] for r in road["A"]["rows"]} == {"A3", "A4", "A5"}
+
+
+def test_reports_are_rendered_with_their_images(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "task9_demo.md").write_text(
+        "# Demo report\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n![Chart](media/chart.png)\n", encoding="utf-8")
+    (src / "media").mkdir()
+    (src / "media" / "chart.png").write_bytes(b"png")
+    out = tmp_path / "site"
+    out.mkdir()
+    paths = write_reports(src, out)
+    page = (out / "report_task9_demo.html").read_text(encoding="utf-8")
+    assert "<title>OS4 · Demo report</title>" in page
+    assert '<div class="table-wrap"><table>' in page
+    assert 'src="img/chart.png"' in page and (out / "img" / "chart.png").exists()
+    assert 'href="report_task9_demo.html"' in (out / "reports.html").read_text(encoding="utf-8")
+    assert out / "reports.html" in paths

@@ -225,3 +225,9 @@ dd.parts { white-space: pre-line; font-size: 0.9em; }
   padding: 7px 9px; font-size: 12px; line-height: 1.4; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
 }
 .tooltip .parts { color: var(--ink-2); font-size: 11px; margin-bottom: 4px; }
+
+/* rendered Markdown reports (site.write_reports) */
+.report img { display: block; max-width: 100%; height: auto; margin: 0.8rem 0; border: 1px solid var(--border); border-radius: 8px; }
+.report .table-wrap { margin: 0.6rem 0 1rem; }
+.report th, .report td { text-align: left; vertical-align: top; white-space: normal; }
+.report blockquote { margin: 0.6rem 0; padding: 0.2rem 0.9rem; border-left: 3px solid var(--border); color: var(--ink-2); }

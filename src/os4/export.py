@@ -1,4 +1,4 @@
-"""Write the model to ``outputs/os4_model.xlsx`` for the ZIP submission.
+"""Write the model to ``outputs/media/os4_model.xlsx`` for the ZIP submission.
 
 Task 1 sheets use live Excel formulas (SAU interpolation, weighted MAU, rank) so
 a grader can trace every number; a ``python`` column beside each result holds
@@ -30,7 +30,7 @@ from os4.utility import (
 from os4.vehicle import all_variants
 
 OUTPUT_DIR = Path(__file__).resolve().parents[2] / "outputs"
-MODEL_PATH = OUTPUT_DIR / "os4_model.xlsx"
+MODEL_PATH = OUTPUT_DIR / "media" / "os4_model.xlsx"
 
 BOLD = Font(bold=True)
 TITLE = Font(bold=True, size=13)

@@ -4,9 +4,12 @@ This is the single entry point Tasks 3-6 call; swap the ``Scenario`` to
 re-evaluate the same architectures under different conditions.
 """
 
+import math
+
 import numpy as np
 import pandas as pd
 
+from os4.data import load
 from os4.fleet import (
     Fleet,
     average_wait_min,
@@ -26,6 +29,16 @@ from os4.vehicle import get_variant
 
 # One road and one bike variant to work by hand (tests/test_vehicle.py checks them).
 HAND_CALC_VARIANTS = ("C2-P2-G3-M2-A3", "B2-E1-G2-K2")
+
+# F (proposed, for the group to confirm): the Task 3 reference architecture, chosen from design
+# reasoning rather than from the tradespace. C4: the "small on-demand EV shuttles from a central hub"
+# MIT P&T asked for [15]; A3: the minimum autonomy inside the boundary; M2: the smallest motor that
+# reaches the speed cap; G3: the fastest charger, for availability; P2: the smallest pack that covers a
+# service day (~18 h at 21 km/h = ~380 km).
+REFERENCE_VARIANT = "C4-P2-G3-M2-A3"
+# Fleet sized by load management at the peak load point [5]: f >= P / (X * C_car), with X = 0.90
+# (the textbook example's value; choosing X is open, see CLAUDE.md "Fleet sizing").
+REFERENCE_MAX_LOAD_RATIO = 0.90
 
 
 def meets_thresholds(capacity, volume, scenario: Scenario):
@@ -123,6 +136,56 @@ def architecture_table(scenario: Scenario) -> pd.DataFrame:
     archs = representative_architectures(scenario)
     table = evaluate_many(list(archs.values()), scenario)
     table.insert(0, "architecture", list(archs))
+    return table
+
+
+def reference_architecture(scenario: Scenario) -> Fleet:
+    """Task 3 reference architecture (F): ``REFERENCE_VARIANT`` sized by load management.
+
+    Departures needed f = P / (X * pax * load factor) at the peak; vehicles needed
+    N = f * cycle / 60 / availability, rounded up.
+    """
+    vehicle = get_variant(REFERENCE_VARIANT, scenario)
+    f = scenario.peak_demand_per_h / (REFERENCE_MAX_LOAD_RATIO * vehicle["pax"] * scenario.load_factor)
+    n = math.ceil(f * cycle_time_min(vehicle, scenario) / 60.0 / vehicle["availability"])
+    return Fleet(road=vehicle, n_road=n)
+
+
+def anchor_architectures(scenario: Scenario) -> dict[str, Fleet]:
+    """Anchors (Q16): today's shuttle and bus services, run through the same model.
+
+    Each anchor (``data/anchors.csv``) is either a published headway or a known fleet size, from OS3A.
+    The vehicle is the Appendix C chassis closest to the real one (C8, 30 seats, for buses; C6, 16 seats,
+    for the 14-seat MIT shuttles) at its cheapest spec that reaches the speed cap and meets the
+    Appendix B 0.75 availability benchmark for competing systems. A headway anchor's fleet is the fewest
+    vehicles whose model headway, 60 / departures, is at most the published one.
+    """
+    fleets = {}
+    for _, a in load("anchors").iterrows():
+        vehicle = get_variant(a["road_variant"], scenario)
+        if pd.notna(a["n_vehicles"]):
+            n = int(a["n_vehicles"])
+        else:
+            n = math.ceil(cycle_time_min(vehicle, scenario) / (a["headway_min"] * vehicle["availability"]))
+        fleets[a["name"]] = Fleet(road=vehicle, n_road=n)
+    return fleets
+
+
+def reference_and_anchor_table(scenario: Scenario) -> pd.DataFrame:
+    """The reference architecture and the anchors, scored like the Task 2 table.
+
+    Adds ``role`` ("reference" or "anchor"), the model's headway at the Kendall hub and, for anchors,
+    the published headway it was sized to.
+    """
+    fleets = {"Reference: C4 small shuttles": reference_architecture(scenario)} | anchor_architectures(scenario)
+    table = evaluate_many(list(fleets.values()), scenario)
+    table.insert(0, "architecture", list(fleets))
+    table.insert(1, "role", ["reference"] + ["anchor"] * (len(fleets) - 1))
+    table["model_headway_min"] = [
+        60.0 / sum(n * v["availability"] * 60.0 / cycle_time_min(v, scenario) for v, n in f.members())
+        for f in fleets.values()
+    ]
+    table["published_headway_min"] = [np.nan] + list(load("anchors")["headway_min"].astype(float))
     return table
 
 
