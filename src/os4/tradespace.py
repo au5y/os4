@@ -660,7 +660,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
             f"## {title}\n\n"
             f"![Tradespace]({media_link(png)})\n\n"
             f"Utopia point: ${cost0:,.0f} and MAU {util0:.3f}. Circled points are the five Task 2 architectures; "
-            "the filled diamond is the reference architecture and the hollow symbols are the anchors.\n\n"
+            "the filled diamond is the reference architecture and the yellow-filled symbols are the anchors.\n\n"
             f"{_md_table(_type_rows(df, front, front_ext))}\n"
             "### Knee of the front\n\n"
             "Linear axes, from the cheapest feasible fleet to where the front comes within "

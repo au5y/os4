@@ -32,12 +32,13 @@ HAND_CALC_VARIANTS = ("C2-P2-G3-M2-A3", "B2-E1-G2-K2")
 
 # F (proposed, for the group to confirm): the Task 3 reference architecture, chosen from design
 # reasoning rather than from the tradespace. C4: the "small on-demand EV shuttles from a central hub"
-# MIT P&T asked for [15]; A3: the minimum autonomy inside the boundary; M2: the smallest motor that
-# reaches the speed cap; G3: the fastest charger, for availability; P2: the smallest pack that covers a
-# service day (~18 h at 21 km/h = ~380 km).
+# MIT P&T asked for [[15]](references.md#ref-15); A3: the minimum autonomy inside the boundary;
+# M2: the smallest motor that reaches the speed cap; G3: the fastest charger, for availability;
+# P2: the smallest pack that covers a service day (~18 h at 21 km/h = ~380 km).
 REFERENCE_VARIANT = "C4-P2-G3-M2-A3"
-# Fleet sized by load management at the peak load point [5]: f >= P / (X * C_car), with X = 0.90
-# (the textbook example's value; choosing X is open, see CLAUDE.md "Fleet sizing").
+# Fleet sized by load management at the peak load point [[5]](references.md#ref-5):
+# f >= P / (X * C_car), with X = 0.90 (the textbook example's value; choosing X is open, see
+# CLAUDE.md "Fleet sizing").
 REFERENCE_MAX_LOAD_RATIO = 0.90
 
 
