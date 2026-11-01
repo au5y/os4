@@ -217,3 +217,11 @@ a.export:hover { filter: brightness(1.08); }
 td.decoded { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
 dd.parts { white-space: pre-line; font-size: 0.9em; }
 .components-table caption { text-align: left; font-weight: 600; padding: 0.4rem 0; }
+
+/* Floating tip for any [data-tip] element (component decoding, fleet types) */
+.hovertip {
+  position: fixed; z-index: 50; pointer-events: none; max-width: 380px; white-space: pre-line;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 9px; font-size: 12px; line-height: 1.4; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+}
+.tooltip .parts { color: var(--ink-2); font-size: 11px; margin-bottom: 4px; }

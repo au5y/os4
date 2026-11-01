@@ -573,6 +573,10 @@
     const C = c.C;
     tip.textContent = "";
     tip.appendChild(el("div", { class: "t", text: rowId(c, i) }));
+    for (const k of ["road_variant", "bike_variant"]) {
+      const lines = U.decodeShort(C.get(i, k));
+      if (lines.length) tip.appendChild(el("div", { class: "parts", text: lines.join(" · ") }));
+    }
     const row = (label, value) => tip.appendChild(el("div", { class: "row" }, [el("span", { text: label }), el("span", { class: "v", text: value })]));
     row("fleet cost", U.money(C.get(i, "fleet_cost_usd")));
     for (const u of c.P.utilities) row(U.label(u), U.fmt(u, C.get(i, u)));

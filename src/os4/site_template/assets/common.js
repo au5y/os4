@@ -225,6 +225,33 @@
     if (kind === "bike" && !parts.some((p) => /^S/.test(p))) lines.push("fixed battery (Appendix B); L4 autonomy built into the frame");
     return lines.length ? lines.join("\n") : null;
   };
+  // One short line per part, for tooltips: "C2 chassis: 4 seats", "P2 battery: 100 kWh", ...
+  const KEY_FIELD = { chassis: "pax", frame: "pax", battery: "capacity_kwh", charger: "power_kw", motor: "power_kw", autonomy: "sae_level" };
+  U.decodeShort = function (id) {
+    if (typeof id !== "string") return [];
+    COMPONENTS = COMPONENTS || componentIndex();
+    const parts = id.split("-");
+    const kind = /^C\d/.test(parts[0]) ? "road" : /^B\d/.test(parts[0]) ? "bike" : null;
+    if (!kind) return [];
+    const out = [];
+    for (const p of parts) {
+      if (/^S[\d.]+$/.test(p)) { out.push(p + ": removable battery, " + p.slice(1) + " spare(s)/bike"); continue; }
+      const e = COMPONENTS[kind][p];
+      if (!e) continue;
+      const f = KEY_FIELD[e.table.part];
+      const v = e.row[f];
+      const unit = { pax: v == 1 ? " seat" : " seats", capacity_kwh: " kWh", power_kw: " kW" }[f] || "";
+      out.push(p + " " + e.table.part + ": " + (f === "sae_level" ? "SAE L" + v : v + unit));
+    }
+    if (kind === "bike" && !parts.some((p) => /^S/.test(p))) out.push("fixed battery");
+    return out;
+  };
+  U.FLEET_TYPE_TIPS = {
+    "road-only": "Road vehicles only: one Appendix C vehicle design × N",
+    "bike-only": "Autonomous e-bikes only: one Appendix D bike design × N",
+    mixed: "One road-vehicle design × N plus one e-bike design × N",
+  };
+
   // Decode every variant id inside a string such as "12×C2-P2-G3-M2-A3 + 60×B2-E1-G2-K2".
   U.decodeText = function (text) {
     if (typeof text !== "string") return null;
@@ -232,6 +259,58 @@
     if (!ids) return null;
     return ids.map((id) => id + "\n" + (U.decodeVariant(id) || "")).join("\n\n");
   };
+
+  // ---------- hover tips ----------
+  // Any element with data-tip shows it in a floating box: immediately on hover, or on tap (touch).
+  // Replaces the browser's native title tooltip, which is slow and absent on touch screens.
+  (function () {
+    let box = null;
+    let owner = null;
+    function ensure() {
+      if (!box) {
+        box = document.createElement("div");
+        box.className = "hovertip";
+        box.hidden = true;
+        document.body.appendChild(box);
+      }
+      return box;
+    }
+    function place(x, y) {
+      const b = ensure();
+      const w = b.offsetWidth, h = b.offsetHeight;
+      const left = x + 14 + w > window.innerWidth ? Math.max(4, x - w - 14) : x + 14;
+      const top = y + 16 + h > window.innerHeight ? Math.max(4, y - h - 10) : y + 16;
+      b.style.left = left + "px";
+      b.style.top = top + "px";
+    }
+    function show(target, x, y) {
+      const b = ensure();
+      b.textContent = target.dataset.tip;
+      b.hidden = false;
+      owner = target;
+      place(x, y);
+    }
+    function hide() {
+      if (box) box.hidden = true;
+      owner = null;
+    }
+    // Track the pointer on every move, so the tip also comes back after a scroll hid it.
+    document.addEventListener("mousemove", (e) => {
+      const t = e.target.closest && e.target.closest("[data-tip]");
+      if (!t) return owner && hide();
+      if (t !== owner || box.hidden) show(t, e.clientX, e.clientY);
+      else place(e.clientX, e.clientY);
+    });
+    document.addEventListener("mouseleave", hide);
+    document.addEventListener("touchstart", (e) => {
+      const t = e.target.closest && e.target.closest("[data-tip]");
+      if (!t) return hide();
+      const p = e.touches[0];
+      if (owner === t) hide();
+      else show(t, p.clientX, p.clientY);
+    }, { passive: true });
+    window.addEventListener("scroll", hide, { passive: true });
+  })();
 
   // ---------- header ----------
   const PAGES = [
@@ -345,9 +424,9 @@
       } else if (typeof v === "boolean") {
         td.appendChild(U.el("span", { class: v ? "yes" : "no", text: v ? "✓ yes" : "– no" }));
       } else td.textContent = c.fmt ? c.fmt(v, r) : U.fmt(c.key, v);
-      const decoded = U.decodeText(v);
+      const decoded = U.decodeText(v) || (c.key === "fleet_type" ? U.FLEET_TYPE_TIPS[v] : null);
       if (decoded) {
-        td.title = decoded;
+        td.dataset.tip = decoded;
         td.classList.add("decoded");
       }
       return td;
