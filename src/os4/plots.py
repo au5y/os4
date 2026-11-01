@@ -162,3 +162,180 @@ def write_task1(out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"{_md_table(sensitivity.round(3))}"
     )
     return [csv_path, mau_path, sens_path, md_path, sau_png, mau_png]
+
+
+# --- Task 2 ------------------------------------------------------------------
+
+ARCH_COLUMNS = {
+    "architecture": "architecture",
+    "road_variant": "road vehicle",
+    "n_road": "N road",
+    "bike_variant": "bike",
+    "n_bike": "N bike",
+    "road_speed_kmh": "road speed (km/h)",
+    "road_range_km": "road range (km)",
+    "bike_speed_kmh": "bike speed (km/h)",
+    "bike_range_km": "bike range (km)",
+    "fleet_capacity_per_h": "fleet throughput (trips/h)",
+    "passenger_volume": "volume (trips/day)",
+    "wait_time": "avg wait (min)",
+    "availability": "availability",
+    "road_cost_usd": "road vehicle cost",
+    "bike_cost_usd": "bike cost",
+    "fleet_cost_usd": "fleet cost",
+    "mau": "MAU",
+}
+
+
+def plot_architectures(table: pd.DataFrame, path: Path) -> Path:
+    """Two small multiples: each architecture's MAU split by weighted attribute, and its fleet cost."""
+    weights = load_weights()
+    table = table.sort_values("mau").reset_index(drop=True)
+    fig, (ax_u, ax_c) = plt.subplots(1, 2, figsize=(11, 3.9), facecolor=SURFACE, sharey=True,
+                                     gridspec_kw={"width_ratios": [3, 2]})
+    y = np.arange(len(table))
+    left = np.zeros(len(table))
+    _style(ax_u)
+    ax_u.grid(axis="y", visible=False)
+    for color, a in zip(SERIES, ATTRIBUTES):
+        width = weights[a] * table[f"u_{a}"].to_numpy()
+        ax_u.barh(y, width, left=left, height=0.55, color=color, edgecolor=SURFACE, linewidth=2,
+                  label=f"{LABELS[a][0]} (k={weights[a]:.2f})")
+        left += width
+    for yi, total in zip(y, table["mau"]):
+        ax_u.text(total + 0.01, yi, f"{total:.3f}", va="center", fontsize=9, color=INK, fontweight="bold")
+    ax_u.set_yticks(y, table["architecture"], fontsize=9, color=INK)
+    ax_u.set_xlim(0, 1.12)
+    ax_u.set_xlabel("multi-attribute utility  U = Σ kᵢ·uᵢ", fontsize=9, color=INK_2)
+    ax_u.set_title("MAU, split by weighted attribute", loc="left", fontsize=11, color=INK, fontweight="bold")
+    ax_u.legend(loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2, frameon=False, fontsize=8)
+
+    _style(ax_c)
+    ax_c.grid(axis="y", visible=False)
+    cost = table["fleet_cost_usd"].to_numpy() / 1e3
+    ax_c.barh(y, cost, height=0.55, color=INK_2, edgecolor=SURFACE, linewidth=2)
+    for yi, c in zip(y, cost):
+        ax_c.text(c + cost.max() * 0.02, yi, f"${c:,.0f}k", va="center", fontsize=9, color=INK)
+    ax_c.set_xlim(0, cost.max() * 1.3)
+    ax_c.set_xlabel("fleet cost ($k, vehicle capital)", fontsize=9, color=INK_2)
+    ax_c.set_title("Fleet cost", loc="left", fontsize=11, color=INK, fontweight="bold")
+    fig.suptitle("Five Task 2 architectures (primary scenario)", x=0.02, ha="left", fontsize=13, color=INK,
+                 fontweight="bold")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path
+
+
+def plot_variants(variants: pd.DataFrame, scenario, path: Path) -> Path:
+    """Availability vs. vehicle cost for every variant, and the uncapped road speeds against the cap."""
+    from os4.vehicle import BENCHMARK_AVAILABILITY, formula_speed_kmh
+
+    fig, (ax_a, ax_s) = plt.subplots(1, 2, figsize=(11, 4.2), facecolor=SURFACE)
+    _style(ax_a)
+    for (kind, label), color, marker in zip((("road", "road EV"), ("bike", "e-bike")), SERIES, ("o", "^")):
+        part = variants[variants["kind"] == kind]
+        ax_a.scatter(part["cost_usd"], part["availability"], s=14, marker=marker, color=color, alpha=0.6,
+                     linewidths=0, label=f"{label} ({len(part):,} variants)")
+    ax_a.axhline(BENCHMARK_AVAILABILITY, color=INK, linewidth=1.2, linestyle=(0, (4, 3)))
+    ax_a.annotate("benchmark 0.75", (variants["cost_usd"].min(), BENCHMARK_AVAILABILITY), xytext=(2, 4),
+                  textcoords="offset points", fontsize=8.5, color=INK)
+    ax_a.set_xscale("log")
+    ax_a.set_xlabel("vehicle cost ($, log scale)", fontsize=9, color=INK_2)
+    ax_a.set_ylabel("availability", fontsize=9, color=INK_2)
+    ax_a.set_ylim(0, 1)
+    ax_a.legend(loc="lower right", frameon=False, fontsize=8.5, markerscale=1.5)
+    ax_a.set_title("Availability: no e-bike reaches the benchmark", loc="left", fontsize=11, color=INK,
+                   fontweight="bold")
+
+    _style(ax_s)
+    road = variants[variants["kind"] == "road"]
+    raw = formula_speed_kmh(np.array([_motor_kw(m) for m in road["motor"]]), road["weight_kg"].to_numpy())
+    ax_s.hist(raw, bins=np.arange(0, raw.max() + 5, 5), color=SERIES[0], edgecolor=SURFACE, linewidth=2)
+    top = ax_s.get_ylim()[1]
+    for x, text, height in ((scenario.speed_limit_kmh, f"model cap {scenario.speed_limit_kmh:.0f} km/h", 0.95),
+                            (32.0, "posted 20 mph (32 km/h)", 0.85)):
+        ax_s.axvline(x, color=INK, linewidth=1.2, linestyle=(0, (4, 3)))
+        ax_s.annotate(text, (x, top * height), xytext=(5, 0), textcoords="offset points",
+                      fontsize=8.5, color=INK, va="center",
+                      bbox=dict(boxstyle="square,pad=0.15", facecolor=SURFACE, edgecolor="none"))
+    share = float((raw > scenario.speed_limit_kmh).mean())
+    ax_s.set_xlabel("Appendix B speed 700·P/W before the cap (km/h)", fontsize=9, color=INK_2)
+    ax_s.set_ylabel("road variants", fontsize=9, color=INK_2)
+    ax_s.set_title(f"Road speed: {share:.0%} of variants hit the cap", loc="left", fontsize=11, color=INK,
+                   fontweight="bold")
+    fig.tight_layout()
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path
+
+
+def _motor_kw(motor_id: str) -> float:
+    from os4.data import load
+
+    motors = load("road_motor").set_index("id")["power_kw"]
+    return float(motors[motor_id])
+
+
+def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
+    """Write the Task 2 CSVs, both figures, and a Markdown report embedding them."""
+    from os4.model import architecture_table, hand_calc_check
+    from os4.vehicle import all_variants
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    variants = all_variants(scenario)
+    table = architecture_table(scenario)
+    var_path = out_dir / "task2_variants.csv"
+    arch_path = out_dir / "task2_architectures.csv"
+    variants.round(4).to_csv(var_path, index=False)
+    table.round(4).to_csv(arch_path, index=False)
+    arch_png = plot_architectures(table, out_dir / "task2_architectures.png")
+    var_png = plot_variants(variants, scenario, out_dir / "task2_variants.png")
+
+    shown = table[list(ARCH_COLUMNS)].rename(columns=ARCH_COLUMNS).copy()
+    for col in ("road vehicle cost", "bike cost", "fleet cost"):
+        shown[col] = shown[col].map(lambda c: "-" if pd.isna(c) else f"${c:,.0f}")
+    shown = shown.round(2).fillna("-")
+    inputs = pd.DataFrame([
+        ("Road average-speed cap", f"{scenario.speed_limit_kmh:g} km/h", "Q3: 20 mph posted; signals hold peak speed near 13 mph"),
+        ("E-bike speed", f"{scenario.bike_assisted_speed_kmh:g} km/h", "Q5: fixed assist instead of 700·P/W"),
+        ("Trip length (road / bike)", f"{scenario.avg_trip_km:g} / {scenario.bike_trip_km:g} km", "Q13: Kendall links measured on OSRM (Q1)"),
+        ("Empty return (deadhead)", f"{scenario.deadhead_fraction:g} × trip", "Q13 (open): vehicles return to Kendall empty"),
+        ("Dwell / load factor", f"{scenario.dwell_s:g} s / {scenario.load_factor:g}", "Appendix B"),
+        ("Throughput MoP", scenario.throughput_measure, "Q11 (open)"),
+        ("Demand", f"peak {scenario.peak_demand_per_h:g} trips/h, "
+                   f"{scenario.demand['trips_per_hour'].sum() * scenario.demand_bin_h:,.0f} trips/day", "Appendix B, Kendall origin"),
+    ], columns=["input", "value", "source"])
+    hand = hand_calc_check(scenario)[["variant_id", "weight_kg", "cost_usd", "wh_per_km", "range_km", "speed_kmh",
+                                      "availability", "cycle_min", "capacity_per_vehicle_h"]].round(3)
+    md_path = out_dir / "task2_model.md"
+    md_path.write_text(
+        "# Task 2: System model\n\n"
+        f"Generated by `python -m os4` for the scenario *{scenario.name}*. "
+        f"{len(variants):,} feasible vehicle variants "
+        f"({(variants['kind'] == 'road').sum():,} road, {(variants['kind'] == 'bike').sum()} e-bike) after the battery "
+        "weight limits.\n\n"
+        "## Scenario inputs\n\n"
+        f"{_md_table(inputs)}\n"
+        "## Equations\n\n"
+        "- **Vehicle (Appendix B):** weight = components + 100 kg × pax; Wh/km = nominal + 0.1 × (weight − chassis) "
+        "+ autonomy; range = kWh × 1000 / (Wh/km); speed = min(700 × kW / kg, cap); charge = kWh / kW; "
+        "up-time = range / speed; down-time = charge + 0.25 h; availability = up / (up + down).\n"
+        "- **Fleet:** cycle = trip × (1 + deadhead) / speed + dwell; capacity per vehicle = 60 / cycle × pax × 0.75; "
+        "fleet capacity = Σ N × availability × capacity per vehicle; volume = Σ over 2-h bins of min(demand, capacity) × 2.\n"
+        "- **Wait (Q12):** headway / 2 at the Kendall hub, × 1 / (1 − ρ) as demand nears capacity, capped at "
+        f"{scenario.max_wait_min:g} min, demand-weighted over the day. **Availability (Q14):** capacity-weighted.\n\n"
+        "## Five architectures\n\n"
+        f"![MAU and fleet cost of the five architectures]({arch_png.name})\n\n"
+        f"{_md_table(shown)}\n"
+        "## Vehicle variants\n\n"
+        f"![Availability vs. cost and uncapped road speeds]({var_png.name})\n\n"
+        "E-bikes reach only 0.14–0.42 availability under Appendix B: small batteries and slow chargers mean they "
+        "charge far longer than they ride. Most road variants hit the speed cap, so motors above M2 rarely add speed.\n\n"
+        "## Hand-calculation check\n\n"
+        "Worked by hand from Appendix B and asserted in `tests/test_vehicle.py` and `tests/test_fleet.py`:\n\n"
+        f"{_md_table(hand)}\n"
+        "Full data: `task2_variants.csv`, `task2_architectures.csv`, and the Variants / Architectures sheets of "
+        "`os4_model.xlsx` (formulas).\n"
+    )
+    return [var_path, arch_path, arch_png, var_png, md_path]
