@@ -1,4 +1,7 @@
 # Team - H1-13 OS4
+
+> **📊 Results explorer: https://au5y.github.io/os4/** — interactive Tasks 1–3 (utility curves, architecture candidates, tradespace with Pareto fronts). Rebuilt by CI on every push to `main`; live once [PR #1](https://github.com/au5y/os4/pull/1) is merged.
+
 ## Authors
 - Sanjay Bisht
 - Yonis Aliyow
@@ -7,42 +10,61 @@
 
 Models for **EM.411 Systems Engineering, Opportunity Set #4: Tradespace Exploration and Concept Selection** (Fall 2026).
 
-The assignment asks for a tradespace exploration of an autonomous, battery-electric surface transportation system serving East Cambridge (Cambridge Crossing/Lechmere, Central Square, MIT/Kendall Square). The system can use autonomous road vehicles, autonomous e-bikes, or both. The full assignment is in [`resources/OS4_FA26_v1.pdf`](resources/OS4_FA26_v1.pdf).
+The assignment asks for a tradespace exploration of an autonomous, battery-electric surface transportation system serving East Cambridge (Cambridge Crossing/Lechmere, Central Square, MIT/Kendall Square). The system can use autonomous road vehicles, autonomous e-bikes (the assignment's "autonomous bicycles", Appendix D), or both. The full assignment is in [`resources/OS4_FA26_v1.pdf`](resources/OS4_FA26_v1.pdf) and the grading rubric in [`resources/rubric.md`](resources/rubric.md).
 
-> **Status:** Task 1 (SAU/MAU) is implemented and tested, and writes its table and figures to `outputs/`. The Task 2+ model functions are still stubbed with their signatures and docstrings. Tests for unimplemented functions are marked as expected failures and start passing as each function is filled in.
+## Status
+
+| Task | Weight | Topic | Status | Code |
+|------|--------|-------|--------|------|
+| 1 | 10% | Stakeholder utility (SAU → MAU, Cases A–C) | Done: hand calcs (Yonis) and code agree; Table 4 validation; proposed weights | `utility.py` |
+| 2 | 25% | Technical system model, 5 architecture instances | Model done; the five architectures are placeholders (Q17: Austin picks) | `scenario.py`, `vehicle.py`, `fleet.py`, `model.py` |
+| 3 | 20% | Tradespace, Pareto frontier, reference architecture | Tradespace and fronts done; reference and three picks open (F, G) | `tradespace.py` |
+| 4 | 15% | Second operating scenario | On hold (Q20) | `scenario.task4_scenario` (stub) |
+| 5 | 20% | Concept recommendation | Not started | slides |
+| 6 | 10% | Life-cycle / extensibility memo | Not started | slides |
+
+**Due:** Thursday, November 12, 2026, 10:00am. The slides go to Canvas as a single PDF; the model (this code plus `outputs/os4_model.xlsx`) is submitted separately as a ZIP.
+
+Every modeling decision and open question is in [`docs/PLAN.md`](docs/PLAN.md) (questions are numbered **Q#**; code that depends on one is tagged with its number). The main ones so far:
+
+- **Scenario:** weekday on-demand last-mile service from a Kendall hub to Lechmere and Central; links 1.9 / 1.6 / 3.3 km measured on OpenStreetMap; road speed capped at 21 km/h (20 mph posted, signals); e-bikes a fixed 18 km/h assist.
+- **MoPs:** peak throughput is the demand actually served (Q11); availability is *service* availability, the chance the vehicles in service can carry each hour's demand (Q14); travel time is the average Kendall trip; cost is vehicle capital only (Q15).
+- **Design space:** every feasible Appendix C/D vehicle, road fleets 5–300 (step 5) and bike fleets 25–750 (step 25), alone or mixed: ~7.4 million architectures. Table 1 thresholds (1,500 trips/day, 150/h peak, 50/h off-peak) screen architectures out before scoring.
+- **E-bike batteries:** fixed (Appendix B) and removable with spare packs (team proposal) are both kept as alternate pathways.
+- **Weights:** Appendix A for the official MAU; `os3a_reweight` (Task 1 reflection) and `os3a_extended` (adds travel time) as team proposals.
 
 ## Repository layout
 
 ```
 os4/
-├── resources/            Assignment PDF, OS3A report, recitation slides (Git LFS)
-├── docs/PLAN.md          Game plan and open team questions for Tasks 1-2
-├── docs/references.md    Bibliography for the sources tagged in PLAN.md
-├── data/                 Input tables from the assignment, as CSV
-│   ├── sau_*.csv           Appendix A: single-attribute utility points
-│   │                       (sau_travel_time: team-proposed SAU; sau_bike_share: parked)
-│   ├── mau_weights.csv     Appendix A: stakeholder weights
-│   ├── mau_weights_proposed.csv  Team-proposed weight sets from OS3A (PLAN.md Q8)
-│   ├── mau_test_cases.csv  Task 1: Cases A, B, C
-│   ├── demand_mit_kendall.csv  Appendix B: hourly demand at MIT/Kendall
-│   ├── road_*.csv          Appendix C: road vehicle components
-│   └── bike_*.csv          Appendix D: e-bike components
+├── README.md, CLAUDE.md   This file; conventions for Claude Code sessions
+├── resources/             Assignment PDF, OS3A report, slides (Git LFS); rubric.md
+├── docs/PLAN.md           Game plan, decisions (Q#), open questions, Wikibooks appendix
+├── docs/references.md     Bibliography for the sources tagged in PLAN.md
+├── data/                  Input tables from the assignment, as CSV
+│   ├── sau_*.csv            Appendix A SAU points (sau_travel_time: proposed; sau_bike_share: parked)
+│   ├── mau_weights.csv      Appendix A stakeholder weights
+│   ├── mau_weights_proposed.csv  Team weight sets (os3a_reweight, os3a_extended; PLAN.md Q8)
+│   ├── mau_test_cases.csv   Task 1 Cases A, B, C
+│   ├── demand_mit_kendall.csv  Appendix B hourly demand at MIT/Kendall
+│   ├── road_*.csv           Appendix C road vehicle components
+│   └── bike_*.csv           Appendix D e-bike components
 ├── src/os4/
-│   ├── data.py           CSV loaders
-│   ├── utility.py        Task 1: SAU / MAU functions, weight sensitivity
-│   ├── plots.py          Task 1: case table and figures
-│   ├── export.py         Excel backup (outputs/os4_model.xlsx); Task 1 sheets done
-│   ├── scenario.py       Operating scenario definitions     (stubbed)
-│   ├── vehicle.py        Task 2: EV / e-bike model          (stubbed)
-│   ├── fleet.py          Task 2: fleet performance model    (stubbed)
-│   ├── model.py          Task 2: (fleet, scenario) -> MoPs, MAU, cost (stubbed)
-│   ├── tradespace.py     Tasks 3-4: enumeration, Pareto     (stubbed)
-│   ├── site.py           Static results explorer (outputs/site/)
-│   ├── site_template/    Its HTML/CSS/JS (vanilla, no build step)
-│   ├── export.py         Excel export for the ZIP submission (stubbed)
-│   └── __main__.py       Entry point (`python -m os4`)
-├── tests/                pytest tests
-└── outputs/              Generated plots/tables (git-ignored)
+│   ├── data.py            CSV loaders
+│   ├── utility.py         Task 1: SAU / MAU, inverse SAU, weight sets, sensitivity
+│   ├── scenario.py        Operating scenarios and Table 1 requirements
+│   ├── vehicle.py         Task 2: Appendix B vehicle equations, removable batteries, variants
+│   ├── fleet.py           Task 2: capacity, volume, wait, service availability, cost
+│   ├── model.py           Task 2: evaluate one architecture; the five architectures
+│   ├── tradespace.py      Task 3: pruning, vectorized tradespace, Pareto front, charts, report
+│   ├── plots.py           Task 1 and Task 2 figures and reports
+│   ├── export.py          Excel backup with live formulas (outputs/os4_model.xlsx)
+│   ├── site.py            Results explorer generator (outputs/site/)
+│   ├── site_template/     Its HTML/CSS/JS (vanilla, no build step)
+│   └── __main__.py        Entry point (`python -m os4`)
+├── tests/                 pytest tests
+├── .github/workflows/     CI: tests, model run, artifacts, GitHub Pages, releases
+└── outputs/               Generated reports, figures, workbook, site (git-ignored)
 ```
 
 Costs in the CSVs are in **US dollars** (the PDF lists most of them in $1000s).
@@ -151,9 +173,10 @@ Dependencies (declared in `pyproject.toml`):
 
 ```bash
 uv run python -m os4      # or: uv run os4   (without uv: python -m os4 inside the activated venv)
+uv run pytest             # tests (~20 s; without uv: pytest)
 ```
 
-This loads every input table, prints the Task 1 results, and writes them to `outputs/`:
+`python -m os4` runs Tasks 1–3, the results explorer and the Excel backup, and writes everything to `outputs/`. It takes about 2 minutes and ~4 GB of memory, because the full tradespace has ~7.4 million architectures. It prints the key tables as it goes, for example:
 
 ```
 Task 1 (MAU):
@@ -161,64 +184,37 @@ case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  
    A                 0.4               0.35         0.83             0.7 0.613     3
    B                 1.0               0.50         0.61             0.6 0.639     2
    C                 0.3               0.35         0.91             0.8 0.651     1
-  wrote outputs/task1_cases.csv
-  wrote outputs/task1_mau.csv
-  wrote outputs/task1_weight_sensitivity.csv
-  wrote outputs/task1_cases.md
-  wrote outputs/task1_sau_curves.png
-  wrote outputs/task1_mau_breakdown.png
-  wrote outputs/os4_model.xlsx
 ```
 
 | Output | Contents |
 |---|---|
-| `task1_cases.md` | Task 1 report: summary table, both figures embedded, full breakdown, weight sensitivity |
-| `task1_cases.csv` | Cases A–C: raw values, each SAU, weighted contributions kᵢ·uᵢ, MAU, rank |
-| `task1_sau_curves.png` | The four Appendix A SAU curves with Cases A–C marked |
-| `task1_mau_breakdown.png` | Stacked bars of each case's MAU split by weighted attribute |
-| `task1_mau.csv` | MAU and rank of each case under the Appendix A and team-proposed (`os3a_reweight`) weights |
-| `task1_weight_sensitivity.csv` | Each weight moved ±0.1 (others rescaled): MAUs, ranking, whether it flipped |
-| `os4_model.xlsx` | Excel backup for the submission: SAU tables, weight sets, Cases A–C with live formulas and Python checks, sensitivity |
-
-For the weight sensitivity sweep (each weight ±0.1, others renormalized, with the resulting A/B/C ranking):
-
-```bash
-uv run python -c "from os4.utility import weight_sensitivity; print(weight_sensitivity().round(3))"
-```
-
-Run the tests:
-
-```bash
-uv run pytest      # without uv: pytest
-```
+| `task1_cases.md` | Task 1 report: Cases A–C, figures, full breakdown, weight sensitivity, MAU under each weight set |
+| `task1_*.csv`, `task1_*.png` | Case table, MAU per weight set, weight sensitivity; SAU curves and MAU breakdown figures |
+| `task2_model.md` | Task 2 report: scenario inputs, equations, five-architecture table, removable batteries, hand-calc check |
+| `task2_variants.csv`, `task2_architectures.csv` | Every feasible vehicle variant; the five architectures |
+| `task2_*.png` | MAU and cost of the five architectures; vehicle availability and speed vs. the cap |
+| `task3_tradespace.md` | Task 3 report: both battery cases, requirements table, load-factor sensitivity, Pareto fronts |
+| `task3_tradespace_*.png` | MAU vs. cost scatter with Pareto front and utopia point (Appendix A and extended MAU, each battery case) |
+| `task3_fleet_size_*.png` | One panel per vehicle type, colored by fleet size, against the front |
+| `task3_load_factor_fronts.png` | Pareto front at 25 / 50 / 75 / 100% load factor |
+| `task3_pareto_front_*.csv` | The Pareto front of each battery case |
+| `site/` | The results explorer (see below) |
+| `os4_model.xlsx` | Excel backup for the submission: SAU tables, weights, Cases A–C, scenario, every vehicle variant and the five architectures, all with live formulas checked against Python |
 
 ## Results explorer
 
-`python -m os4` also writes a static, interactive website to `outputs/site/` (`os4.site.write_site`):
+**Online:** https://au5y.github.io/os4/ (published from `main` by CI).
 
-```bash
-uv run python -m os4
-# then open outputs/site/index.html in a browser (double-click it; no server needed)
-```
+**Locally:** run `uv run python -m os4`, then open `outputs/site/index.html` (double-click it; no server or network needed). Or download the `os4-outputs-<sha>` artifact from any CI run (Actions → model) and open `site/index.html` from it.
 
-Or download the `os4-outputs-<sha>` artifact from the latest CI run on GitHub (Actions → model) and open `site/index.html` from it.
-
-- **Task 1:** interactive SAU curves (the four Appendix A ones plus the two proposed ones) with Cases A–C, MAU under each weight set, weight sensitivity.
-- **Task 2:** the five current architectures, ~50 highlighted candidates (cheapest per chassis/frame, Pareto knee, evenly spaced front points, best MAU per dollar), each with the reason it was picked, and a filterable table of every vehicle variant.
-- **Task 3:** utility-vs-cost scatter (log cost, zoom/pan, hover, click to pin), Pareto front and utopia point, fixed vs. removable battery case, Appendix A vs. extended MAU, color by fleet type or size, filters, and a linked table. All road-only and bike-only architectures and every front point are included; mixed fleets are a seeded stratified sample (the page says "showing X of Y").
+- **Task 1:** interactive SAU curves (the four Appendix A ones plus the proposed ones, labeled for review) with Cases A–C, MAU under each weight set, weight sensitivity.
+- **Task 2:** the five current architectures, ~50 highlighted candidates (cheapest per chassis/frame, Pareto knee, evenly spaced front points, best MAU per dollar) each with the reason it was picked, and a filterable table of every vehicle variant.
+- **Task 3:** utility-vs-cost scatter (log cost, zoom/pan, hover, click to pin), Pareto front and utopia point, fixed vs. removable batteries, Appendix A vs. extended MAU, color by fleet type or size, filters, and a linked table. Road-only, bike-only and front architectures are all included; mixed fleets are a seeded sample (the page says "showing X of Y").
+- **Components:** the Appendix C/D tables and how to read a variant id (`C5-P1-G3-M2-A3` = chassis C5, battery P1, charger G3, motor M2, autonomy A3). Hovering any variant id in a table decodes it.
 - **Selecting:** click ☆ on any architecture; the selection is kept in your browser and can be exported as CSV from the ★ Selected page.
 
-The data sit in `outputs/site/data/*.js` (plain JSON assigned to `window.OS4`), so the pages work from `file://` with no network access.
+## Continuous integration
 
-## Assignment tasks
+`.github/workflows/model.yml` runs on every pull request and push to `main`: install with uv, run the tests, run the model, and upload `outputs/` as the `os4-outputs-<sha>` artifact (kept 90 days). Pushes to `main` also publish `outputs/site` to GitHub Pages. Pushing a tag such as `v1.0-os4` creates a GitHub Release with the workbook, CSVs, figures and reports attached: use that for the copy we submit.
 
-| Task | Weight | Topic                                              | Module          |
-|------|--------|----------------------------------------------------|-----------------|
-| 1    | 10%    | Stakeholder utility (SAU → MAU, Cases A–C)         | `utility.py`    |
-| 2    | 25%    | Technical system model, 5 architecture instances   | `vehicle.py`, `fleet.py` |
-| 3    | 20%    | Tradespace exploration, Pareto frontier            | `tradespace.py` |
-| 4    | 15%    | Second operating scenario, sensitivity             | `tradespace.py` |
-| 5    | 20%    | Concept recommendation                             | (slides)        |
-| 6    | 10%    | Life-cycle / extensibility memo                    | (slides)        |
-
-**Due:** Thursday, November 12, 2026, 10:00am. The slides go to Canvas as a single PDF; the model (this code plus exported data) is submitted separately as a ZIP.
+Generated files are never committed (`outputs/` is git-ignored); rebuild them with `uv run python -m os4`.
