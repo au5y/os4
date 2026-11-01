@@ -6,7 +6,9 @@ from os4.vehicle import VARIANT_COLUMNS, all_variants, bike_variants, get_varian
 
 def test_variant_counts():
     scenario = primary_scenario()
-    assert len(bike_variants(scenario)) == 30
+    bikes = bike_variants(scenario)
+    assert (bikes["spares_per_bike"] == 0).sum() == 30
+    assert len(bikes) == 30 * len(scenario.bike_spare_options)
     if set(scenario.allowed_autonomy) == {"A3", "A4", "A5"}:
         assert len(road_variants(scenario)) == 1548
 
@@ -54,3 +56,20 @@ def test_battery_limit_is_inclusive():
     ids = set(road_variants(primary_scenario())["variant_id"])
     assert "C1-P4-G1-M1-A3" in ids
     assert "C1-P5-G1-M1-A3" not in ids
+
+
+def test_removable_battery_hand_calc():
+    # B2-E1-G2-K2 with 1 spare per bike: U = 0.77118 h, C = 0.8333 h, swap s = 5 min.
+    # min(U/(U+s), 2U/(U+s+C+0.25)) = min(0.9025, 0.7959); cost 4500 + 1 x (600 battery + 500 charger).
+    row = get_variant("B2-E1-G2-K2-S1", primary_scenario())
+    assert row["availability"] == pytest.approx(0.79593, rel=1e-4)
+    assert row["cost_usd"] == pytest.approx(5600)
+    assert row["uptime_h"] / (row["uptime_h"] + row["downtime_h"]) == pytest.approx(row["availability"])
+
+
+def test_spares_raise_availability_up_to_the_swap_limit():
+    bikes = bike_variants(primary_scenario())
+    b2 = bikes[bikes["variant_id"].str.startswith("B2-E1-G2-K2")].sort_values("spares_per_bike")
+    assert b2["availability"].is_monotonic_increasing
+    assert b2["cost_usd"].is_monotonic_increasing
+    assert b2["availability"].iloc[0] == pytest.approx(0.41585, rel=1e-4)  # fixed battery, Appendix B

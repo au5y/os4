@@ -36,6 +36,20 @@ class Scenario:
     throughput_measure: str = "capacity"
     # Q12: wait reported for an empty or overloaded fleet (the wait SAU reaches 0 at 30 min).
     max_wait_min: float = 30.0
+    # Table 1 requirements. Thresholds are hard: architectures that miss one are screened out of
+    # the tradespace (early exit). "Desired" goals and the competing-system availability benchmark
+    # are reported as pass/fail flags instead.
+    min_daily_volume: float = 1500.0
+    min_peak_throughput: float = 150.0
+    min_offpeak_throughput: float = 50.0
+    goal_wait_min: float = 5.0
+    goal_travel_min: float = 7.0
+    benchmark_availability: float = 0.75
+    # Removable e-bike batteries (team proposal; a justified deviation from Appendix B). Each option is
+    # spare packs per bike, pooled across the fleet (0.5 = one spare per two bikes); 0 = fixed battery
+    # as in Appendix B. A swap takes ``bike_swap_h``; the pack then charges off the bike.
+    bike_spare_options: tuple[float, ...] = (0.0, 0.5, 1.0, 1.5, 2.0, 3.0)
+    bike_swap_h: float = 5 / 60
     # Appendix B constants.
     dwell_s: float = 60.0
     load_factor: float = 0.75

@@ -30,6 +30,7 @@ VARIANT_COLUMNS = [
     "kind",  # "road" or "bike"
     "variant_id",  # e.g. "C2-P3-G2-M1-A3" or "B3-E2-G1-K2"
     "chassis", "battery", "charger", "motor", "autonomy",
+    "spares_per_bike",  # removable-battery option; 0 = fixed battery (always 0 for road)
     "pax",
     "weight_kg",
     "cost_usd",
@@ -112,6 +113,33 @@ def availability(uptime_h, downtime_h):
     return uptime_h / (uptime_h + downtime_h)
 
 
+# --- Removable e-bike batteries (team proposal) ------------------------------
+
+def swap_availability(uptime_h, charge_time_h, spares_per_bike, swap_h):
+    """Riding fraction of a bike whose battery is swapped instead of charged in place.
+
+    The bike rides ``uptime_h``, then a swap takes ``swap_h``. The removed pack
+    charges off the bike for ``charge_time_h`` plus the Appendix B 0.25 h
+    overhead before it is ready again. With 1 + k packs per bike in rotation
+    the bike is limited either by the swap itself, U / (U + s), or by the supply
+    of charged packs, (1 + k) * U / (U + s + C + 0.25). With k = 0 and s = 0
+    this is the Appendix B availability.
+    """
+    swap_limited = uptime_h / (uptime_h + swap_h)
+    pack_limited = (1 + spares_per_bike) * uptime_h / (uptime_h + swap_h + charge_time_h + CHARGE_OVERHEAD_H)
+    return np.minimum(swap_limited, pack_limited)
+
+
+def spares_for_no_waiting(uptime_h, charge_time_h, swap_h):
+    """Spare packs per bike above which more spares add nothing: (C + 0.25) / (U + s)."""
+    return (charge_time_h + CHARGE_OVERHEAD_H) / (uptime_h + swap_h)
+
+
+def spare_cost_usd(spares_per_bike, battery_usd, charger_usd):
+    """Each spare pack needs its own charger slot at the swap station."""
+    return spares_per_bike * (battery_usd + charger_usd)
+
+
 # --- Constraints -----------------------------------------------------------
 
 def battery_fits(battery_kg, chassis_kg, kind: str) -> bool | np.ndarray:
@@ -147,7 +175,9 @@ def road_variants(scenario: Scenario) -> pd.DataFrame:
 def bike_variants(scenario: Scenario) -> pd.DataFrame:
     """Every feasible e-bike variant (frame x battery x charger x motor).
 
-    Autonomy is fixed L4 (in the frame). Expect 30 rows. Columns: ``VARIANT_COLUMNS``.
+    Autonomy is fixed L4 (in the frame). Expect 30 fixed-battery rows, plus 30
+    removable-battery rows for each non-zero ``scenario.bike_spare_options``
+    (variant IDs end in ``-S<spares>``). Columns: ``VARIANT_COLUMNS``.
     """
     df = _cross(
         load("bike_frame").add_prefix("chassis_"),
@@ -160,7 +190,20 @@ def bike_variants(scenario: Scenario) -> pd.DataFrame:
     df = df.assign(autonomy_id="L4", autonomy_weight_kg=0.0, autonomy_cost_usd=0.0, autonomy_added_wh_per_km=0.0)
     speed = bike_speed_kmh(df["motor_power_kw"].to_numpy(), _weight(df).to_numpy(), scenario)
     limit = scenario.bike_speed_limit_kmh if scenario.bike_speed_limit_kmh is not None else np.inf
-    return _finish(df, "bike", speed, limit)
+    fixed = _finish(df, "bike", speed, limit)
+    parts = [fixed] if 0 in scenario.bike_spare_options else []
+    for k in (k for k in scenario.bike_spare_options if k > 0):
+        swap = fixed.copy()
+        swap["variant_id"] = swap["variant_id"] + f"-S{k:g}"
+        swap["spares_per_bike"] = float(k)
+        swap["cost_usd"] = fixed["cost_usd"] + spare_cost_usd(
+            k, df["battery_cost_usd"].to_numpy(), df["charger_cost_usd"].to_numpy())
+        avail = swap_availability(fixed["uptime_h"], fixed["charge_time_h"], k, scenario.bike_swap_h)
+        swap["availability"] = avail
+        # Effective down-time per ride, so that availability = up / (up + down) still holds.
+        swap["downtime_h"] = fixed["uptime_h"] * (1 / avail - 1)
+        parts.append(swap)
+    return pd.concat(parts, ignore_index=True)
 
 
 def all_variants(scenario: Scenario) -> pd.DataFrame:
@@ -215,6 +258,7 @@ def _finish(df: pd.DataFrame, kind: str, speed, speed_limit_kmh: float) -> pd.Da
         "charger": df["charger_id"],
         "motor": df["motor_id"],
         "autonomy": df["autonomy_id"],
+        "spares_per_bike": 0.0,
         "pax": df["chassis_pax"],
         "weight_kg": weight,
         "cost_usd": total_cost_usd(

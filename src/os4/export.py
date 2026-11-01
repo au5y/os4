@@ -291,6 +291,7 @@ def _scenario_sheet(wb: Workbook, scenario: Scenario) -> None:
         ("throughput_measure", scenario.throughput_measure, "", "Q11: capacity or served"),
         ("pax_kg", 100.0, "kg", "Appendix B"),
         ("charge_overhead_h", 0.25, "h", "Appendix B"),
+        ("bike_swap_h", scenario.bike_swap_h, "h", "Team proposal: removable e-bike battery swap time"),
     ]
     for r, (name, value, unit, source) in enumerate(rows, start=4):
         ws.cell(row=r, column=1, value=name).font = BOLD
@@ -318,7 +319,8 @@ def _scenario_sheet(wb: Workbook, scenario: Scenario) -> None:
 # Variants sheet layout: (header, source column in the input table or None for a formula).
 _VARIANT_INPUTS = [
     ("kind", "kind"), ("variant_id", "variant_id"), ("chassis", "chassis_id"), ("battery", "battery_id"),
-    ("charger", "charger_id"), ("motor", "motor_id"), ("autonomy", "autonomy_id"), ("pax", "chassis_pax"),
+    ("charger", "charger_id"), ("motor", "motor_id"), ("autonomy", "autonomy_id"),
+    ("spares_per_bike", "spares_per_bike"), ("pax", "chassis_pax"),
     ("chassis_kg", "chassis_weight_kg"), ("battery_kg", "battery_weight_kg"), ("charger_kg", "charger_weight_kg"),
     ("motor_kg", "motor_weight_kg"), ("autonomy_kg", "autonomy_weight_kg"),
     ("chassis_usd", "chassis_cost_usd"), ("battery_usd", "battery_cost_usd"), ("charger_usd", "charger_cost_usd"),
@@ -329,7 +331,8 @@ _VARIANT_INPUTS = [
 # Appendix B equations; {X} is replaced by the column letter of input or output X.
 _VARIANT_FORMULAS = [
     ("weight_kg", "={chassis_kg}+{battery_kg}+{charger_kg}+{motor_kg}+{autonomy_kg}+pax_kg*{pax}"),
-    ("cost_usd", "={chassis_usd}+{battery_usd}+{charger_usd}+{motor_usd}+{autonomy_usd}"),
+    ("cost_usd", "={chassis_usd}+{battery_usd}+{charger_usd}+{motor_usd}+{autonomy_usd}"
+                 "+{spares_per_bike}*({battery_usd}+{charger_usd})"),
     ("wh_per_km", "={nominal_wh_per_km}+0.1*({weight_kg}-{chassis_kg})+{autonomy_wh_per_km}"),
     ("range_km", "={battery_kwh}*1000/{wh_per_km}"),
     ("formula_speed_kmh", "=700*{motor_kw}/{weight_kg}"),
@@ -337,7 +340,11 @@ _VARIANT_FORMULAS = [
                   'MIN(IF(bike_assist_speed="",{formula_speed_kmh},bike_assist_speed),bike_speed_cap))'),
     ("charge_time_h", "={battery_kwh}/{charger_kw}"),
     ("uptime_h", "={range_km}/{speed_kmh}"),
-    ("downtime_h", "={charge_time_h}+charge_overhead_h"),
+    # Fixed battery: Appendix B. Removable (spares > 0): the down-time per ride implied by
+    # min(U/(U+s), (1+k)U/(U+s+C+0.25)), so availability = up / (up + down) holds for both.
+    ("downtime_h", "=IF({spares_per_bike}=0,{charge_time_h}+charge_overhead_h,"
+                   "{uptime_h}*(1/MIN({uptime_h}/({uptime_h}+bike_swap_h),"
+                   "(1+{spares_per_bike})*{uptime_h}/({uptime_h}+bike_swap_h+{charge_time_h}+charge_overhead_h))-1))"),
     ("availability", "={uptime_h}/({uptime_h}+{downtime_h})"),
 ]
 
@@ -350,7 +357,8 @@ def _variant_inputs(scenario: Scenario) -> pd.DataFrame:
         ("road", ("road_chassis", "road_battery", "road_charger", "road_motor", "road_autonomy")),
         ("bike", ("bike_frame", "bike_battery", "bike_charger", "bike_motor")),
     ):
-        df = variants[variants["kind"] == kind][["kind", "variant_id", "chassis", "battery", "charger", "motor", "autonomy"]]
+        df = variants[variants["kind"] == kind][["kind", "variant_id", "chassis", "battery", "charger", "motor",
+                                                 "autonomy", "spares_per_bike"]]
         for prefix, name in zip(("chassis", "battery", "charger", "motor", "autonomy"), tables):
             df = df.merge(load(name).add_prefix(f"{prefix}_"), left_on=prefix, right_on=f"{prefix}_id", how="left")
         if kind == "bike":

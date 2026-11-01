@@ -26,6 +26,28 @@ from os4.vehicle import get_variant
 HAND_CALC_VARIANTS = ("C2-P2-G3-M2-A3", "B2-E1-G2-K2")
 
 
+def meets_thresholds(capacity, volume, scenario: Scenario):
+    """Table 1 threshold requirements: daily volume, peak and off-peak throughput (vectorized).
+
+    Fleet capacity is the same all day, so it is checked against both throughput thresholds.
+    """
+    return (
+        (np.asarray(volume) >= scenario.min_daily_volume)
+        & (np.asarray(capacity) >= scenario.min_peak_throughput)
+        & (np.asarray(capacity) >= scenario.min_offpeak_throughput)
+    )
+
+
+def requirement_flags(df: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
+    """Pass/fail columns for the thresholds, the "desired" goals and the availability benchmark."""
+    return pd.DataFrame({
+        "meets_thresholds": meets_thresholds(df["fleet_capacity_per_h"], df["passenger_volume"], scenario),
+        "meets_wait_goal": df["wait_time"] <= scenario.goal_wait_min,
+        "meets_travel_goal": df["travel_time"] <= scenario.goal_travel_min,
+        "meets_availability_benchmark": df["availability"] >= scenario.benchmark_availability,
+    }, index=df.index)
+
+
 def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
     """Evaluate one architecture.
 
@@ -64,6 +86,7 @@ def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
     row["mau"] = float(mau(**mops))
     row["mau_os3a_extended"] = float(weighted_mau(mops | proposed, load_weights("os3a_extended")))
     row["fleet_cost_usd"] = fleet_cost_usd(fleet)
+    row |= requirement_flags(pd.DataFrame([row]), scenario).iloc[0].to_dict()
     return row
 
 

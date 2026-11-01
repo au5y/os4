@@ -41,7 +41,7 @@ def test_vectorized_matches_model_evaluate(scenario, space):
 def test_small_grid_matches_enumerate(scenario):
     variants = prune_variants(all_variants(scenario))
     subset = pd.concat([variants[variants.kind == "road"].head(2), variants[variants.kind == "bike"].head(2)])
-    assert len(tradespace(scenario, [0, 5, 10], [0, 25], subset)) == len(
+    assert len(tradespace(scenario, [0, 5, 10], [0, 25], subset, screen=False)) == len(
         enumerate_architectures(scenario, [0, 5, 10], [0, 25], subset))
 
 
@@ -68,3 +68,18 @@ def test_utopia_point(space):
     assert cost == space["fleet_cost_usd"].min()
     assert util == space["mau"].max()
     assert np.isfinite(space.select_dtypes("number").to_numpy()).all()
+
+
+def test_screening_drops_exactly_the_threshold_failures(scenario, space):
+    full = tradespace(scenario, screen=False)
+    failing = ((full["fleet_capacity_per_h"] < scenario.min_peak_throughput)
+               | (full["fleet_capacity_per_h"] < scenario.min_offpeak_throughput)
+               | (full["passenger_volume"] < scenario.min_daily_volume))
+    assert space.attrs["screened_out"] == failing.sum()
+    assert len(space) == (~failing).sum()
+    assert space["meets_thresholds"].all()
+    # Screening happens before scoring, so the survivors' scores are unchanged.
+    kept = full[~failing].reset_index(drop=True)
+    pd.testing.assert_frame_equal(kept.drop(columns="meets_thresholds"),
+                                  space.reset_index(drop=True).drop(columns="meets_thresholds"),
+                                  check_dtype=False)

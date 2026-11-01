@@ -277,6 +277,17 @@ def _motor_kw(motor_id: str) -> float:
     return float(motors[motor_id])
 
 
+def _swap_table(variants: pd.DataFrame, base: str = "B2-E1-G2-K2") -> pd.DataFrame:
+    """Cost and availability of one bike across the spare-pack options."""
+    rows = variants[variants["variant_id"].str.match(rf"^{base}(-S[\d.]+)?$")].sort_values("spares_per_bike")
+    return pd.DataFrame({
+        "variant": rows["variant_id"],
+        "spare packs per bike": rows["spares_per_bike"].map(lambda k: "fixed battery" if k == 0 else f"{k:g}"),
+        "bike cost": rows["cost_usd"].map(lambda c: f"${c:,.0f}"),
+        "availability": rows["availability"].round(3),
+    })
+
+
 def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
     """Write the Task 2 CSVs, both figures, and a Markdown report embedding them."""
     from os4.model import architecture_table, hand_calc_check
@@ -332,6 +343,21 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"![Availability vs. cost and uncapped road speeds]({var_png.name})\n\n"
         "E-bikes reach only 0.14–0.42 availability under Appendix B: small batteries and slow chargers mean they "
         "charge far longer than they ride. Most road variants hit the speed cap, so motors above M2 rarely add speed.\n\n"
+        "## Removable e-bike batteries (team proposal)\n\n"
+        "Appendix B allows changes to its equations with a justification. We add a removable-battery option for "
+        "e-bikes: when a pack runs flat the bike swaps it in "
+        f"{scenario.bike_swap_h * 60:g} min (assumed) instead of charging in place, and the flat pack charges off "
+        "the bike. The fleet buys k spare packs per bike, pooled (k = 0.5 is one spare per two bikes):\n\n"
+        "- **Availability** = min( U / (U + s), (1 + k) · U / (U + s + C + 0.25) ), with U = up-time (range / speed), "
+        "s = swap time, C = charge time. The first term is the swap itself; the second is the supply of charged "
+        "packs. With k = 0 and s = 0 it is the Appendix B availability.\n"
+        "- **Cost** = bike cost + k × (battery cost + charger cost): each spare pack needs its own charger slot.\n"
+        "- **Spares beyond (C + 0.25) / (U + s) add nothing,** so the useful number of spares depends on the battery "
+        "and charger; `prune_variants` keeps only the spare counts worth buying "
+        f"(options {', '.join(f'{k:g}' for k in scenario.bike_spare_options)}).\n\n"
+        f"{_md_table(_swap_table(variants))}\n"
+        "Not counted: swap labor and swap-station space (operating cost, Q15). Task 3 shows the tradespace with and "
+        "without this option.\n\n"
         "## Hand-calculation check\n\n"
         "Worked by hand from Appendix B and asserted in `tests/test_vehicle.py` and `tests/test_fleet.py`:\n\n"
         f"{_md_table(hand)}\n"
