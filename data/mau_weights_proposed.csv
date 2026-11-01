@@ -1,0 +1,7 @@
+attribute,os3a_reweight,os3a_extended
+passenger_volume,0.10,0.08
+peak_throughput,0.25,0.18
+wait_time,0.35,0.27
+availability,0.30,0.22
+travel_time,,0.15
+bike_share,,0.10

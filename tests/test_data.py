@@ -3,7 +3,7 @@ from os4.data import load, load_all
 
 def test_all_tables_load():
     tables = load_all()
-    assert len(tables) == 16
+    assert len(tables) == 19
     assert all(len(df) > 0 for df in tables.values())
 
 

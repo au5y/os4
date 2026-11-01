@@ -15,6 +15,7 @@ import pandas as pd  # noqa: E402
 
 from os4.utility import (  # noqa: E402
     ATTRIBUTES,
+    compare_weight_sets,
     evaluate_cases,
     load_weights,
     sau,
@@ -126,19 +127,24 @@ def _md_table(table: pd.DataFrame) -> str:
 
 
 def write_task1(out_dir: Path = OUTPUT_DIR) -> list[Path]:
-    """Write the Task 1 case table (CSV), both figures, and a Markdown report embedding them."""
+    """Write the Task 1 tables (CSV), both figures, and a Markdown report embedding them."""
     out_dir.mkdir(parents=True, exist_ok=True)
     weights = load_weights()
     full = case_table(weights)
     table = full.round(4)
     csv_path = out_dir / "task1_cases.csv"
+    mau_path = out_dir / "task1_mau.csv"
+    sens_path = out_dir / "task1_weight_sensitivity.csv"
     md_path = out_dir / "task1_cases.md"
     table.to_csv(csv_path, index=False)
+    weight_sets = compare_weight_sets().round(4)
+    weight_sets.to_csv(mau_path, index=False)
+    sensitivity = weight_sensitivity(weights=weights).round(4)
+    sensitivity.to_csv(sens_path, index=False)
     sau_png = plot_sau_curves(out_dir / "task1_sau_curves.png")
     mau_png = plot_mau_breakdown(out_dir / "task1_mau_breakdown.png")
 
     summary = full[["case", *(f"u_{a}" for a in ATTRIBUTES), "mau", "rank"]].round(3)
-    sensitivity = weight_sensitivity(weights=weights).round(3)
     weight_text = ", ".join(f"{LABELS[a][0]} {weights[a]:.2f}" for a in ATTRIBUTES)
     md_path.write_text(
         "# Task 1: Multi-attribute utility\n\n"
@@ -149,7 +155,10 @@ def write_task1(out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"![MAU by case, split by weighted attribute]({mau_png.name})\n\n"
         "## Full breakdown\n\n"
         f"{_md_table(table)}\n"
+        "## MAU under each weight set\n\n"
+        "`appendix_a` is the given weighting; `os3a_reweight` is the team's proposal from OS3A (PLAN.md Q8).\n\n"
+        f"{_md_table(weight_sets.round(3))}\n"
         "## Weight sensitivity (each weight ±0.1, others renormalized)\n\n"
-        f"{_md_table(sensitivity)}"
+        f"{_md_table(sensitivity.round(3))}"
     )
-    return [csv_path, md_path, sau_png, mau_png]
+    return [csv_path, mau_path, sens_path, md_path, sau_png, mau_png]

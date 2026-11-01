@@ -2,7 +2,18 @@ import numpy as np
 import pytest
 
 from os4.data import load
-from os4.utility import ATTRIBUTES, evaluate_cases, mau, sau, weight_sensitivity
+from os4.utility import (
+    ATTRIBUTES,
+    PROPOSED_ATTRIBUTES,
+    WEIGHT_SETS,
+    compare_weight_sets,
+    evaluate_cases,
+    load_weights,
+    mau,
+    sau,
+    weight_sensitivity,
+    weighted_mau,
+)
 
 
 @pytest.mark.parametrize("attribute", ATTRIBUTES)
@@ -66,3 +77,40 @@ def test_weight_sensitivity_keeps_weights_normalized():
     table = weight_sensitivity()
     assert len(table) == 2 * len(ATTRIBUTES)
     assert table["ranking"].str.len().eq(3).all()
+
+
+@pytest.mark.parametrize("attribute", PROPOSED_ATTRIBUTES)
+def test_proposed_saus_reproduce_points_and_clamp(attribute):
+    table = load(f"sau_{attribute}")
+    np.testing.assert_allclose(sau(attribute, table.iloc[:, 0].to_numpy()), table["utility"].to_numpy())
+    u = sau(attribute, np.array([-1e6, 1e6]))
+    assert np.all((u >= 0) & (u <= 1))
+
+
+@pytest.mark.parametrize("weight_set", WEIGHT_SETS)
+def test_weight_sets_sum_to_one(weight_set):
+    assert sum(load_weights(weight_set).values()) == pytest.approx(1.0)
+
+
+def test_os3a_reweight_hand_calc():
+    # PLAN.md Q8: volume 0.10 / peak 0.25 / wait 0.35 / availability 0.30
+    result = compare_weight_sets().set_index("case")
+    assert result["mau_os3a_reweight"].to_dict() == pytest.approx({"A": 0.628, "B": 0.6185, "C": 0.676})
+    assert "mau_os3a_extended" not in result
+
+
+def test_weighted_mau_matches_mau_on_appendix_a():
+    values = {"passenger_volume": 1000, "peak_throughput": 75, "wait_time": 8, "availability": 0.7}
+    assert weighted_mau(values, load_weights()) == pytest.approx(mau(**values))
+
+
+def test_extended_mau_best_worst_and_missing_values():
+    weights = load_weights("os3a_extended")
+    best = {"passenger_volume": 1e6, "peak_throughput": 1e6, "wait_time": 0, "availability": 1.0,
+            "travel_time": 0, "bike_share": 1.0}
+    worst = {"passenger_volume": 0, "peak_throughput": 0, "wait_time": 1e6, "availability": 0.0,
+             "travel_time": 1e6, "bike_share": 0.0}
+    assert weighted_mau(best, weights) == pytest.approx(1.0)
+    assert weighted_mau(worst, weights) == pytest.approx(0.0)
+    with pytest.raises(ValueError):
+        weighted_mau({"passenger_volume": 1000}, weights)

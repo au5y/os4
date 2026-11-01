@@ -3,6 +3,11 @@
 SAUs are piecewise-linear over the ``sau_*.csv`` points and clamp outside the
 table range. The MAU is additive: ``U = sum_i k_i * u_i(x_i)`` with the weights
 in ``mau_weights.csv`` (must sum to 1).
+
+Besides the Appendix A weights, ``mau_weights_proposed.csv`` holds the team's
+proposed weight sets traced to our OS3A MOEs (PLAN.md Q7/Q8): ``os3a_reweight``
+re-weights the four Appendix A attributes, and ``os3a_extended`` adds two
+proposed attributes (``PROPOSED_ATTRIBUTES``) whose SAUs are team assumptions.
 """
 
 from collections.abc import Mapping
@@ -13,15 +18,19 @@ import pandas as pd
 from os4.data import load
 
 ATTRIBUTES = ("passenger_volume", "peak_throughput", "wait_time", "availability")
+# In-boundary travel time (Table 1: 7 min; OS3A MOE 1) and e-bike share of served trips (OS3A MOE 2).
+PROPOSED_ATTRIBUTES = ("travel_time", "bike_share")
+WEIGHT_SETS = ("appendix_a", "os3a_reweight", "os3a_extended")
 
 
 def sau_table(attribute: str) -> pd.DataFrame:
-    """Return the Appendix A points for ``attribute`` as columns ``x``, ``utility``.
+    """Return the SAU points for ``attribute`` as columns ``x``, ``utility``.
 
     Reads ``data/sau_<attribute>.csv`` and renames its first column to ``x``.
     """
-    if attribute not in ATTRIBUTES:
-        raise ValueError(f"unknown attribute {attribute!r}; expected one of {ATTRIBUTES}")
+    known = ATTRIBUTES + PROPOSED_ATTRIBUTES
+    if attribute not in known:
+        raise ValueError(f"unknown attribute {attribute!r}; expected one of {known}")
     table = load(f"sau_{attribute}")
     return table.rename(columns={table.columns[0]: "x"})[["x", "utility"]]
 
@@ -38,18 +47,39 @@ def sau(attribute: str, x: float | np.ndarray) -> float | np.ndarray:
     return float(u) if np.ndim(u) == 0 else u
 
 
-def load_weights() -> dict[str, float]:
-    """Return the MAU weights from ``mau_weights.csv``, keyed by attribute."""
-    table = load("mau_weights")
-    return dict(zip(table["attribute"], table["weight"].astype(float)))
+def load_weights(weight_set: str = "appendix_a") -> dict[str, float]:
+    """Return a set of MAU weights keyed by attribute (see ``WEIGHT_SETS``).
+
+    ``appendix_a`` reads ``mau_weights.csv``; the others read their column of
+    ``mau_weights_proposed.csv``, skipping attributes the set leaves blank.
+    """
+    if weight_set == "appendix_a":
+        table = load("mau_weights")
+        return dict(zip(table["attribute"], table["weight"].astype(float)))
+    if weight_set not in WEIGHT_SETS:
+        raise ValueError(f"unknown weight set {weight_set!r}; expected one of {WEIGHT_SETS}")
+    table = load("mau_weights_proposed").dropna(subset=[weight_set])
+    return dict(zip(table["attribute"], table[weight_set].astype(float)))
 
 
-def _check_weights(weights: Mapping[str, float]) -> None:
-    if set(weights) != set(ATTRIBUTES):
-        raise ValueError(f"weights must have keys {ATTRIBUTES}, got {tuple(weights)}")
+def _check_weights(weights: Mapping[str, float], attributes: tuple[str, ...] = ATTRIBUTES) -> None:
+    if set(weights) != set(attributes):
+        raise ValueError(f"weights must have keys {attributes}, got {tuple(weights)}")
     total = sum(weights.values())
     if not np.isclose(total, 1.0):
         raise ValueError(f"weights must sum to 1, got {total}")
+
+
+def weighted_mau(values: Mapping[str, float | np.ndarray], weights: Mapping[str, float]) -> float | np.ndarray:
+    """Additive MAU over whichever attributes ``weights`` names, e.g. the ``os3a_extended`` set.
+
+    ``values`` maps each weighted attribute to its raw level (extra keys are ignored).
+    """
+    _check_weights(weights, tuple(weights))
+    missing = set(weights) - set(values)
+    if missing:
+        raise ValueError(f"missing values for {sorted(missing)}")
+    return sum(w * sau(a, values[a]) for a, w in weights.items())
 
 
 def mau(
@@ -81,6 +111,23 @@ def evaluate_cases(weights: Mapping[str, float] | None = None) -> pd.DataFrame:
         cases[f"u_{a}"] = sau(a, cases[a].to_numpy())
     cases["mau"] = mau(*(cases[a].to_numpy() for a in ATTRIBUTES), weights=weights)
     return cases
+
+
+def compare_weight_sets() -> pd.DataFrame:
+    """MAU and rank of each case under every weight set that covers only the Appendix A attributes.
+
+    ``os3a_extended`` is left out: cases A-C give no travel time or bike share,
+    so it can only score the Task 2 model's architectures.
+    """
+    rows = evaluate_cases()[["case"]].copy()
+    for name in WEIGHT_SETS:
+        weights = load_weights(name)
+        if set(weights) != set(ATTRIBUTES):
+            continue
+        mau_col = evaluate_cases(weights)["mau"]
+        rows[f"mau_{name}"] = mau_col.to_numpy()
+        rows[f"rank_{name}"] = mau_col.rank(ascending=False).astype(int).to_numpy()
+    return rows
 
 
 def _perturb(weights: Mapping[str, float], attribute: str, delta: float) -> dict[str, float]:

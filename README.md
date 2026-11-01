@@ -17,9 +17,12 @@ The assignment asks for a tradespace exploration of an autonomous, battery-elect
 os4/
 ├── resources/            Assignment PDF, OS3A report, recitation slides (Git LFS)
 ├── docs/PLAN.md          Game plan and open team questions for Tasks 1-2
+├── docs/references.md    Bibliography for the sources tagged in PLAN.md
 ├── data/                 Input tables from the assignment, as CSV
 │   ├── sau_*.csv           Appendix A: single-attribute utility points
+│   │                       (sau_travel_time / sau_bike_share: team-proposed SAUs)
 │   ├── mau_weights.csv     Appendix A: stakeholder weights
+│   ├── mau_weights_proposed.csv  Team-proposed weight sets from OS3A (PLAN.md Q8)
 │   ├── mau_test_cases.csv  Task 1: Cases A, B, C
 │   ├── demand_mit_kendall.csv  Appendix B: hourly demand at MIT/Kendall
 │   ├── road_*.csv          Appendix C: road vehicle components
@@ -28,6 +31,7 @@ os4/
 │   ├── data.py           CSV loaders
 │   ├── utility.py        Task 1: SAU / MAU functions, weight sensitivity
 │   ├── plots.py          Task 1: case table and figures
+│   ├── export.py         Excel backup (outputs/os4_model.xlsx); Task 1 sheets done
 │   ├── scenario.py       Operating scenario definitions     (stubbed)
 │   ├── vehicle.py        Task 2: EV / e-bike model          (stubbed)
 │   ├── fleet.py          Task 2: fleet performance model    (stubbed)
@@ -156,9 +160,12 @@ case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  
    B                 1.0               0.50         0.61             0.6 0.639     2
    C                 0.3               0.35         0.91             0.8 0.651     1
   wrote outputs/task1_cases.csv
+  wrote outputs/task1_mau.csv
+  wrote outputs/task1_weight_sensitivity.csv
   wrote outputs/task1_cases.md
   wrote outputs/task1_sau_curves.png
   wrote outputs/task1_mau_breakdown.png
+  wrote outputs/os4_model.xlsx
 ```
 
 | Output | Contents |
@@ -167,6 +174,9 @@ case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  
 | `task1_cases.csv` | Cases A–C: raw values, each SAU, weighted contributions kᵢ·uᵢ, MAU, rank |
 | `task1_sau_curves.png` | The four Appendix A SAU curves with Cases A–C marked |
 | `task1_mau_breakdown.png` | Stacked bars of each case's MAU split by weighted attribute |
+| `task1_mau.csv` | MAU and rank of each case under the Appendix A and team-proposed (`os3a_reweight`) weights |
+| `task1_weight_sensitivity.csv` | Each weight moved ±0.1 (others rescaled): MAUs, ranking, whether it flipped |
+| `os4_model.xlsx` | Excel backup for the submission: SAU tables, weight sets, Cases A–C with live formulas and Python checks, sensitivity |
 
 For the weight sensitivity sweep (each weight ±0.1, others renormalized, with the resulting A/B/C ranking):
 
