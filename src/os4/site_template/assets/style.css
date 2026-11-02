@@ -231,6 +231,17 @@ dd.parts { white-space: pre-line; font-size: 0.9em; }
 .page-sections a { padding: 0.3rem 0.8rem; border: 1px solid var(--border); border-radius: 999px; text-decoration: none; }
 section + section { margin-top: 2.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
 .report img { display: block; max-width: 100%; height: auto; margin: 0.8rem 0; border: 1px solid var(--border); border-radius: 8px; }
+.report img.zoomable { cursor: zoom-in; }
+.zoom-box { position: fixed; inset: 0; z-index: 50; background: rgba(20, 20, 18, 0.88); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: calc(env(safe-area-inset-top, 0px) + 2.5rem) 1rem 1rem; overflow: auto; }
+.zoom-box img { max-width: 100%; max-height: calc(100vh - 6rem); object-fit: contain; background: #fff; border-radius: 6px; cursor: zoom-in; }
+.zoom-box.full { align-items: flex-start; justify-content: flex-start; }
+.zoom-box.full img { max-width: none; max-height: none; cursor: zoom-out; }
+.zoom-close { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 0.5rem); right: 0.8rem; font-size: 1.6rem; line-height: 1;
+  background: none; border: none; color: #fff; cursor: pointer; padding: 0.2rem 0.5rem; }
+.zoom-hint { color: #ddd; font-size: 0.85rem; margin: 0.6rem 0 0; text-align: center; }
+.zoom-box.full .zoom-hint { display: none; }
+body.zoom-open { overflow: hidden; }
 .report .table-wrap { margin: 0.6rem 0 1rem; }
 .report th, .report td { text-align: left; vertical-align: top; white-space: normal; }
 .report blockquote { margin: 0.6rem 0; padding: 0.2rem 0.9rem; border-left: 3px solid var(--border); color: var(--ink-2); }

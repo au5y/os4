@@ -271,6 +271,40 @@
     }
   };
 
+  // ---------- figure zoom ----------
+  // Click a report figure to open it over the page, fitted to the window; click it again for full
+  // resolution (scroll to pan). Esc, the close button or a click outside the figure closes it.
+  U.zoomFigures = function (root) {
+    let box = null;
+    function close() {
+      if (!box) return;
+      box.remove();
+      box = null;
+      document.body.classList.remove("zoom-open");
+    }
+    function open(img) {
+      close();
+      const big = U.el("img", { src: img.currentSrc || img.src, alt: img.alt });
+      big.addEventListener("click", (e) => { e.stopPropagation(); box.classList.toggle("full"); });
+      const shut = U.el("button", { type: "button", class: "zoom-close", "aria-label": "Close", text: "×" });
+      shut.addEventListener("click", close);
+      box = U.el("div", { class: "zoom-box", role: "dialog", "aria-modal": "true", "aria-label": img.alt || "Figure" },
+        [shut, big, U.el("p", { class: "zoom-hint", text: (img.alt ? img.alt + " · " : "") + "click the figure for full size, Esc to close" })]);
+      box.addEventListener("click", close);
+      document.body.appendChild(box);
+      document.body.classList.add("zoom-open");
+      shut.focus();
+    }
+    for (const img of (root || document).querySelectorAll(".report img")) {
+      img.classList.add("zoomable");
+      img.tabIndex = 0;
+      img.title = "Click to enlarge";
+      img.addEventListener("click", () => open(img));
+      img.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(img); } });
+    }
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  };
+
   // ---------- hover tips ----------
   // Any element with data-tip shows it in a floating box: immediately on hover, or on tap (touch).
   // Replaces the browser's native title tooltip, which is slow and absent on touch screens.
@@ -560,4 +594,5 @@
     }
   };
   U.decodeReports();
+  U.zoomFigures();
 })();
