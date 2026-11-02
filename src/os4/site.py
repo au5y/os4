@@ -58,6 +58,8 @@ CASE_LABELS = {
 PROPOSED_LABELS = {
     "travel_time": ("In-boundary travel time, average Kendall trip", "minutes"),
     "bike_share": ("E-bike share of served trips", "fraction of trips"),
+    "energy_per_pkm": ("Energy per passenger-km, incl. empty running", "Wh per passenger-km"),
+    "fleet_size": ("Fleet size (operational complexity)", "vehicles"),
 }
 # Display names for known columns; anything else is shown under its own name.
 COLUMN_LABELS = {
@@ -77,9 +79,12 @@ COLUMN_LABELS = {
     "availability": "availability",
     "travel_time": "travel time, average Kendall trip (min)",
     "bike_share": "bike share",
+    "energy_per_pkm": "energy (Wh/passenger-km)",
+    "fleet_size": "fleet size (vehicles)",
     "fleet_cost_usd": "fleet cost",
     "mau": "MAU (Appendix A)",
     "mau_os3a_extended": "MAU (OS3A extended, proposed)",
+    "mau_os3a_full": "MAU (OS3A full, proposed)",
     "meets_thresholds": "meets thresholds",
     "meets_wait_goal": "wait goal (≤ 5 min)",
     "meets_travel_goal": "travel goal (≤ 7 min)",

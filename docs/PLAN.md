@@ -296,6 +296,8 @@ The slope column on the workbook's SAU sheet reproduces every U<sub>m</sub> in Y
 | --- | --- | --- | --- |
 | In-boundary travel time (min) | Table 1 (7 min max between any two locations) [[1]](references.md#ref-1); OS3A MOE 1 (predictable commute time) | 0 → 1.0, 4 → 0.95, 7 → 0.8, 10 → 0.5, 15 → 0.2, 20 → 0 | Average Kendall trip (1.75 km road, 1.6 km bike) ÷ speed (Q13, Q3): 5.0 min for a capped road fleet |
 | ~~Bike share of served trips~~ (removed from the weights, kept for later) | OS3A MOE 2 (bike commute share, 11% baseline) | 0 → 0, 0.11 → 0.3, 0.25 → 0.6, 0.5 → 0.9, 1.0 → 1.0 | Bike trips ÷ total served trips |
+| Energy per passenger-km (Wh/pkm), proposed (J) | Sustainability; replaces bike share as a solution-neutral attribute; MIT P&T's "empty shuttles" concern [[15]](references.md#ref-15) | 0 → 1.0, 50 → 0.9, 100 → 0.75, 200 → 0.5, 400 → 0.2, 1000 → 0 | Appendix B consumption × km driven by the vehicles in service all day (incl. deadhead and empty off-peak running) ÷ passenger-km served |
+| Fleet size (vehicles), proposed (J) | Operational complexity: vehicles to charge, dispatch, maintain and (at A3) staff; OS3B operational objectives (Q22) | 1 → 1.0, 5 → 0.95, 15 → 0.8, 50 → 0.5, 150 → 0.25, 400 → 0.1, 1000 → 0 | n_road + n_bike |
 
 Safety (MOE 3), stop announcements (MOE 6) and accessibility (Q21) stay **pass/fail screens**, not weighted attributes. Extended weights (`os3a_extended`): keep the `os3a_reweight` priorities for the Appendix A four, scaled by 0.85, and give 0.15 to travel time: **volume 0.08 / peak 0.21 / wait 0.30 / availability 0.26 / travel time 0.15.** Wait plus travel time (0.45) then covers the door-to-door experience behind MOE 1 and MOE 4.
 
@@ -411,7 +413,13 @@ Use `python -m os4` to write `outputs/media/os4_model.xlsx` (with tabs for input
 > **❓ G:** The three Pareto architectures for the Task 3 table. **Open**; review them in the results explorer.
 > **Answer:** _TBD_
 
-> **❓ H:** The proposed travel-time SAU curve (extended MAU). **Open**; shown for review on the explorer's Task 1 page. Bike share was removed from the weights; a sustainability attribute (e.g. energy per passenger-km) can be added back later.
+> **❓ H:** The proposed travel-time SAU curve (extended MAU). **Open**; shown for review on the explorer's Task 1 page. Bike share was removed from the weights; energy per passenger-km and fleet size are proposed in J.
+> **Answer:** _TBD_
+
+> **❓ J:** Two more proposed attributes, weighted in a fourth set, `os3a_full` (proposed by Austin, for the group to confirm; `os3a_extended` is unchanged). **Weights:** the Appendix A four at 0.70 × `os3a_reweight` (volume 0.07 / peak 0.175 / wait 0.245 / availability 0.21), travel time 0.15, energy 0.075, fleet size 0.075. Both SAU curves are team assumptions (`data/sau_energy_per_pkm.csv`, `data/sau_fleet_size.csv`).
+> - **Energy per passenger-km** (`fleet.energy_per_pkm`). It follows the wait model (Q12): every vehicle in service leaves the hub on its cycle all day, so it drives trip × (1 + deadhead) km per cycle at its Appendix B Wh/km whether riders fill it or not. Daily Wh ÷ passenger-km served (1,790 trips at 1.75 km road / 1.6 km bike). Extra vehicles add empty running but no riders, so this is the operating side of the wait trade-off (Mohring's frequency rule in the CLAUDE.md appendix). **Alternative for the group:** dispatch on demand only, which makes it a property of the vehicle (Wh/km ÷ pax × load factor) and independent of fleet size; it then can't see empty shuttles, because the 0.75 load factor is fixed.
+> - **Fleet size** (`fleet.fleet_size`): vehicles to manage. It overlaps cost for road fleets, but bikes are cheap and many, so it is the one attribute that counts 700 bikes as harder to run than 7 buses. Open: count a road vehicle (charging bay, A3 attendant) as more than one bike, or a mixed fleet as more complex than a single type.
+> - **Results** (removable batteries): the Appendix A front runs to $27.8M and 1,050 vehicles; the `os3a_full` front has 57 points and stops at **$318,600 (4 × C7)**, because past the knee every extra vehicle lowers utility. Reference 0.895, EZRide 0.842, MBTA bus 0.514, **MIT shuttles 0.912, now on the front**. The Task 2 bike-only (150 × B2) and mixed (8 C2 + 60 B2) architectures drop from the top MAU to the bottom two (0.853, 0.864). Plots: `task3_tradespace_{fixed,removable}_full.png`.
 > **Answer:** _TBD_
 
 > **❓ I:** Extra sensitivity runs (32 km/h posted speed, 0.5 deadhead). Needed? The load-factor chart already covers the "what-if" the rubric asks about.

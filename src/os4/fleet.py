@@ -13,6 +13,9 @@ import pandas as pd
 
 from os4.scenario import Scenario
 
+# Energy intensity of a fleet that carries no one (the energy SAU's zero-utility end) [Wh/pkm].
+MAX_WH_PER_PKM = 1000.0
+
 
 @dataclass(frozen=True)
 class Fleet:
@@ -137,6 +140,34 @@ def normal_cdf(z):
     poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))))
     erf = 1.0 - poly * np.exp(-x * x)
     return 0.5 * (1.0 + np.where(np.asarray(z) >= 0, erf, -erf))
+
+
+def energy_per_pkm(fleet: Fleet, scenario: Scenario) -> float:
+    """Energy-intensity attribute [Wh per passenger-km] over the service day (team proposal, PLAN.md J).
+
+    Consistent with the wait model (Q12): every vehicle in service leaves the hub on its cycle all
+    day, so it drives trip x (1 + deadhead) km per cycle at its Appendix B consumption (Wh/km)
+    whether or not riders fill it. Passenger-km are the trips served (min(demand, capacity) per
+    bin, split between road and bike by capacity) times each part's trip length. Empty off-peak
+    running and the deadhead leg therefore count against the fleet. An empty fleet gets
+    ``MAX_WH_PER_PKM`` (the SAU's zero-utility end).
+    """
+    capacity = fleet_capacity_per_h(fleet, scenario)
+    if capacity <= 0:
+        return MAX_WH_PER_PKM
+    hours = len(scenario.demand) * scenario.demand_bin_h
+    wh = sum(
+        effective_fleet(n, v["availability"]) * 60.0 / cycle_time_min(v, scenario)
+        * _trip_km(v, scenario) * (1.0 + scenario.deadhead_fraction) * v["wh_per_km"]
+        for v, n in fleet.members()
+    ) * hours
+    km_per_trip = sum(_part_capacity(v, n, scenario) * _trip_km(v, scenario) for v, n in fleet.members()) / capacity
+    return wh / (daily_passenger_volume(fleet, scenario) * km_per_trip)
+
+
+def fleet_size(fleet: Fleet) -> int:
+    """Operational-complexity attribute: vehicles to manage, charge and dispatch (team proposal, PLAN.md J)."""
+    return int(sum(n for _, n in fleet.members()))
 
 
 def fleet_cost_usd(fleet: Fleet) -> float:
