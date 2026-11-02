@@ -335,7 +335,9 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         ("E-bike speed", f"{scenario.bike_assisted_speed_kmh:g} km/h", "Q5: fixed assist instead of 700·P/W"),
         ("Trip length (road / bike)", f"{scenario.avg_trip_km:g} / {scenario.bike_trip_km:g} km", "Q13: Kendall links measured on OSRM (Q1)"),
         ("Empty return (deadhead)", f"{scenario.deadhead_fraction:g} × trip", "Q13 (open): vehicles return to Kendall empty"),
-        ("Dwell / load factor", f"{scenario.dwell_s:g} s / {scenario.load_factor:g}", "Appendix B"),
+        ("Dwell / load factor", f"{scenario.dwell_s:g} s / {scenario.load_factor:g} (road vehicles)", "Appendix B"),
+        ("E-bike riders per trip", ", ".join(f"{p}-seat {p * lf:.2g}" for p, lf in scenario.bike_load_factors),
+         "Team fix (PLAN.md K): a bike only moves with a rider"),
         ("Throughput MoP", scenario.throughput_measure, "Q11 (open)"),
         ("Demand", f"peak {scenario.peak_demand_per_h:g} trips/h, "
                    f"{scenario.demand['trips_per_hour'].sum() * scenario.demand_bin_h:,.0f} trips/day", "Appendix B, Kendall origin"),

@@ -120,7 +120,7 @@ def _part_arrays(rows: pd.DataFrame, n: np.ndarray, trip_km: float, scenario: Sc
     """Per-part capacity, departures, availability, cost and travel time; mirrors ``os4.fleet``."""
     speed = rows["speed_kmh"].to_numpy(float)
     cycle = 60.0 * trip_km * (1.0 + scenario.deadhead_fraction) / speed + scenario.dwell_s / 60.0
-    per_vehicle = 60.0 / cycle * rows["pax"].to_numpy(float) * scenario.load_factor
+    per_vehicle = 60.0 / cycle * rows["pax"].to_numpy(float) * rows["load_factor"].to_numpy(float)
     a = rows["availability"].to_numpy(float)
     return {
         "capacity": n * a * per_vehicle,
@@ -490,7 +490,11 @@ LOAD_FACTOR_COLORS = ("#86b6ef", "#3987e5", "#1c5cab", "#0d366b")  # ordinal ram
 
 
 def load_factor_fronts(scenario: Scenario, load_factors=LOAD_FACTORS) -> dict[float, pd.DataFrame]:
-    """Pareto front of the full design space at each average load factor (Appendix B uses 0.75)."""
+    """Pareto front of the full design space at each road-vehicle load factor (Appendix B uses 0.75).
+
+    Bikes keep their per-seat riders (``Scenario.bike_load_factors``, PLAN.md K): an on-demand bike
+    always carries its rider, so its occupancy isn't the open question this sweep explores.
+    """
     fronts = {}
     for lf in load_factors:
         df = tradespace(replace(scenario, load_factor=lf))
@@ -520,7 +524,7 @@ def plot_load_factor_fronts(fronts: dict[float, pd.DataFrame], path: Path, basel
     _cost_axis(ax)
     ax.set_xlabel("fleet cost ($M, vehicle capital cost, log scale)", fontsize=9, color=INK_2)
     ax.set_ylabel("multi-attribute utility", fontsize=9, color=INK_2)
-    ax.set_title("Pareto front by average load factor (share of seats filled per trip)", loc="left", fontsize=13,
+    ax.set_title("Pareto front by road-vehicle load factor (share of seats filled per trip)", loc="left", fontsize=13,
                  color=INK, fontweight="bold")
     fig.tight_layout()
     fig.savefig(path, dpi=200)
@@ -761,9 +765,11 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "Availability is *service* availability (Q14): the chance the vehicles in service can carry the hour's "
         "demand, so spare vehicles raise it.\n\n"
         "## Load-factor sensitivity\n\n"
-        "Appendix B assumes trips average 75% full; the model keeps 0.75 as the baseline. The same design space "
-        "scored at 25%, 50%, 75% and 100% (the removable-battery case, which also contains every fixed-battery "
-        "option):\n\n"
+        "Appendix B assumes trips average 75% full; the model keeps 0.75 as the baseline for road vehicles. "
+        "E-bikes use riders per trip by seats instead (PLAN.md K): a 1-seat bike carries its 1 rider, a 2-seat "
+        "bike 2 riders every 3 trips (4/3 riders, 67% of seats), so this sweep varies road vehicles only. The "
+        "same design space scored at 25%, 50%, 75% and 100% (the removable-battery case, which also contains "
+        "every fixed-battery option):\n\n"
         f"![Pareto front by load factor]({media_link(lf_png)})\n\n"
         f"{_md_table(lf_rows)}\n"
         + "".join(sections)

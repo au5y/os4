@@ -51,7 +51,12 @@ class Scenario:
     # as in Appendix B. A swap takes ``bike_swap_h``; the pack then charges off the bike.
     bike_spare_options: tuple[float, ...] = (0.0, 0.5, 1.0, 1.5, 2.0, 3.0)
     bike_swap_h: float = 5 / 60
-    # Appendix B constants.
+    # Riders per bike trip as a fraction of seats, by seat count (team fix, PLAN.md K). An on-demand bike
+    # only moves with someone on it (its empty return is the deadhead), so a 1-seat bike carries 1 rider;
+    # a 2-seat bike carries a second rider about one trip in three (2 riders every 3 trips: 4/3 riders,
+    # 2/3 of its seats). Appendix B's 0.75 would give 0.75 riders on a 1-seat bike.
+    bike_load_factors: tuple[tuple[int, float], ...] = ((1, 1.0), (2, 2 / 3))
+    # Appendix B constants. ``load_factor`` applies to road vehicles; bikes use ``bike_load_factors``.
     dwell_s: float = 60.0
     load_factor: float = 0.75
     notes: list[str] = field(default_factory=list)

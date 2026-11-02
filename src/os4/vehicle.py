@@ -32,6 +32,7 @@ VARIANT_COLUMNS = [
     "chassis", "battery", "charger", "motor", "autonomy",
     "spares_per_bike",  # removable-battery option; 0 = fixed battery (always 0 for road)
     "pax",
+    "load_factor",  # average riders per trip / seats (road: Appendix B 0.75; bikes: by seats, PLAN.md K)
     "weight_kg",
     "cost_usd",
     "wh_per_km",
@@ -169,7 +170,7 @@ def road_variants(scenario: Scenario) -> pd.DataFrame:
     df = df[battery_fits(df["battery_weight_kg"], df["chassis_weight_kg"], "road")]
     df = df[df["autonomy_id"].isin(scenario.allowed_autonomy)]
     speed = road_speed_kmh(df["motor_power_kw"], _weight(df), scenario.speed_limit_kmh)
-    return _finish(df, "road", speed, scenario.speed_limit_kmh)
+    return _finish(df, "road", speed, scenario.speed_limit_kmh, scenario.load_factor)
 
 
 def bike_variants(scenario: Scenario) -> pd.DataFrame:
@@ -190,7 +191,7 @@ def bike_variants(scenario: Scenario) -> pd.DataFrame:
     df = df.assign(autonomy_id="L4", autonomy_weight_kg=0.0, autonomy_cost_usd=0.0, autonomy_added_wh_per_km=0.0)
     speed = bike_speed_kmh(df["motor_power_kw"].to_numpy(), _weight(df).to_numpy(), scenario)
     limit = scenario.bike_speed_limit_kmh if scenario.bike_speed_limit_kmh is not None else np.inf
-    fixed = _finish(df, "bike", speed, limit)
+    fixed = _finish(df, "bike", speed, limit, bike_load_factor(df["chassis_pax"].to_numpy(), scenario))
     parts = [fixed] if 0 in scenario.bike_spare_options else []
     for k in (k for k in scenario.bike_spare_options if k > 0):
         swap = fixed.copy()
@@ -204,6 +205,16 @@ def bike_variants(scenario: Scenario) -> pd.DataFrame:
         swap["downtime_h"] = fixed["uptime_h"] * (1 / avail - 1)
         parts.append(swap)
     return pd.concat(parts, ignore_index=True)
+
+
+def bike_load_factor(pax, scenario: Scenario) -> np.ndarray:
+    """Riders per bike trip / seats for each bike's seat count (``scenario.bike_load_factors``, PLAN.md K)."""
+    factors = dict(scenario.bike_load_factors)
+    pax = np.asarray(pax)
+    missing = set(np.unique(pax)) - set(factors)
+    if missing:
+        raise ValueError(f"no bike load factor for {sorted(missing)} seats; add it to Scenario.bike_load_factors")
+    return np.array([factors[p] for p in pax], dtype=float)
 
 
 def all_variants(scenario: Scenario) -> pd.DataFrame:
@@ -237,7 +248,7 @@ def _weight(df: pd.DataFrame) -> pd.Series:
     )
 
 
-def _finish(df: pd.DataFrame, kind: str, speed, speed_limit_kmh: float) -> pd.DataFrame:
+def _finish(df: pd.DataFrame, kind: str, speed, speed_limit_kmh: float, load_factor) -> pd.DataFrame:
     """Apply the Appendix B equations to a table of component selections."""
     weight = _weight(df)
     wh_per_km = power_consumption_wh_per_km(
@@ -260,6 +271,7 @@ def _finish(df: pd.DataFrame, kind: str, speed, speed_limit_kmh: float) -> pd.Da
         "autonomy": df["autonomy_id"],
         "spares_per_bike": 0.0,
         "pax": df["chassis_pax"],
+        "load_factor": np.broadcast_to(np.asarray(load_factor, dtype=float), len(df)),
         "weight_kg": weight,
         "cost_usd": total_cost_usd(
             df["chassis_cost_usd"], df["battery_cost_usd"], df["charger_cost_usd"],
