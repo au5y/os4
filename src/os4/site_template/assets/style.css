@@ -214,7 +214,7 @@ a.export {
 a.export:hover { filter: brightness(1.08); }
 
 /* Variant ids decoded on hover (component codes, Appendix C / D) */
-td.decoded { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
+td.decoded, code.decoded { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
 dd.parts { white-space: pre-line; font-size: 0.9em; }
 .components-table caption { text-align: left; font-weight: 600; padding: 0.4rem 0; }
 

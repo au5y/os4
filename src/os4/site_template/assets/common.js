@@ -260,6 +260,17 @@
     return ids.map((id) => id + "\n" + (U.decodeVariant(id) || "")).join("\n\n");
   };
 
+  // Rendered Markdown reports (Write-up sections, report pages) are static HTML: give their table
+  // cells and code spans the same decoded-variant hover tips as the explorer's own tables.
+  U.decodeReports = function (root) {
+    for (const node of (root || document).querySelectorAll(".report td, .report code")) {
+      const tip = U.decodeText(node.textContent);
+      if (!tip) continue;
+      node.dataset.tip = tip;
+      node.classList.add("decoded");
+    }
+  };
+
   // ---------- hover tips ----------
   // Any element with data-tip shows it in a floating box: immediately on hover, or on tap (touch).
   // Replaces the browser's native title tooltip, which is slow and absent on touch screens.
@@ -548,4 +559,5 @@
       /* old browsers */
     }
   };
+  U.decodeReports();
 })();
