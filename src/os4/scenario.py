@@ -53,13 +53,16 @@ class Scenario:
     bike_swap_h: float = 5 / 60
     # Feasibility gate (team, PLAN.md L): at most this many riders per bike per day; None turns it off.
     # The model lets every bike cycle without idle time, so cheap bike fleets can claim 40-50 rides a day.
-    # Real systems: Bluebikes about 2.5 and Citi Bike 3.3 per bike per day (2024 annual averages; 3-5
-    # is typical), Citi Bike e-bikes about 15 (2018), the busiest observed case and our ceiling.
+    # Real systems: Bluebikes about 2.5 [[28]](references.md#ref-28), [[29]](references.md#ref-29) and
+    # Citi Bike 3.3 [[25]](references.md#ref-25) per bike per day (2024 annual averages; 3-5 is typical),
+    # Citi Bike e-bikes about 15 (2018) [[27]](references.md#ref-27), the busiest observed case and our
+    # ceiling.
     max_bike_trips_per_day: float | None = 15.0
     # Same gate for small on-demand cars (PLAN.md L): at most this many vehicle trips (rides) per car per
-    # day, Waymo's observed rate (about 24: 250,000 paid rides a week on over 1,500 vehicles, spring 2025).
-    # "Cars" are road chassis of 1-6 seats (C1-C3, team decision); larger shuttles
-    # and buses are in line with transit (MBTA about 300 riders per bus per day) and are not gated.
+    # day, Waymo's observed rate: about 24, from 250,000 paid rides a week [[32]](references.md#ref-32)
+    # on over 1,500 vehicles [[33]](references.md#ref-33), spring 2025.
+    # "Cars" are road chassis of 1-6 seats (C1-C3, team decision); larger shuttles and buses are in line
+    # with transit (MBTA about 300 riders per bus per day [[30]](references.md#ref-30)) and are not gated.
     max_car_trips_per_day: float | None = 25.0
     car_max_seats: int = 6
     # Riders per bike trip as a fraction of seats, by seat count (team fix, PLAN.md K). An on-demand bike
