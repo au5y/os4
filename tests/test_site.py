@@ -4,7 +4,7 @@ import re
 import pytest
 
 from os4.scenario import primary_scenario
-from os4.site import arch_id, case_frames, highlight_architectures, sample_rows, write_reports, write_site
+from os4.site import arch_id, case_frames, highlight_architectures, sample_rows, write_docs, write_reports, write_site
 from os4.tradespace import pareto_front
 
 GRID = {"n_road": (0, 5, 10, 20), "n_bike": (0, 25, 50, 100)}
@@ -15,7 +15,7 @@ ASSIGN = re.compile(r'^window\.OS4 = window\.OS4 \|\| \{\};\nwindow\.OS4\["(\w+)
 @pytest.fixture(scope="module")
 def site(tmp_path_factory):
     out = tmp_path_factory.mktemp("site")
-    paths = write_site(primary_scenario(), out, mixed_cap=CAP, reports_dir=None, **GRID)
+    paths = write_site(primary_scenario(), out, mixed_cap=CAP, reports_dir=None, docs_dir=None, **GRID)
     return out, paths
 
 
@@ -113,8 +113,9 @@ def test_task1_and_task2_payloads(site):
     out, _ = site
     t1 = _data(out, "task1")
     assert {s["attribute"] for s in t1["saus"]} >= {"passenger_volume", "peak_throughput", "wait_time",
-                                                    "availability", "travel_time", "bike_share"}
-    assert [s["proposed"] for s in t1["saus"] if s["attribute"] in ("travel_time", "bike_share")] == [True, True]
+                                                    "availability", "travel_time", "energy_per_pkm", "fleet_size"}
+    assert "bike_share" not in {s["attribute"] for s in t1["saus"]}  # parked: in no weight set
+    assert [s["proposed"] for s in t1["saus"] if s["attribute"] == "travel_time"] == [True]
     assert [c["mau"] for c in t1["cases"]] == pytest.approx([0.613, 0.6385, 0.651], abs=1e-3)
     t2 = _data(out, "task2")
     assert len(t2["architectures"]) == 5
@@ -160,6 +161,32 @@ def test_report_is_embedded_in_its_page_slot(tmp_path):
     (out / "other.html").write_text("<!-- report:task8_other -->\n<p>fallback</p>\n<!-- /report -->", encoding="utf-8")
     write_reports(src, out)
     page = (out / "task9.html").read_text(encoding="utf-8")
-    assert "<h3>Results</h3>" in page and "Body text." in page
+    assert '<h3 id="results">Results</h3>' in page and "Body text." in page
     assert "fallback" not in page and "Demo report" not in page
     assert "fallback" in (out / "other.html").read_text(encoding="utf-8")
+
+
+def test_long_report_tables_start_collapsed(tmp_path):
+    src, out = tmp_path / "src", tmp_path / "site"
+    src.mkdir(), out.mkdir()
+    rows = "".join(f"| {i} | x |\n" for i in range(20))
+    (src / "task9_demo.md").write_text(f"# Demo\n\n| a | b |\n| --- | --- |\n{rows}\n| a | b |\n| --- | --- |\n| 1 | 2 |\n",
+                                      encoding="utf-8")
+    write_reports(src, out)
+    page = (out / "report_task9_demo.html").read_text(encoding="utf-8")
+    assert page.count('<details class="long-table">') == 1
+    assert "Table: 20 rows (click to expand)" in page
+
+
+def test_plan_is_rendered_view_only_with_working_links(tmp_path):
+    docs, out = tmp_path / "docs", tmp_path / "site"
+    docs.mkdir(), out.mkdir()
+    (docs / "PLAN.md").write_text("# Plan\n\nSee [[1]](references.md#ref-1) and [cases](../outputs/task1_cases.md).\n\n"
+                                  "$$U = \\sum k_i u_i$$\n", encoding="utf-8")
+    (docs / "references.md").write_text("# References\n\n1. <a id=\"ref-1\"></a>Source.\n", encoding="utf-8")
+    write_docs(docs, out)
+    page = (out / "plan.html").read_text(encoding="utf-8")
+    assert "View only." in page and 'OS4.util.header("plan.html")' in page
+    assert 'href="references.html#ref-1"' in page and 'href="report_task1_cases.html"' in page
+    assert '<pre class="math">U = \\sum k_i u_i</pre>' in page
+    assert (out / "references.html").exists()

@@ -292,7 +292,9 @@ def _scenario_sheet(wb: Workbook, scenario: Scenario) -> None:
          "km", "Q13: Kendall bike links (Q1)"),
         ("deadhead", scenario.deadhead_fraction, "fraction of trip", "Q13 (open): empty return to Kendall"),
         ("dwell_s", scenario.dwell_s, "s", "Appendix B"),
-        ("load_factor", scenario.load_factor, "fraction", "Appendix B"),
+        ("load_factor", scenario.load_factor, "fraction", "Appendix B (road vehicles)"),
+        *((f"bike_load_factor_{pax}", lf, "fraction of seats", f"PLAN.md K: {pax}-seat e-bike, riders per trip / seats")
+          for pax, lf in scenario.bike_load_factors),
         ("max_wait", scenario.max_wait_min, "min", "Q12: wait for an empty or overloaded fleet"),
         ("bin_h", scenario.demand_bin_h, "h", "Appendix B demand bins"),
         ("throughput_measure", scenario.throughput_measure, "", "Q11: capacity or served"),
@@ -440,7 +442,7 @@ def _architectures_sheet(wb: Workbook, scenario: Scenario, refs: dict[str, dict[
             formulas = {
                 10: f'=IF($B{r}="bike",trip_km_bike,trip_km_road)',
                 11: f"=60*J{r}*(1+deadhead)/E{r}+dwell_s/60",
-                12: f"=60/K{r}*H{r}*load_factor",
+                12: f"=60/K{r}*H{r}*" + (f"bike_load_factor_{int(vehicle['pax'])}" if part == "bike" else "load_factor"),
                 13: f"=D{r}*G{r}",
                 14: f"=M{r}*L{r}",
                 15: f"=I{r}*D{r}",

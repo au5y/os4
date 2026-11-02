@@ -40,8 +40,8 @@ def cycle_time_min(vehicle: pd.Series, scenario: Scenario) -> float:
 
 
 def vehicle_capacity_per_h(vehicle: pd.Series, scenario: Scenario) -> float:
-    """Passenger trips/h one vehicle can serve: (60 / cycle) * pax * load factor."""
-    return 60.0 / cycle_time_min(vehicle, scenario) * vehicle["pax"] * scenario.load_factor
+    """Passenger trips/h one vehicle can serve: (60 / cycle) * pax * its load factor (bikes by seats, PLAN.md K)."""
+    return 60.0 / cycle_time_min(vehicle, scenario) * vehicle["pax"] * vehicle["load_factor"]
 
 
 def effective_fleet(n: int, availability: float) -> float:
@@ -163,6 +163,29 @@ def energy_per_pkm(fleet: Fleet, scenario: Scenario) -> float:
     ) * hours
     km_per_trip = sum(_part_capacity(v, n, scenario) * _trip_km(v, scenario) for v, n in fleet.members()) / capacity
     return wh / (daily_passenger_volume(fleet, scenario) * km_per_trip)
+
+
+def trips_per_vehicle_day(fleet: Fleet, scenario: Scenario) -> dict[str, float]:
+    """Riders served per vehicle per day, overall and for the road and bike parts (0 for an absent part), and
+    vehicle trips (rides) per car per day for a road part of at most ``scenario.car_max_seats`` seats.
+
+    A realism check (PLAN.md L), not a utility attribute: the model lets every vehicle cycle without
+    idle time, so these are upper bounds to compare with real systems (e.g. rides per Bluebike per
+    day). Each part serves the day's volume in proportion to its capacity, as in ``energy_per_pkm``.
+    """
+    capacity = fleet_capacity_per_h(fleet, scenario)
+    volume = daily_passenger_volume(fleet, scenario)
+    out = {"trips_per_vehicle_day": volume / fleet_size(fleet) if fleet_size(fleet) else 0.0}
+    for part, vehicle, n in (("road", fleet.road, fleet.n_road), ("bike", fleet.bike, fleet.n_bike)):
+        if vehicle is None or not n or not capacity:
+            out[f"{part}_trips_per_vehicle_day"] = 0.0
+            continue
+        out[f"{part}_trips_per_vehicle_day"] = volume * _part_capacity(vehicle, n, scenario) / capacity / n
+    road = fleet.road
+    is_car = road is not None and fleet.n_road and road["pax"] <= scenario.car_max_seats
+    out["car_trips_per_vehicle_day"] = (out["road_trips_per_vehicle_day"] / (road["pax"] * road["load_factor"])
+                                        if is_car else 0.0)
+    return out
 
 
 def fleet_size(fleet: Fleet) -> int:

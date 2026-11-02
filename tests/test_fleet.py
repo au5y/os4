@@ -13,6 +13,7 @@ from os4.fleet import (
     fleet_capacity_per_h,
     fleet_cost_usd,
     fleet_size,
+    trips_per_vehicle_day,
     MAX_WH_PER_PKM,
     normal_cdf,
     vehicle_availability,
@@ -126,3 +127,33 @@ def test_fleet_size_counts_every_vehicle(scenario):
     car, bike = get_variant("C2-P2-G3-M2-A3", scenario), get_variant("B2-E1-G2-K2", scenario)
     assert fleet_size(Fleet(road=car, n_road=8, bike=bike, n_bike=60)) == 68
     assert fleet_size(Fleet()) == 0
+
+
+@pytest.mark.parametrize("variant, riders", [("B2-E1-G2-K2", 1.0), ("B3-E1-G2-K1", 4 / 3)])
+def test_bike_riders_per_trip_by_seats(scenario, variant, riders):
+    # PLAN.md K: a 1-seat bike always carries its one rider; a 2-seat bike carries 2 riders every 3 trips.
+    bike = get_variant(variant, scenario)
+    assert bike["pax"] * bike["load_factor"] == pytest.approx(riders)
+    assert vehicle_capacity_per_h(bike, scenario) == pytest.approx(60 / cycle_time_min(bike, scenario) * riders)
+
+
+def test_road_load_factor_stays_appendix_b(scenario):
+    assert get_variant("C2-P2-G3-M2-A3", scenario)["load_factor"] == pytest.approx(0.75)
+
+
+def test_trips_per_vehicle_day_splits_by_capacity(scenario):
+    car, bike = get_variant("C2-P2-G3-M2-A3", scenario), get_variant("B2-E1-G2-K2", scenario)
+    fleet = Fleet(road=car, n_road=8, bike=bike, n_bike=60)
+    t = trips_per_vehicle_day(fleet, scenario)
+    volume = daily_passenger_volume(fleet, scenario)
+    assert t["trips_per_vehicle_day"] == pytest.approx(volume / 68)
+    assert 8 * t["road_trips_per_vehicle_day"] + 60 * t["bike_trips_per_vehicle_day"] == pytest.approx(volume)
+    assert trips_per_vehicle_day(Fleet(road=car, n_road=12), scenario)["bike_trips_per_vehicle_day"] == 0.0
+
+
+def test_car_trips_count_rides_for_small_cars_only(scenario):
+    car, shuttle = get_variant("C2-P2-G3-M2-A3", scenario), get_variant("C6-P4-G3-M3-A3", scenario)
+    t = trips_per_vehicle_day(Fleet(road=car, n_road=12), scenario)
+    # Riders per car / riders per ride (4 seats x 0.75): PLAN.md L.
+    assert t["car_trips_per_vehicle_day"] == pytest.approx(t["road_trips_per_vehicle_day"] / 3)
+    assert trips_per_vehicle_day(Fleet(road=shuttle, n_road=4), scenario)["car_trips_per_vehicle_day"] == 0.0

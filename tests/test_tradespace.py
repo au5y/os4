@@ -20,7 +20,9 @@ from os4.tradespace import (
 from os4.vehicle import all_variants, get_variant
 
 COMPARED = ["fleet_capacity_per_h", "passenger_volume", "peak_throughput", "wait_time", "availability",
-            "vehicle_availability", "travel_time", "bike_share", "energy_per_pkm", "fleet_size", "fleet_cost_usd",
+            "vehicle_availability", "travel_time", "bike_share", "energy_per_pkm", "fleet_size", "trips_per_vehicle_day",
+            "road_trips_per_vehicle_day", "bike_trips_per_vehicle_day", "car_trips_per_vehicle_day",
+            "fleet_cost_usd",
             "mau", "mau_os3a_extended", "mau_os3a_full"]
 
 
@@ -84,15 +86,19 @@ def test_screening_drops_exactly_the_threshold_failures(scenario, space):
     full = tradespace(scenario, SMALL_ROAD, SMALL_BIKE, screen=False)
     failing = ((full["fleet_capacity_per_h"] < scenario.min_peak_throughput)
                | (full["fleet_capacity_per_h"] < scenario.min_offpeak_throughput)
-               | (full["passenger_volume"] < scenario.min_daily_volume))
+               | (full["passenger_volume"] < scenario.min_daily_volume)
+               | (full["bike_trips_per_vehicle_day"] > scenario.max_bike_trips_per_day)
+               | (full["car_trips_per_vehicle_day"] > scenario.max_car_trips_per_day))
     assert space.attrs["screened_out"] == failing.sum()
     assert space.attrs["threshold_failures"]["peak_throughput"] == (full["fleet_capacity_per_h"] < 150).sum()
     assert len(space) == (~failing).sum()
-    assert space["meets_thresholds"].all()
+    assert space["meets_thresholds"].all() and space["meets_bike_ceiling"].all() and space["meets_car_ceiling"].all()
+    assert space.attrs["threshold_failures"]["car_ceiling"] == (~full["meets_car_ceiling"]).sum() > 0
+    assert space.attrs["threshold_failures"]["bike_ceiling"] == (~full["meets_bike_ceiling"]).sum() > 0
     # Screening happens before scoring, so the survivors' scores are unchanged.
     kept = full[~failing].reset_index(drop=True)
-    pd.testing.assert_frame_equal(kept.drop(columns="meets_thresholds"),
-                                  space.reset_index(drop=True).drop(columns="meets_thresholds"),
+    flags = ["meets_thresholds", "meets_bike_ceiling", "meets_car_ceiling"]
+    pd.testing.assert_frame_equal(kept.drop(columns=flags), space.reset_index(drop=True).drop(columns=flags),
                                   check_dtype=False)
 
 

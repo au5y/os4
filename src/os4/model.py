@@ -22,6 +22,7 @@ from os4.fleet import (
     fleet_cost_usd,
     fleet_size,
     peak_throughput,
+    trips_per_vehicle_day,
     vehicle_availability,
     vehicle_capacity_per_h,
 )
@@ -56,10 +57,35 @@ def meets_thresholds(capacity, volume, scenario: Scenario):
     )
 
 
+def meets_bike_ceiling(bike_trips_per_vehicle_day, scenario: Scenario):
+    """Feasibility gate (PLAN.md L): riders per bike per day at most ``scenario.max_bike_trips_per_day``.
+
+    Fleets without bikes report 0 and always pass (vectorized).
+    """
+    trips = np.asarray(bike_trips_per_vehicle_day, dtype=float)
+    if scenario.max_bike_trips_per_day is None:
+        return np.ones(trips.shape, dtype=bool)
+    return trips <= scenario.max_bike_trips_per_day + 1e-9
+
+
+def meets_car_ceiling(car_trips_per_vehicle_day, scenario: Scenario):
+    """Feasibility gate (PLAN.md L): vehicle trips per car per day at most ``scenario.max_car_trips_per_day``.
+
+    Fleets without small cars report 0 and always pass (vectorized).
+    """
+    trips = np.asarray(car_trips_per_vehicle_day, dtype=float)
+    if scenario.max_car_trips_per_day is None:
+        return np.ones(trips.shape, dtype=bool)
+    return trips <= scenario.max_car_trips_per_day + 1e-9
+
+
 def requirement_flags(df: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
-    """Pass/fail columns for the thresholds, the "desired" goals and the availability benchmark."""
+    """Pass/fail columns for the thresholds, the bike and car ceilings, the "desired" goals and the availability
+    benchmark."""
     return pd.DataFrame({
         "meets_thresholds": meets_thresholds(df["fleet_capacity_per_h"], df["passenger_volume"], scenario),
+        "meets_bike_ceiling": meets_bike_ceiling(df["bike_trips_per_vehicle_day"], scenario),
+        "meets_car_ceiling": meets_car_ceiling(df["car_trips_per_vehicle_day"], scenario),
         "meets_wait_goal": df["wait_time"] <= scenario.goal_wait_min,
         "meets_travel_goal": df["travel_time"] <= scenario.goal_travel_min,
         "meets_availability_benchmark": df["availability"] >= scenario.benchmark_availability,
@@ -102,6 +128,7 @@ def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
             row[f"{part}_{col}"] = np.nan if vehicle is None else float(vehicle[col])
     row["fleet_capacity_per_h"] = capacity
     row["vehicle_availability"] = vehicle_availability(fleet, scenario)
+    row |= trips_per_vehicle_day(fleet, scenario)
     row |= mops | proposed
     for a, x in (mops | proposed).items():
         row[f"u_{a}"] = float(sau(a, x))
@@ -126,14 +153,17 @@ def representative_architectures(scenario: Scenario) -> dict[str, Fleet]:
 
     Starting picks (Q17 still open): each fleet is sized to cover the 150 trips/h
     peak with some headroom, so the table compares architectures on cost and
-    utility rather than on whether they meet demand.
+    utility rather than on whether they meet demand. Fleets 1 and 4 were then
+    enlarged just enough to pass the utilization ceilings (PLAN.md L): 1 from 12
+    to 24 cars (24.9 rides per car per day), 4 from 60 to 115 bikes (24.6 rides
+    per car, 10.4 riders per bike).
     """
     v = lambda vid: get_variant(vid, scenario)  # noqa: E731
     return {
-        "1 small cars (C2)": Fleet(road=v("C2-P2-G3-M2-A3"), n_road=12),
+        "1 small cars (C2)": Fleet(road=v("C2-P2-G3-M2-A3"), n_road=24),
         "2 large shuttles (C6)": Fleet(road=v("C6-P4-G3-M3-A3"), n_road=4),
         "3 bike-only (B2)": Fleet(bike=v("B2-E1-G2-K2"), n_bike=150),
-        "4 mixed cars + bikes": Fleet(road=v("C2-P2-G3-M2-A3"), n_road=8, bike=v("B2-E1-G2-K2"), n_bike=60),
+        "4 mixed cars + bikes": Fleet(road=v("C2-P2-G3-M2-A3"), n_road=8, bike=v("B2-E1-G2-K2"), n_bike=115),
         "5 A5 long-range (C4)": Fleet(road=v("C4-P5-G3-M2-A5"), n_road=6),
     }
 
@@ -153,7 +183,7 @@ def reference_architecture(scenario: Scenario) -> Fleet:
     N = f * cycle / 60 / availability, rounded up.
     """
     vehicle = get_variant(REFERENCE_VARIANT, scenario)
-    f = scenario.peak_demand_per_h / (REFERENCE_MAX_LOAD_RATIO * vehicle["pax"] * scenario.load_factor)
+    f = scenario.peak_demand_per_h / (REFERENCE_MAX_LOAD_RATIO * vehicle["pax"] * vehicle["load_factor"])
     n = math.ceil(f * cycle_time_min(vehicle, scenario) / 60.0 / vehicle["availability"])
     return Fleet(road=vehicle, n_road=n)
 

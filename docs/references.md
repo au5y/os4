@@ -57,3 +57,23 @@ IEEE-style bibliography for [PLAN.md](PLAN.md). In-line tags such as [[6]](#ref-
 <a id="ref-23"></a>[23] Project OSRM, "Open Source Routing Machine, demo server (car profile)," route service v1, OpenStreetMap data. [Online]. Available: https://router.project-osrm.org
 
 <a id="ref-24"></a>[24] FOSSGIS e.V., "OSRM routing server (bike profile)," OpenStreetMap data. [Online]. Available: https://routing.openstreetmap.de
+
+## Fleet utilization (PLAN.md L)
+
+<a id="ref-25"></a>[25] New York City Independent Budget Office, "Citi Bike: Lessons for the Future of New York City's Bike Share," Nov. 2025. [Online]. Available: https://www.ibo.nyc.gov/assets/ibo/downloads/pdf/infrastructure/2025/2025-november-citi-bike-lessons-for-the-future-of-nycs-bike-share.pdf (Citi Bike averaged 3.3 trips per bike per day in 2024, the most of the U.S. systems compared.)
+
+<a id="ref-26"></a>[26] National Association of City Transportation Officials (NACTO), "Walkable Station Spacing Is Key for Bike Share," 2015. [Online]. Available: https://nacto.org/wp-content/uploads/NACTO_Walkable-Station-Spacing-Is-Key-For-Bike-Share_Sc.pdf (Citi Bike: 5.2 rides per bike per day, 2014.)
+
+<a id="ref-27"></a>[27] Streetsblog NYC, "E-mazing: Scooter Trips Surpass Docked Bike Share for the First Time in U.S.," Apr. 17, 2019. [Online]. Available: https://nyc.streetsblog.org/2019/04/17/e-mazing-scooter-trips-surpass-bike-share-for-the-first-time-in-u-s (Reports NACTO's 2018 data: Citi Bike e-bikes were borrowed about 15 times a day, against about 5 for pedal bikes.)
+
+<a id="ref-28"></a>[28] Wikipedia, "Bluebikes." [Online]. Available: https://en.wikipedia.org/wiki/Bluebikes (2024 ridership 4,734,042 trips; about 5,500 bikes at 520 stations by the end of 2024.)
+
+<a id="ref-29"></a>[29] North American Bikeshare & Scootershare Association, "Member Spotlight: City of Boston," Aug. 28, 2025. [Online]. Available: https://nabsa.net/2025/08/28/boston/ (More than 4.7 million Bluebikes trips in 2024; about 5,300 bikes.)
+
+<a id="ref-30"></a>[30] Wikipedia, "MBTA bus," citing APTA ridership reports. [Online]. Available: https://en.wikipedia.org/wiki/MBTA_bus (About 335,300 weekday riders, Q2 2026; an active fleet of about 1,040–1,115 buses.)
+
+<a id="ref-31"></a>[31] NYC Taxi & Limousine Commission, "Monthly Data Reports" (industry indicators: trips per day and vehicles per day by industry). [Online]. Available: https://www.nyc.gov/assets/tlc/downloads/csv/data_reports_monthly.csv (2024: yellow taxis 12.1–14.9 trips per vehicle per day, mean 14.0; Uber/Lyft (high-volume FHV) 10.9–11.6, mean 11.2.)
+
+<a id="ref-32"></a>[32] CNBC, "Waymo reports 250,000 paid robotaxi rides per week in U.S.," Apr. 24, 2025. [Online]. Available: https://www.cnbc.com/2025/04/24/waymo-reports-250000-paid-robotaxi-rides-per-week-in-us.html
+
+<a id="ref-33"></a>[33] Waymo, "Scaling our fleet through U.S. manufacturing," Waymo blog, May 5, 2025. [Online]. Available: https://waymo.com/blog/2025/05/scaling-our-fleet-through-us-manufacturing/ (Commercial fleet of over 1,500 vehicles.)

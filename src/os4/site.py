@@ -81,11 +81,17 @@ COLUMN_LABELS = {
     "bike_share": "bike share",
     "energy_per_pkm": "energy (Wh/passenger-km)",
     "fleet_size": "fleet size (vehicles)",
+    "trips_per_vehicle_day": "riders per vehicle per day",
+    "road_trips_per_vehicle_day": "riders per road vehicle per day",
+    "bike_trips_per_vehicle_day": "riders per bike per day",
     "fleet_cost_usd": "fleet cost",
     "mau": "MAU (Appendix A)",
     "mau_os3a_extended": "MAU (OS3A extended, proposed)",
     "mau_os3a_full": "MAU (OS3A full, proposed)",
     "meets_thresholds": "meets thresholds",
+    "meets_bike_ceiling": "bike ceiling (≤ 15 riders/bike/day)",
+    "meets_car_ceiling": "car ceiling (≤ 25 rides/car/day)",
+    "car_trips_per_vehicle_day": "rides per car per day",
     "meets_wait_goal": "wait goal (≤ 5 min)",
     "meets_travel_goal": "travel goal (≤ 7 min)",
     "meets_availability_benchmark": "availability ≥ 0.75",
@@ -395,15 +401,18 @@ def _write_js(path: Path, key: str, payload) -> Path:
 
 def task1_payload() -> dict:
     weights = {name: load_weights(name) for name in WEIGHT_SETS}
+    # Only attributes some weight set uses; parked ones (bike share) stay in the data but not on the page.
+    weighted = {a for w in weights.values() for a in w}
+    proposed = [a for a in PROPOSED_ATTRIBUTES if a in weighted]
     saus = []
-    for a in ATTRIBUTES + PROPOSED_ATTRIBUTES:
+    for a in ATTRIBUTES + tuple(proposed):
         raw = sau_table(a)
         label, unit = LABELS.get(a) or PROPOSED_LABELS.get(a, (a, ""))
-        saus.append({"attribute": a, "label": label, "unit": unit, "proposed": a in PROPOSED_ATTRIBUTES,
+        saus.append({"attribute": a, "label": label, "unit": unit, "proposed": a in proposed,
                      "x": [_clean(v) for v in raw["x"]], "u": [_clean(v) for v in raw["utility"]]})
     return {
         "attributes": list(ATTRIBUTES),
-        "proposed_attributes": list(PROPOSED_ATTRIBUTES),
+        "proposed_attributes": proposed,
         "weights": weights,
         "cases": records(case_table()),
         "weight_sets": records(compare_weight_sets()),
@@ -520,19 +529,22 @@ REPORT_PAGE = """<!doctype html>
 </head>
 <body>
 <main class="wrap report" id="main">
-<p class="muted small">Rendered from <code>outputs/{source}</code>, written by <code>python -m os4</code>.</p>
+{note}
 {body}
 </main>
 <script src="data/meta.js"></script>
 <script src="assets/common.js"></script>
-<script>OS4.util.header("reports.html");</script>
+<script>OS4.util.header("{current}");</script>
 </body>
 </html>
 """
 IMG_SRC = re.compile(r'<img alt="([^"]*)" src="(?:media/)?([^"/]+)"')
 # A page section that shows a report inline: <!-- report:<stem> --> fallback <!-- /report -->.
 REPORT_SLOT = re.compile(r"<!-- report:([\w-]+) -->.*?<!-- /report -->", re.S)
-HEADING = re.compile(r"<(/?)h([1-5])>")
+HEADING = re.compile(r"<(/?)h([1-5])((?: [^>]*)?)>")
+TABLE = re.compile(r'<div class="table-wrap"><table>.*?</table></div>', re.S)
+# Tables longer than this (e.g. the Pareto fronts) start collapsed, so the page can be scrolled past them.
+LONG_TABLE_ROWS = 12
 
 
 def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
@@ -547,8 +559,9 @@ def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
     for md_path in sorted(Path(src_dir).glob("task*.md")):
         text = md_path.read_text(encoding="utf-8")
         title = next((line.lstrip("# ").strip() for line in text.splitlines() if line.startswith("# ")), md_path.stem)
-        body = markdown.markdown(text, extensions=["tables", "fenced_code"])
+        body = markdown.markdown(text, extensions=["tables", "fenced_code", "toc"])
         body = body.replace("<table>", '<div class="table-wrap"><table>').replace("</table>", "</table></div>")
+        body = TABLE.sub(_collapse_long_table, body).replace('href="../docs/references.md', 'href="references.html')
         for _, src in IMG_SRC.findall(body):
             found = next((p for p in (md_path.parent / "media" / src, md_path.parent / src) if p.exists()), None)
             if found:
@@ -558,17 +571,90 @@ def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
         body = IMG_SRC.sub(r'<img alt="\1" src="img/\2"', body)
         _embed_report(out_dir, md_path.stem, md_path.name, body)
         page = out_dir / f"report_{md_path.stem}.html"
-        page.write_text(REPORT_PAGE.format(title=html.escape(title), source=md_path.name, body=body), encoding="utf-8")
+        page.write_text(REPORT_PAGE.format(title=html.escape(title), note=_report_note(md_path.name),
+                                           current="reports.html", body=_with_contents(body, 2)), encoding="utf-8")
         reports.append((page.name, title, md_path.name))
         paths.append(page)
     items = "\n".join(f'<li><a href="{href}">{html.escape(title)}</a> <span class="muted small">({source})</span></li>'
                       for href, title, source in reports) or "<li>No reports yet: run <code>python -m os4</code>.</li>"
     index = out_dir / "reports.html"
     index.write_text(REPORT_PAGE.format(
-        title="Reports", source="task*.md",
+        title="Reports", note=_report_note("task*.md"), current="reports.html",
         body=f"<h1>Reports</h1>\n<p>The Markdown reports the model writes next to its figures.</p>\n<ul>\n{items}\n</ul>"),
         encoding="utf-8")
     return [index] + paths
+
+
+def _report_note(source: str) -> str:
+    return (f'<p class="muted small">Rendered from <code>outputs/{source}</code>, written by '
+            "<code>python -m os4</code>.</p>")
+
+
+DOCS_DIR = Path(__file__).resolve().parents[2] / "docs"
+# Team documents shown read-only: source file -> (page, nav entry it highlights).
+DOC_PAGES = {"PLAN.md": "plan.html", "references.md": "references.html"}
+DOC_LINKS = {'href="references.md': 'href="references.html', 'href="PLAN.md': 'href="plan.html',
+             'href="../outputs/': 'href="report_'}
+MATH_BLOCK = re.compile(r"^\$\$(.+?)\$\$$", re.M)
+
+
+def write_docs(docs_dir: Path, out_dir: Path) -> list[Path]:
+    """Render the team's ``docs/PLAN.md`` and ``docs/references.md`` as read-only pages of the explorer.
+
+    Links between them (and to the reports) are pointed at the rendered pages; display math is shown
+    as its TeX source, since the site has no math renderer.
+    """
+    paths = []
+    for name, page_name in DOC_PAGES.items():
+        md_path = Path(docs_dir) / name
+        if not md_path.exists():
+            continue
+        text = MATH_BLOCK.sub(lambda m: f'<pre class="math">{html.escape(m[1])}</pre>',
+                              md_path.read_text(encoding="utf-8"))
+        body = markdown.markdown(text, extensions=["tables", "fenced_code", "toc"])
+        body = body.replace("<table>", '<div class="table-wrap"><table>').replace("</table>", "</table></div>")
+        for old, new in DOC_LINKS.items():
+            body = body.replace(old, new)
+        body = re.sub(r'href="report_([\w-]+)\.md', r'href="report_\1.html', body)
+        note = (f'<p class="view-only"><b>View only.</b> Rendered from <code>docs/{name}</code> when the site is '
+                "built; edit the file in the repository and rerun <code>python -m os4</code> to update this page.</p>")
+        title = next((line.lstrip("# ").strip() for line in text.splitlines() if line.startswith("# ")), name)
+        page = out_dir / page_name
+        page.write_text(REPORT_PAGE.format(title=html.escape(title), note=note, current="plan.html",
+                                           body=_with_contents(body, 2)), encoding="utf-8")
+        paths.append(page)
+    return paths
+
+
+def _collapse_long_table(m: re.Match) -> str:
+    """Wrap a table longer than ``LONG_TABLE_ROWS`` in a collapsed <details>."""
+    rows = m[0].count("<tr>") - 1
+    if rows <= LONG_TABLE_ROWS:
+        return m[0]
+    return (f'<details class="long-table"><summary>Table: {rows} rows (click to expand)</summary>\n'
+            f"{m[0]}\n</details>")
+
+
+def _with_contents(body: str, level: int) -> str:
+    """Prepend links to the report's level-``level`` headings, with their level + 1 subsections nested
+    (needs the toc extension's ids)."""
+    heads = re.findall(rf'<h({level}|{level + 1}) id="([^"]+)">(.*?)</h\1>', body)
+    if sum(int(h) == level for h, _, _ in heads) < 3:
+        return body
+    items, open_sub = [], False
+    for h, i, t in heads:
+        if int(h) == level:
+            if open_sub:
+                items.append("</ul></li>")
+            elif items:
+                items.append("</li>")
+            items.append(f'<li><a href="#{i}">{t}</a>')
+            open_sub = False
+        elif items:
+            items.append(("" if open_sub else "<ul>") + f'<li><a href="#{i}">{t}</a></li>')
+            open_sub = True
+    items.append("</ul></li>" if open_sub else "</li>")
+    return f'<nav class="report-toc" aria-label="Contents"><b>Contents</b><ol>{"".join(items)}</ol></nav>\n{body}'
 
 
 def _embed_report(out_dir: Path, stem: str, source: str, body: str) -> None:
@@ -577,8 +663,9 @@ def _embed_report(out_dir: Path, stem: str, source: str, body: str) -> None:
     The report's own title is dropped (the page has one) and its headings move down a level to
     sit under the slot's section heading.
     """
-    inline = HEADING.sub(lambda m: f"<{m[1]}h{int(m[2]) + 1}>", re.sub(r"<h1>.*?</h1>\n?", "", body, count=1))
-    note = f'<p class="muted small">Rendered from <code>outputs/{source}</code>, written by <code>python -m os4</code>.</p>'
+    inline = HEADING.sub(lambda m: f"<{m[1]}h{int(m[2]) + 1}{m[3]}>", re.sub(r"<h1[^>]*>.*?</h1>\n?", "", body, count=1))
+    inline = _with_contents(inline, 3)
+    note = _report_note(source)
     for page in out_dir.glob("*.html"):
         text = page.read_text(encoding="utf-8")
         filled = REPORT_SLOT.sub(lambda m: f"{note}\n{inline}" if m[1] == stem else m[0], text)
@@ -587,12 +674,14 @@ def _embed_report(out_dir: Path, stem: str, source: str, body: str) -> None:
 
 
 def write_site(scenario: Scenario, out_dir: Path = OUTPUT_DIR / "site", n_road=None, n_bike=None,
-               mixed_cap: int = MIXED_CAP, reports_dir: Path | None = OUTPUT_DIR) -> list[Path]:
+               mixed_cap: int = MIXED_CAP, reports_dir: Path | None = OUTPUT_DIR,
+               docs_dir: Path | None = DOCS_DIR) -> list[Path]:
     """Write the static results explorer to ``out_dir``; returns the files written.
 
     ``n_road`` / ``n_bike`` override the tradespace fleet-size grids (``None`` keeps
     ``tradespace``'s defaults); tests pass small grids. The Markdown reports in ``reports_dir``
-    are rendered as pages (``write_reports``); ``None`` skips them.
+    are rendered as pages (``write_reports``), and ``docs_dir``'s PLAN.md and references.md as view-only
+    pages (``write_docs``); ``None`` skips either.
     """
     out_dir = Path(out_dir)
     if out_dir.exists():
@@ -617,5 +706,7 @@ def write_site(scenario: Scenario, out_dir: Path = OUTPUT_DIR / "site", n_road=N
     ] + paths
     if reports_dir is not None:
         write_reports(reports_dir, out_dir)
+    if docs_dir is not None:
+        write_docs(docs_dir, out_dir)
     pages = sorted(p for p in out_dir.rglob("*") if p.is_file() and p.parent != data_dir)
     return pages + paths

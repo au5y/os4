@@ -25,6 +25,8 @@ from os4.fleet import MAX_WH_PER_PKM, Fleet, service_probability  # noqa: E402
 from os4.model import (  # noqa: E402
     architecture_table,
     evaluate_many,
+    meets_bike_ceiling,
+    meets_car_ceiling,
     meets_thresholds,
     reference_and_anchor_table,
     requirement_flags,
@@ -120,7 +122,7 @@ def _part_arrays(rows: pd.DataFrame, n: np.ndarray, trip_km: float, scenario: Sc
     """Per-part capacity, departures, availability, cost and travel time; mirrors ``os4.fleet``."""
     speed = rows["speed_kmh"].to_numpy(float)
     cycle = 60.0 * trip_km * (1.0 + scenario.deadhead_fraction) / speed + scenario.dwell_s / 60.0
-    per_vehicle = 60.0 / cycle * rows["pax"].to_numpy(float) * scenario.load_factor
+    per_vehicle = 60.0 / cycle * rows["pax"].to_numpy(float) * rows["load_factor"].to_numpy(float)
     a = rows["availability"].to_numpy(float)
     return {
         "capacity": n * a * per_vehicle,
@@ -151,8 +153,9 @@ def tradespace(
     One row per architecture with the same MoPs, SAUs, MAUs and cost as
     ``model.evaluate``, computed with numpy in chunks of ``CHUNK_ROWS``. With
     ``screen``, architectures that miss a Table 1 threshold
-    (``model.meets_thresholds``) are dropped right after capacity and volume are
-    known, before the wait and utility calculations. ``df.attrs`` records
+    (``model.meets_thresholds``) or a utilization ceiling (``model.meets_bike_ceiling``,
+    ``model.meets_car_ceiling``, PLAN.md L) are dropped right after capacity and volume are known, before the
+    wait and utility calculations. ``df.attrs`` records
     ``screened_out`` and ``threshold_failures`` (counts over the whole grid).
     """
     variants = prune_variants(all_variants(scenario)) if variants is None else variants
@@ -175,7 +178,8 @@ def tradespace(
         blocks.append(np.array(np.meshgrid(r_idx, nr_opts, b_idx, nb_opts, indexing="ij")).reshape(4, -1))
     grid = np.concatenate(blocks, axis=1)
 
-    failures = {"daily_volume": 0, "peak_throughput": 0, "offpeak_throughput": 0}
+    failures = {"daily_volume": 0, "peak_throughput": 0, "offpeak_throughput": 0, "bike_ceiling": 0,
+                "car_ceiling": 0}
     chunks = [_score_chunk(grid[:, i:i + CHUNK_ROWS], road, bike, scenario, screen, failures)
               for i in range(0, grid.shape[1], CHUNK_ROWS)]
     df = pd.concat(chunks, ignore_index=True)
@@ -205,12 +209,26 @@ def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scena
     failures["daily_volume"] += int((volume < scenario.min_daily_volume).sum())
     failures["peak_throughput"] += int((capacity < scenario.min_peak_throughput).sum())
     failures["offpeak_throughput"] += int((capacity < scenario.min_offpeak_throughput).sum())
+    with np.errstate(divide="ignore", invalid="ignore"):
+        bike_trips = np.where(n_b > 0, volume * bp["capacity"] / capacity / np.maximum(n_b, 1), 0.0)
+        road_trips = np.where(n_r > 0, volume * rp["capacity"] / capacity / np.maximum(n_r, 1), 0.0)
+    pax = road_rows["pax"].to_numpy(float)
+    car_trips = np.where((n_r > 0) & (pax <= scenario.car_max_seats),
+                         road_trips / (pax * road_rows["load_factor"].to_numpy(float)), 0.0)
+    bike_ok, car_ok = meets_bike_ceiling(bike_trips, scenario), meets_car_ceiling(car_trips, scenario)
+    within_ceiling = bike_ok & car_ok
+    failures["bike_ceiling"] += int((~bike_ok).sum())
+    failures["car_ceiling"] += int((~car_ok).sum())
 
-    # Early exit: drop architectures that break a Table 1 threshold before the costlier steps.
-    keep = meets_thresholds(capacity, volume, scenario) if screen else np.ones(len(capacity), dtype=bool)
+    # Early exit: drop architectures that break a Table 1 threshold or a utilization ceiling (PLAN.md L)
+    # before the costlier steps.
+    keep = meets_thresholds(capacity, volume, scenario) & within_ceiling
+    if not screen:
+        keep = np.ones(len(capacity), dtype=bool)
     rp = {k: v[keep] for k, v in rp.items()}
     bp = {k: v[keep] for k, v in bp.items()}
     capacity, volume = capacity[keep], volume[keep]
+    bike_trips, road_trips, car_trips = bike_trips[keep], road_trips[keep], car_trips[keep]
     n_r, n_b = n_r[keep], n_b[keep]
     road_rows, bike_rows = road_rows[keep], bike_rows[keep]
 
@@ -248,6 +266,10 @@ def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scena
         "bike_share": bike_share,
         "energy_per_pkm": energy,
         "fleet_size": n_r + n_b,
+        "trips_per_vehicle_day": volume / (n_r + n_b),
+        "road_trips_per_vehicle_day": road_trips,
+        "bike_trips_per_vehicle_day": bike_trips,
+        "car_trips_per_vehicle_day": car_trips,
         "fleet_cost_usd": rp["cost"] + bp["cost"],
     })
     weights = load_weights()
@@ -462,9 +484,9 @@ def plot_knee(df: pd.DataFrame, path: Path, markers: pd.DataFrame | None = None,
 
 
 def _requirement_rows(df: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
-    """How many architectures fail each Table 1 requirement.
+    """How many architectures fail each Table 1 requirement and the utilization ceilings (PLAN.md L).
 
-    Thresholds are counted over the whole grid during screening (``df.attrs``); the desired goals and
+    Thresholds and the ceiling are counted over the whole grid during screening (``df.attrs``); the desired goals and
     the availability benchmark are counted over the architectures that pass the thresholds.
     """
     grid, failures, n = df.attrs["grid_size"], df.attrs["threshold_failures"], len(df)
@@ -474,6 +496,11 @@ def _requirement_rows(df: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
          failures["peak_throughput"], grid),
         ("off-peak throughput", f">= {scenario.min_offpeak_throughput:g} trips/h", "threshold",
          failures["offpeak_throughput"], grid),
+        *([("riders per bike per day", f"<= {scenario.max_bike_trips_per_day:g}", "realism gate (PLAN.md L)",
+            failures["bike_ceiling"], grid)] if scenario.max_bike_trips_per_day is not None else []),
+        *([(f"rides per car (1–{scenario.car_max_seats} seats) per day", f"<= {scenario.max_car_trips_per_day:g}",
+            "realism gate (PLAN.md L)", failures["car_ceiling"], grid)]
+          if scenario.max_car_trips_per_day is not None else []),
         ("wait in boundary", f"<= {scenario.goal_wait_min:g} min", "desired", int((~df["meets_wait_goal"]).sum()), n),
         ("travel time, average Kendall trip", f"<= {scenario.goal_travel_min:g} min", "desired",
          int((~df["meets_travel_goal"]).sum()), n),
@@ -490,7 +517,11 @@ LOAD_FACTOR_COLORS = ("#86b6ef", "#3987e5", "#1c5cab", "#0d366b")  # ordinal ram
 
 
 def load_factor_fronts(scenario: Scenario, load_factors=LOAD_FACTORS) -> dict[float, pd.DataFrame]:
-    """Pareto front of the full design space at each average load factor (Appendix B uses 0.75)."""
+    """Pareto front of the full design space at each road-vehicle load factor (Appendix B uses 0.75).
+
+    Bikes keep their per-seat riders (``Scenario.bike_load_factors``, PLAN.md K): an on-demand bike
+    always carries its rider, so its occupancy isn't the open question this sweep explores.
+    """
     fronts = {}
     for lf in load_factors:
         df = tradespace(replace(scenario, load_factor=lf))
@@ -520,7 +551,7 @@ def plot_load_factor_fronts(fronts: dict[float, pd.DataFrame], path: Path, basel
     _cost_axis(ax)
     ax.set_xlabel("fleet cost ($M, vehicle capital cost, log scale)", fontsize=9, color=INK_2)
     ax.set_ylabel("multi-attribute utility", fontsize=9, color=INK_2)
-    ax.set_title("Pareto front by average load factor (share of seats filled per trip)", loc="left", fontsize=13,
+    ax.set_title("Pareto front by road-vehicle load factor (share of seats filled per trip)", loc="left", fontsize=13,
                  color=INK, fontweight="bold")
     fig.tight_layout()
     fig.savefig(path, dpi=200)
@@ -761,9 +792,11 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "Availability is *service* availability (Q14): the chance the vehicles in service can carry the hour's "
         "demand, so spare vehicles raise it.\n\n"
         "## Load-factor sensitivity\n\n"
-        "Appendix B assumes trips average 75% full; the model keeps 0.75 as the baseline. The same design space "
-        "scored at 25%, 50%, 75% and 100% (the removable-battery case, which also contains every fixed-battery "
-        "option):\n\n"
+        "Appendix B assumes trips average 75% full; the model keeps 0.75 as the baseline for road vehicles. "
+        "E-bikes use riders per trip by seats instead (PLAN.md K): a 1-seat bike carries its 1 rider, a 2-seat "
+        "bike 2 riders every 3 trips (4/3 riders, 67% of seats), so this sweep varies road vehicles only. The "
+        "same design space scored at 25%, 50%, 75% and 100% (the removable-battery case, which also contains "
+        "every fixed-battery option):\n\n"
         f"![Pareto front by load factor]({media_link(lf_png)})\n\n"
         f"{_md_table(lf_rows)}\n"
         + "".join(sections)
@@ -781,6 +814,7 @@ def _marker_table(markers: pd.DataFrame) -> pd.DataFrame:
         "model headway (min)": markers["model_headway_min"].round(1),
         "capacity (trips/h)": markers["fleet_capacity_per_h"].round(0),
         "wait (min)": markers["wait_time"].round(1),
+        "riders per vehicle per day": markers["trips_per_vehicle_day"].round(0),
         "availability": markers["availability"].round(3),
         "MAU": markers["mau"].round(3),
         "fleet cost": markers["fleet_cost_usd"].map(lambda c: f"${c:,.0f}"),
