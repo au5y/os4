@@ -365,6 +365,7 @@
     ["task3.html", "Task 3 · Tradespace"],
     ["components.html", "Components"],
     ["reports.html", "Reports"],
+    ["plan.html", "Plan"],
   ];
   U.header = function (current) {
     const nav = U.el("nav", { "aria-label": "Pages" }, [U.el("a", { class: "brand", href: "index.html", text: "OS4 explorer" })]);
