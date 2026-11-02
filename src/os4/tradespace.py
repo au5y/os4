@@ -21,7 +21,7 @@ import matplotlib.ticker  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from os4.fleet import Fleet, service_probability  # noqa: E402
+from os4.fleet import MAX_WH_PER_PKM, Fleet, service_probability  # noqa: E402
 from os4.model import (  # noqa: E402
     architecture_table,
     evaluate_many,
@@ -129,6 +129,9 @@ def _part_arrays(rows: pd.DataFrame, n: np.ndarray, trip_km: float, scenario: Sc
         "availability": a,
         "cost": n * rows["cost_usd"].to_numpy(float),
         "travel": 60.0 * trip_km / speed,
+        "trip_km": np.full(len(n), trip_km),
+        "wh_per_h": n * a * 60.0 / cycle * trip_km * (1.0 + scenario.deadhead_fraction)
+        * rows["wh_per_km"].to_numpy(float),
     }
 
 
@@ -223,6 +226,10 @@ def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scena
         bike_share = np.where(capacity > 0, bp["capacity"] / capacity, 0.0)
         travel = np.where(capacity > 0, (rp["travel"] * rp["capacity"] + bp["travel"] * bp["capacity"]) / capacity,
                           20.0)
+        km_per_trip = (rp["trip_km"] * rp["capacity"] + bp["trip_km"] * bp["capacity"]) / capacity
+        hours = len(demand) * scenario.demand_bin_h
+        energy = np.where(capacity > 0, (rp["wh_per_h"] + bp["wh_per_h"]) * hours / (volume * km_per_trip),
+                          MAX_WH_PER_PKM)
     service = service_probability(capacity, rp["capacity_var"] + bp["capacity_var"], demand) @ demand / demand.sum()
 
     df = pd.DataFrame({
@@ -239,12 +246,16 @@ def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scena
         "vehicle_availability": vehicle_avail,
         "travel_time": travel,
         "bike_share": bike_share,
+        "energy_per_pkm": energy,
+        "fleet_size": n_r + n_b,
         "fleet_cost_usd": rp["cost"] + bp["cost"],
     })
     weights = load_weights()
     df["mau"] = sum(weights[a] * sau(a, df[a].to_numpy()) for a in ATTRIBUTES)
     extended = load_weights("os3a_extended")
     df["mau_os3a_extended"] = sum(w * sau(a, df[a].to_numpy()) for a, w in extended.items())
+    full = load_weights("os3a_full")
+    df["mau_os3a_full"] = sum(w * sau(a, df[a].to_numpy()) for a, w in full.items())
     return pd.concat([df, requirement_flags(df, scenario)], axis=1)
 
 
@@ -607,6 +618,19 @@ def _front_table(front: pd.DataFrame) -> pd.DataFrame:
     return fmt.fillna("-").round(3)
 
 
+def _full_front_table(front: pd.DataFrame, rows: int = 8) -> pd.DataFrame:
+    """Points spread along the ``mau_os3a_full`` front, cheapest first, with the two proposed attributes."""
+    picks = front.iloc[np.unique(np.linspace(0, len(front) - 1, min(rows, len(front))).round().astype(int))]
+    return pd.DataFrame({
+        "architecture": [_describe(r) for _, r in picks.iterrows()],
+        "fleet cost": [f"${c:,.0f}" for c in picks["fleet_cost_usd"]],
+        "MAU (full)": picks["mau_os3a_full"].round(3).to_numpy(),
+        "MAU (Appendix A)": picks["mau"].round(3).to_numpy(),
+        "Wh/passenger-km": picks["energy_per_pkm"].round(0).astype(int).to_numpy(),
+        "vehicles": picks["fleet_size"].to_numpy(),
+    })
+
+
 def _type_rows(df: pd.DataFrame, front: pd.DataFrame, front_ext: pd.DataFrame) -> pd.DataFrame:
     counts = df["fleet_type"].value_counts()
     on_front, on_front_ext = front["fleet_type"].value_counts(), front_ext["fleet_type"].value_counts()
@@ -635,6 +659,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         frames[key] = df
         front = pareto_front(df)
         front_ext = pareto_front(df, "mau_os3a_extended")
+        front_full = pareto_front(df, "mau_os3a_full")
         cost0, util0 = utopia_point(df)
         front_path = media / f"task3_pareto_front_{key}.csv"
         front.round(4).to_csv(front_path, index=False)
@@ -643,9 +668,11 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         knee_png = plot_knee(df, media / f"task3_knee_{key}.png", markers, title=f"Knee of the front: {title}")
         png_ext = plot_tradespace(df, media / f"task3_tradespace_{key}_extended.png", highlight,
                                   utility="mau_os3a_extended", title=f"Extended MAU: {title}", markers=markers)
+        png_full = plot_tradespace(df, media / f"task3_tradespace_{key}_full.png", highlight,
+                                   utility="mau_os3a_full", title=f"Full proposed MAU: {title}", markers=markers)
         road_png = plot_fleet_size(df, "road", media / f"task3_fleet_size_road_{key}.png", subtitle=title)
         bike_png = plot_fleet_size(df, "bike", media / f"task3_fleet_size_bike_{key}.png", subtitle=title)
-        paths += [front_path, png, knee_png, png_ext, road_png, bike_png]
+        paths += [front_path, png, knee_png, png_ext, png_full, road_png, bike_png]
         knee = front[front["mau"] >= 0.94].iloc[0]
         summary.append({
             "case": title,
@@ -680,6 +707,11 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
             f"Scored with the `os3a_extended` weights (adds travel time, PLAN.md Q8; bike share is parked); "
             f"the front has {len(front_ext)} architectures.\n\n"
             f"![Tradespace with the extended MAU]({media_link(png_ext)})\n\n"
+            "### With the full proposed MAU (PLAN.md J)\n\n"
+            "Scored with the `os3a_full` weights, which also weight energy per passenger-km (0.075) and "
+            f"fleet size (0.075); the front has {len(front_full)} architectures.\n\n"
+            f"{_md_table(_full_front_table(front_full))}\n"
+            f"![Tradespace with the full proposed MAU]({media_link(png_full)})\n\n"
         )
     requirements = _requirement_rows(frames["removable"], scenario)
     frames.clear()

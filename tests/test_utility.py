@@ -135,6 +135,18 @@ def test_sau_inverse_recovers_case_inputs():
     assert sau_inverse("availability", 0.70) == pytest.approx(0.7)
 
 
+def test_os3a_full_weights_energy_and_fleet_size():
+    # PLAN.md J (proposed): the Appendix A four at x0.70, travel time 0.15, energy and fleet size 0.075 each.
+    full = load_weights("os3a_full")
+    assert full["energy_per_pkm"] == full["fleet_size"] == pytest.approx(0.075)
+    assert full["travel_time"] == pytest.approx(0.15)
+    reweight = load_weights("os3a_reweight")
+    assert all(full[a] == pytest.approx(0.70 * reweight[a]) for a in ATTRIBUTES)
+    assert "bike_share" not in full
+    assert sau("energy_per_pkm", 200) == pytest.approx(0.5)
+    assert sau("fleet_size", 50) == pytest.approx(0.5)
+
+
 def test_bike_share_is_parked():
     # Removed from the extended weights (PLAN.md H); its SAU stays available for later.
     assert "bike_share" not in load_weights("os3a_extended")

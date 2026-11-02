@@ -7,7 +7,8 @@ in ``mau_weights.csv`` (must sum to 1).
 Besides the Appendix A weights, ``mau_weights_proposed.csv`` holds the team's
 proposed weight sets traced to our OS3A MOEs (PLAN.md Q7/Q8): ``os3a_reweight``
 re-weights the four Appendix A attributes, and ``os3a_extended`` adds two
-proposed attributes (``PROPOSED_ATTRIBUTES``) whose SAUs are team assumptions.
+proposed attributes (``PROPOSED_ATTRIBUTES``) whose SAUs are team assumptions. ``os3a_full`` also
+weights energy per passenger-km and fleet size (proposed, PLAN.md J).
 """
 
 from collections.abc import Mapping
@@ -20,8 +21,10 @@ from os4.data import load
 ATTRIBUTES = ("passenger_volume", "peak_throughput", "wait_time", "availability")
 # In-boundary travel time (Table 1: 7 min; OS3A MOE 1) and e-bike share of served trips (OS3A MOE 2).
 # Bike share has an SAU but is not in any weight set (parked; PLAN.md H).
-PROPOSED_ATTRIBUTES = ("travel_time", "bike_share")
-WEIGHT_SETS = ("appendix_a", "os3a_reweight", "os3a_extended")
+# Energy per passenger-km (sustainability) and fleet size (operational complexity) are proposed for
+# the group in the ``os3a_full`` set (PLAN.md J).
+PROPOSED_ATTRIBUTES = ("travel_time", "bike_share", "energy_per_pkm", "fleet_size")
+WEIGHT_SETS = ("appendix_a", "os3a_reweight", "os3a_extended", "os3a_full")
 
 
 def sau_table(attribute: str) -> pd.DataFrame:

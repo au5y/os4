@@ -29,7 +29,7 @@
     );
   }
 
-  const LEAD = ["id", "source", "case", "reason", "architecture", "fleet_type", "road_variant", "n_road", "bike_variant", "n_bike", "fleet_cost_usd", "mau", "mau_os3a_extended"];
+  const LEAD = ["id", "source", "case", "reason", "architecture", "fleet_type", "road_variant", "n_road", "bike_variant", "n_bike", "fleet_cost_usd", "mau", "mau_os3a_extended", "mau_os3a_full"];
   const list = document.getElementById("list");
   function render() {
     list.textContent = "";

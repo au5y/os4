@@ -45,10 +45,14 @@ UNITS = {
     "availability": "fraction",
     "travel_time": "min",
     "bike_share": "fraction of trips",
+    "energy_per_pkm": "Wh per passenger-km",
+    "fleet_size": "vehicles",
 }
 SOURCES = {a: "Appendix A" for a in ATTRIBUTES} | {
     "travel_time": "Team proposal: Table 1 (7 min max) and OS3A MOE 1",
     "bike_share": "Parked (not weighted): OS3A MOE 2 (11% baseline)",
+    "energy_per_pkm": "Proposed (os3a_full): sustainability, Appendix B consumption incl. empty running",
+    "fleet_size": "Proposed (os3a_full): operational complexity, vehicles to manage",
 }
 
 
@@ -104,6 +108,7 @@ def _readme(wb: Workbook) -> None:
         ("appendix_a: the given stakeholder weights (used for the Task 1 results).", None),
         ("os3a_reweight: team proposal from our OS3A MOEs; moves weight from volume to availability.", None),
         ("os3a_extended: adds the proposed travel-time SAU; scores Task 2+ architectures (bike share is parked).", None),
+        ("os3a_full (proposed): also weights energy per passenger-km and fleet size (PLAN.md J).", None),
     ]
     for row, (text, font) in enumerate(lines, start=1):
         cell = ws.cell(row=row, column=1, value=text)
@@ -164,10 +169,12 @@ def _weights_sheet(wb: Workbook) -> dict[str, dict[str, str]]:
         "availability because reliability (MOE 1) dominated the stakeholder evidence. See docs/PLAN.md Q8.",
         "os3a_extended: keeps the os3a_reweight priorities for the Appendix A four (x0.85) and gives 0.15",
         "to the proposed travel-time attribute. Bike share is kept as an SAU but not weighted (parked).",
+        "os3a_full (proposed, PLAN.md J): the Appendix A four at x0.70, travel time 0.15, energy per",
+        "passenger-km 0.075 and fleet size 0.075.",
     ]
     for i, text in enumerate(notes, start=total_row + 2):
         ws.cell(row=i, column=1, value=text).font = NOTE
-    _widths(ws, {1: 20, 2: 14, 3: 14, 4: 14})
+    _widths(ws, {1: 20, 2: 14, 3: 14, 4: 14, 5: 14})
     return refs
 
 

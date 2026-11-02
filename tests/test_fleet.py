@@ -8,9 +8,12 @@ from os4.fleet import (
     average_wait_min,
     cycle_time_min,
     daily_passenger_volume,
+    energy_per_pkm,
     fleet_availability,
     fleet_capacity_per_h,
     fleet_cost_usd,
+    fleet_size,
+    MAX_WH_PER_PKM,
     normal_cdf,
     vehicle_availability,
     vehicle_capacity_per_h,
@@ -103,3 +106,23 @@ def test_robustness_sweep(scenario, n):
                   average_wait_min(fleet, scenario), fleet_availability(fleet, scenario), fleet_cost_usd(fleet)]
         assert np.isfinite(values).all() and min(values) >= 0, v["variant_id"]
         assert average_wait_min(fleet, scenario) <= scenario.max_wait_min
+
+
+def test_energy_per_pkm_hand_calc(scenario):
+    # 20 x C2 covers every demand bin, so all 1,790 trips/day are served on 1.75 km trips, while every
+    # vehicle in service drives 2 x 1.75 km per cycle for all 24 h (PLAN.md J).
+    car = get_variant("C2-P2-G3-M2-A3", scenario)
+    fleet = Fleet(road=car, n_road=20)
+    km_per_h = 20 * car["availability"] * 60 / cycle_time_min(car, scenario) * 1.75 * 2
+    expected = km_per_h * 24 * car["wh_per_km"] / (1790 * 1.75)
+    assert daily_passenger_volume(fleet, scenario) == pytest.approx(1790)
+    assert energy_per_pkm(fleet, scenario) == pytest.approx(expected)
+    # More vehicles carry no more riders, so they only add empty running.
+    assert energy_per_pkm(Fleet(road=car, n_road=40), scenario) == pytest.approx(2 * expected)
+    assert energy_per_pkm(Fleet(), scenario) == MAX_WH_PER_PKM
+
+
+def test_fleet_size_counts_every_vehicle(scenario):
+    car, bike = get_variant("C2-P2-G3-M2-A3", scenario), get_variant("B2-E1-G2-K2", scenario)
+    assert fleet_size(Fleet(road=car, n_road=8, bike=bike, n_bike=60)) == 68
+    assert fleet_size(Fleet()) == 0

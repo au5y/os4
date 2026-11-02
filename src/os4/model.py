@@ -16,9 +16,11 @@ from os4.fleet import (
     cycle_time_min,
     daily_passenger_volume,
     _trip_km,
+    energy_per_pkm,
     fleet_availability,
     fleet_capacity_per_h,
     fleet_cost_usd,
+    fleet_size,
     peak_throughput,
     vehicle_availability,
     vehicle_capacity_per_h,
@@ -71,8 +73,9 @@ def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
     and range, the four MoPs (``passenger_volume``, ``peak_throughput``,
     ``wait_time``, ``availability``), their SAUs, ``mau``, and ``fleet_cost_usd``.
 
-    Also reports the proposed attributes (``travel_time``; ``bike_share`` is parked, not weighted)
-    and ``mau_os3a_extended`` so Task 3 can compare weightings (PLAN.md Q8).
+    Also reports the proposed attributes (``travel_time``, ``energy_per_pkm``, ``fleet_size``;
+    ``bike_share`` is parked, not weighted), ``mau_os3a_extended`` and ``mau_os3a_full`` so Task 3
+    can compare weightings (PLAN.md Q8, J).
     """
     mops = {
         "passenger_volume": daily_passenger_volume(fleet, scenario),
@@ -85,6 +88,8 @@ def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
     proposed = {
         "travel_time": _travel_time_min(fleet, scenario),
         "bike_share": bike_capacity / capacity if capacity > 0 else 0.0,
+        "energy_per_pkm": energy_per_pkm(fleet, scenario),
+        "fleet_size": fleet_size(fleet),
     }
     row = {
         "road_variant": None if fleet.road is None else fleet.road["variant_id"],
@@ -102,6 +107,7 @@ def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
         row[f"u_{a}"] = float(sau(a, x))
     row["mau"] = float(mau(**mops))
     row["mau_os3a_extended"] = float(weighted_mau(mops | proposed, load_weights("os3a_extended")))
+    row["mau_os3a_full"] = float(weighted_mau(mops | proposed, load_weights("os3a_full")))
     row["fleet_cost_usd"] = fleet_cost_usd(fleet)
     row |= requirement_flags(pd.DataFrame([row]), scenario).iloc[0].to_dict()
     return row
