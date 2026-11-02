@@ -176,8 +176,10 @@ def trips_per_vehicle_day(fleet: Fleet, scenario: Scenario) -> dict[str, float]:
     volume = daily_passenger_volume(fleet, scenario)
     out = {"trips_per_vehicle_day": volume / fleet_size(fleet) if fleet_size(fleet) else 0.0}
     for part, vehicle, n in (("road", fleet.road, fleet.n_road), ("bike", fleet.bike, fleet.n_bike)):
-        served = volume * _part_capacity(vehicle, n, scenario) / capacity if vehicle is not None and n and capacity else 0.0
-        out[f"{part}_trips_per_vehicle_day"] = served / n if vehicle is not None and n else 0.0
+        if vehicle is None or not n or not capacity:
+            out[f"{part}_trips_per_vehicle_day"] = 0.0
+            continue
+        out[f"{part}_trips_per_vehicle_day"] = volume * _part_capacity(vehicle, n, scenario) / capacity / n
     return out
 
 

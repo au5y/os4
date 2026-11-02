@@ -89,6 +89,7 @@ COLUMN_LABELS = {
     "mau_os3a_extended": "MAU (OS3A extended, proposed)",
     "mau_os3a_full": "MAU (OS3A full, proposed)",
     "meets_thresholds": "meets thresholds",
+    "meets_bike_ceiling": "bike ceiling (≤ 15 riders/bike/day)",
     "meets_wait_goal": "wait goal (≤ 5 min)",
     "meets_travel_goal": "travel goal (≤ 7 min)",
     "meets_availability_benchmark": "availability ≥ 0.75",
@@ -558,7 +559,7 @@ def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
         title = next((line.lstrip("# ").strip() for line in text.splitlines() if line.startswith("# ")), md_path.stem)
         body = markdown.markdown(text, extensions=["tables", "fenced_code", "toc"])
         body = body.replace("<table>", '<div class="table-wrap"><table>').replace("</table>", "</table></div>")
-        body = TABLE.sub(_collapse_long_table, body)
+        body = TABLE.sub(_collapse_long_table, body).replace('href="../docs/references.md', 'href="references.html')
         for _, src in IMG_SRC.findall(body):
             found = next((p for p in (md_path.parent / "media" / src, md_path.parent / src) if p.exists()), None)
             if found:
@@ -568,8 +569,8 @@ def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
         body = IMG_SRC.sub(r'<img alt="\1" src="img/\2"', body)
         _embed_report(out_dir, md_path.stem, md_path.name, body)
         page = out_dir / f"report_{md_path.stem}.html"
-        page.write_text(REPORT_PAGE.format(title=html.escape(title), note=_report_note(md_path.name), current="reports.html",
-                                           body=_with_contents(body, 2)), encoding="utf-8")
+        page.write_text(REPORT_PAGE.format(title=html.escape(title), note=_report_note(md_path.name),
+                                           current="reports.html", body=_with_contents(body, 2)), encoding="utf-8")
         reports.append((page.name, title, md_path.name))
         paths.append(page)
     items = "\n".join(f'<li><a href="{href}">{html.escape(title)}</a> <span class="muted small">({source})</span></li>'
@@ -583,7 +584,8 @@ def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
 
 
 def _report_note(source: str) -> str:
-    return f'<p class="muted small">Rendered from <code>outputs/{source}</code>, written by <code>python -m os4</code>.</p>'
+    return (f'<p class="muted small">Rendered from <code>outputs/{source}</code>, written by '
+            "<code>python -m os4</code>.</p>")
 
 
 DOCS_DIR = Path(__file__).resolve().parents[2] / "docs"
@@ -605,7 +607,8 @@ def write_docs(docs_dir: Path, out_dir: Path) -> list[Path]:
         md_path = Path(docs_dir) / name
         if not md_path.exists():
             continue
-        text = MATH_BLOCK.sub(lambda m: f'<pre class="math">{html.escape(m[1])}</pre>', md_path.read_text(encoding="utf-8"))
+        text = MATH_BLOCK.sub(lambda m: f'<pre class="math">{html.escape(m[1])}</pre>',
+                              md_path.read_text(encoding="utf-8"))
         body = markdown.markdown(text, extensions=["tables", "fenced_code", "toc"])
         body = body.replace("<table>", '<div class="table-wrap"><table>').replace("</table>", "</table></div>")
         for old, new in DOC_LINKS.items():

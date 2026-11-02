@@ -51,6 +51,11 @@ class Scenario:
     # as in Appendix B. A swap takes ``bike_swap_h``; the pack then charges off the bike.
     bike_spare_options: tuple[float, ...] = (0.0, 0.5, 1.0, 1.5, 2.0, 3.0)
     bike_swap_h: float = 5 / 60
+    # Feasibility gate (team, PLAN.md L): at most this many riders per bike per day; None turns it off.
+    # The model lets every bike cycle without idle time, so cheap bike fleets can claim 40-50 rides a day.
+    # Real systems: Bluebikes about 2.5 and Citi Bike 3.3 per bike per day (2024 annual averages; 3-5
+    # is typical), Citi Bike e-bikes about 15 (2018), the busiest observed case and our ceiling.
+    max_bike_trips_per_day: float | None = 15.0
     # Riders per bike trip as a fraction of seats, by seat count (team fix, PLAN.md K). An on-demand bike
     # only moves with someone on it (its empty return is the deadhead), so a 1-seat bike carries 1 rider;
     # a 2-seat bike carries a second rider about one trip in three (2 riders every 3 trips: 4/3 riders,

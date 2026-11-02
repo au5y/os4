@@ -309,6 +309,44 @@ def _swap_table(variants: pd.DataFrame, base: str = "B2-E1-G2-K2") -> pd.DataFra
     })
 
 
+def _ref(*numbers: int) -> str:
+    """Citation links to ``docs/references.md`` from a report in ``outputs/``."""
+    return ", ".join(f"[[{n}]](../docs/references.md#ref-{n})" for n in numbers)
+
+
+def assumptions_table(scenario) -> pd.DataFrame:
+    """Every modeling assumption, its value in ``scenario`` and where it is decided or sourced."""
+    lf = ", ".join(f"{p}-seat {p * f:.2g} riders" for p, f in scenario.bike_load_factors)
+    ceiling = ("none" if scenario.max_bike_trips_per_day is None
+               else f"≤ {scenario.max_bike_trips_per_day:g} riders per bike per day (typical systems: 3–5)")
+    rows = [
+        ("Demand and network", "Appendix B demand, all starting at the Kendall hub, to Lechmere or Central; "
+         f"peak {scenario.peak_demand_per_h:g} trips/h", f"Q4; Appendix B {_ref(1)}"),
+        ("Empty return", f"every trip returns to Kendall empty (deadhead {scenario.deadhead_fraction:g} × trip)", "Q13"),
+        ("Trip length", f"road {scenario.avg_trip_km:g} km, bike {scenario.bike_trip_km:g} km (OSRM)",
+         f"Q1, Q13 {_ref(23, 24)}"),
+        ("Access", "riders start at the hub; no walk or access time", "Q4 (limitation)"),
+        ("Speed", f"road capped at {scenario.speed_limit_kmh:g} km/h (signals, congestion); "
+         f"bikes fixed at {scenario.bike_assisted_speed_kmh:g} km/h", f"Q3, Q5 {_ref(10, 11, 14)}"),
+        ("Occupancy", f"road load factor {scenario.load_factor:g} (Appendix B); bikes by seats: {lf}", "PLAN.md K"),
+        ("Dwell", f"{scenario.dwell_s:g} s per trip", "Appendix B"),
+        ("Operations", "every vehicle in service cycles all day without idle time or rebalancing", "Q12 (limitation)"),
+        ("Bike utilization ceiling", ceiling, f"PLAN.md L {_ref(25, 26, 27, 28, 29)}"),
+        ("Wait", f"headway / 2 × 1 / (1 − ρ), capped at {scenario.max_wait_min:g} min, demand-weighted", "Q12"),
+        ("Availability", "service availability; vehicles go out of service independently (normal approximation)",
+         "Q14"),
+        ("Throughput", f"peak throughput = demand served ({scenario.throughput_measure})", "Q11"),
+        ("Removable batteries", f"{scenario.bike_swap_h * 60:g}-min swap, pooled spares; swap labor not counted",
+         "PLAN.md B, Q15"),
+        ("Cost", "vehicle capital cost only; no operating, labor, A3 attendant or swap cost", "Q15"),
+        ("Autonomy", f"allowed levels {', '.join(scenario.allowed_autonomy)} (A3 minimum inside the boundary)",
+         f"Q6 {_ref(20)}"),
+        ("Fleet", "one road design and one e-bike design per architecture; progressive fleet-size grid", "Q10"),
+        ("Energy (proposed)", "vehicles in service run all day, so empty running counts", "PLAN.md J"),
+    ]
+    return pd.DataFrame(rows, columns=["assumption", "value", "decided / source"])
+
+
 def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
     """Write the Task 2 CSVs, both figures, and a Markdown report embedding them."""
     from os4.model import architecture_table, hand_calc_check
@@ -354,11 +392,16 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "weight limits.\n\n"
         "## Scenario inputs\n\n"
         f"{_md_table(inputs)}\n"
+        "## Assumptions\n\n"
+        "Every modeling assumption, with where it is decided (PLAN.md item) or sourced. Sources are numbered as in "
+        "`docs/references.md`.\n\n"
+        f"{_md_table(assumptions_table(scenario))}\n"
         "## Equations\n\n"
         "- **Vehicle (Appendix B):** weight = components + 100 kg × pax; Wh/km = nominal + 0.1 × (weight − chassis) "
         "+ autonomy; range = kWh × 1000 / (Wh/km); speed = min(700 × kW / kg, cap); charge = kWh / kW; "
         "up-time = range / speed; down-time = charge + 0.25 h; availability = up / (up + down).\n"
-        "- **Fleet:** cycle = trip × (1 + deadhead) / speed + dwell; capacity per vehicle = 60 / cycle × pax × load factor (road 0.75; bikes by seats, PLAN.md K); "
+        "- **Fleet:** cycle = trip × (1 + deadhead) / speed + dwell; capacity per vehicle = 60 / cycle × pax × load "
+        "factor (road 0.75; bikes by seats, PLAN.md K); "
         "fleet capacity = Σ N × availability × capacity per vehicle; volume = Σ over 2-h bins of min(demand, capacity) × 2.\n"
         "- **Wait (Q12):** headway / 2 at the Kendall hub, × 1 / (1 − ρ) as demand nears capacity, capped at "
         f"{scenario.max_wait_min:g} min, demand-weighted over the day. **Availability (Q14):** service availability, the demand-weighted "
