@@ -309,6 +309,57 @@ def _swap_table(variants: pd.DataFrame, base: str = "B2-E1-G2-K2") -> pd.DataFra
     })
 
 
+def _bike_availability_note(variants: pd.DataFrame, scenario) -> str:
+    """Why fixed-battery e-bikes are so rarely available: the best one worked through Appendix B, and the
+    charger power against the power drawn while riding, which sets the ceiling."""
+    from dataclasses import replace
+
+    from os4.vehicle import CHARGE_OVERHEAD_H, bike_variants
+
+    bikes = variants[(variants["kind"] == "bike") & (variants["spares_per_bike"] == 0)].copy()
+    road = variants[(variants["kind"] == "road") & variants["speed_capped"] & (variants["charger"] == "G3")]
+    bikes["battery_kwh"] = bikes["range_km"] * bikes["wh_per_km"] / 1000
+    bikes["charger_kw"] = bikes["battery_kwh"] / bikes["charge_time_h"]
+    bikes["riding_kw"] = bikes["wh_per_km"] * bikes["speed_kmh"] / 1000
+    bikes["ceiling"] = bikes["charger_kw"] / (bikes["charger_kw"] + bikes["riding_kw"])
+    best = bikes.sort_values("availability").iloc[-1]
+    worst = bikes.sort_values("availability").iloc[0]
+    formula = bike_variants(replace(scenario, bike_assisted_speed_kmh=None, bike_spare_options=(0.0,)))
+    formula = formula.set_index("variant_id").loc[best["variant_id"]]
+    steps = pd.DataFrame([
+        ("Power consumption", "nominal + 0.1 × (total − chassis weight)", f"{best['wh_per_km']:.1f} Wh/km"),
+        ("Range", "battery Wh / consumption", f"{best['battery_kwh'] * 1000:.0f} / {best['wh_per_km']:.1f} = "
+                                              f"{best['range_km']:.1f} km"),
+        ("Up-time", "range / speed", f"{best['range_km']:.1f} / {best['speed_kmh']:g} = {best['uptime_h']:.2f} h"),
+        ("Down-time", "battery kWh / charger kW + 0.25 h",
+         f"{best['battery_kwh']:g} / {best['charger_kw']:g} + {CHARGE_OVERHEAD_H:g} = {best['downtime_h']:.2f} h"),
+        ("Availability", "up / (up + down)", f"{best['uptime_h']:.2f} / ({best['uptime_h']:.2f} + "
+                                             f"{best['downtime_h']:.2f}) = {best['availability']:.3f}"),
+    ], columns=["step (Appendix B)", "equation", best["variant_id"]])
+    return (
+        "### Why fixed-battery e-bikes are rarely available\n\n"
+        "The low number is not an assumption: it is the Appendix B availability equations applied to the "
+        f"Appendix D e-bike components {_ref(1)} at the {scenario.bike_assisted_speed_kmh:g} km/h assisted speed "
+        f"(Q5 {_ref(14)}). The best fixed-battery bike, worked through:\n\n"
+        f"{_md_table(steps)}\n"
+        "Leaving out the 0.25 h overhead, availability is at most charger power / (charger power + power drawn "
+        f"while riding), and riding power is Wh/km × km/h. {best['variant_id']} draws "
+        f"{best['wh_per_km']:.0f} Wh/km × {best['speed_kmh']:g} km/h = {best['riding_kw']:.2f} kW while its "
+        f"{best['charger']} charger delivers {best['charger_kw']:g} kW, so it drains faster than it charges and "
+        f"cannot pass {best['ceiling']:.2f}; the 0.25 h overhead, about a quarter of an E1 pack's down-time, pulls "
+        f"it to {best['availability']:.2f}. The worst, {worst['variant_id']}, draws {worst['riding_kw']:.2f} kW "
+        f"(two riders) on a {worst['charger_kw']:g} kW charger: {worst['availability']:.2f}. The battery weight "
+        "limit (½ the frame) keeps the 1-seat frames on the smallest pack. The G3 road charger is 60 kW against a "
+        f"few kW of driving, which is why capped road variants on G3 reach {road['availability'].min():.2f}–"
+        f"{road['availability'].max():.2f}.\n\n"
+        f"The faster assisted speed lowers availability: at the Appendix B formula speed "
+        f"({formula['speed_kmh']:.1f} km/h, slower than walking) the same bike drains more slowly per hour and reaches "
+        f"{formula['availability']:.2f}. Two responses in the model: availability is scored as *service* "
+        "availability (Q14), so a large pool of bikes can still cover demand, and the removable-battery option "
+        "below.\n\n"
+    )
+
+
 def _ref(*numbers: int) -> str:
     """Citation links to ``docs/references.md`` from a report in ``outputs/``."""
     return ", ".join(f"[[{n}]](../docs/references.md#ref-{n})" for n in numbers)
@@ -420,6 +471,7 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "availability: small batteries and slow chargers mean they charge far longer than they ride. With removable "
         f"batteries (below) they reach up to {swap_avail.max():.2f}, depending on spare packs per bike. Most road "
         "variants hit the speed cap, so motors above M2 rarely add speed.\n\n"
+        f"{_bike_availability_note(variants, scenario)}"
         "## Removable e-bike batteries (team proposal)\n\n"
         "Appendix B allows changes to its equations with a justification. We add a removable-battery option for "
         "e-bikes: when a pack runs flat the bike swaps it in "

@@ -43,9 +43,10 @@ from os4.plots import (  # noqa: E402
     media_dir,
     media_link,
 )
+from os4.data import load  # noqa: E402
 from os4.scenario import Scenario  # noqa: E402
 from os4.utility import ATTRIBUTES, load_weights, sau  # noqa: E402
-from os4.vehicle import all_variants  # noqa: E402
+from os4.vehicle import all_variants, get_variant  # noqa: E402
 
 
 def progressive_grid(segments: Iterable[tuple[int, int, int]]) -> tuple[int, ...]:
@@ -817,6 +818,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "headway anchor gets the fewest vehicles whose model headway is at most the published one; the MIT "
         "shuttles use their known fleet of 5.\n\n"
         f"{_md_table(_marker_table(markers))}\n"
+        f"{_reference_vs_shuttles(markers, scenario)}"
         "## Requirements (Table 1)\n\n"
         "Thresholds screen architectures out before scoring; desired goals and the availability benchmark are "
         "flags only. Counts are over the whole grid (removable-battery case) before screening.\n\n"
@@ -838,6 +840,54 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         + "".join(sections)
     )
     return paths + [md_path]
+
+
+def _reference_vs_shuttles(markers: pd.DataFrame, scenario: Scenario) -> str:
+    """The reference (PLAN.md F) beside the MIT-shuttle anchor (Q16): why the anchor scores higher for less."""
+    shuttles = load("anchors").set_index("id").loc["mit_shuttle", "name"]
+    ref = markers[markers["role"] == "reference"].iloc[0]
+    mit = markers[markers["architecture"] == shuttles].iloc[0]
+    rv, mv = get_variant(ref["road_variant"], scenario), get_variant(mit["road_variant"], scenario)
+    parts = {t: load(f"road_{t}").set_index("id")["cost_usd"] for t in ("chassis", "battery", "motor")}
+    delta = {t: parts[t][mv[t]] - parts[t][rv[t]] for t in parts}
+    rows = [
+        ("represents", "our design, chosen before reading the tradespace", "today's service, run through the model"),
+        ("vehicle", f"{rv['variant_id']} ({rv['pax']} seats)", f"{mv['variant_id']} ({mv['pax']} seats)"),
+        ("fleet size from", "load management at the peak, X = 0.90", "the known fleet [[15]](../docs/references.md#ref-15)"),
+        ("components from", "design reasoning (all-day pack, fastest charger)",
+         "cheapest spec at the speed cap and the 0.75 benchmark"),
+        ("vehicles × seats", f"{int(ref['n_road'])} × {rv['pax']} = {int(ref['n_road']) * rv['pax']}",
+         f"{int(mit['n_road'])} × {mv['pax']} = {int(mit['n_road']) * mv['pax']}"),
+        ("range", f"{rv['range_km']:.0f} km", f"{mv['range_km']:.0f} km"),
+        ("cost per vehicle", f"${rv['cost_usd']:,.0f}", f"${mv['cost_usd']:,.0f}"),
+        ("fleet cost", f"${ref['fleet_cost_usd']:,.0f}", f"${mit['fleet_cost_usd']:,.0f}"),
+        ("capacity (trips/h)", f"{ref['fleet_capacity_per_h']:.0f}", f"{mit['fleet_capacity_per_h']:.0f}"),
+        ("wait (min)", f"{ref['wait_time']:.1f}", f"{mit['wait_time']:.1f}"),
+        ("service availability", f"{ref['availability']:.3f}", f"{mit['availability']:.3f}"),
+        ("energy per passenger-km (Wh)", f"{ref['energy_per_pkm']:.0f}", f"{mit['energy_per_pkm']:.0f}"),
+        ("MAU (Appendix A / os3a_full)", f"{ref['mau']:.3f} / {ref['mau_os3a_full']:.3f}",
+         f"{mit['mau']:.3f} / {mit['mau_os3a_full']:.3f}"),
+    ]
+    table = pd.DataFrame(rows, columns=["", "reference", shuttles])
+    return (
+        "### Reference vs. MIT shuttles\n\n"
+        "Both are small road-shuttle fleets, but they answer different questions: the reference is our design, "
+        "sized to the demand; the anchor is the service MIT runs today, sized by its known fleet.\n\n"
+        f"{_md_table(table)}\n"
+        f"Per vehicle they cost about the same: the {mv['chassis']} chassis costs ${delta['chassis']:,.0f} more "
+        f"and needs the {mv['motor']} motor (${delta['motor']:,.0f} more) to reach the speed cap, while the "
+        f"reference's {rv['battery']} pack, bought for a full day of range, costs ${-delta['battery']:,.0f} more "
+        f"than {mv['battery']}. The {mv['chassis']} carries {mv['pax'] // rv['pax']}× the seats, so the anchor "
+        "has more capacity for less money. The model cannot see the reason the reference chose 8 seats, MIT "
+        "P&T's warning against half-empty large shuttles [[15]](../docs/references.md#ref-15): every road "
+        f"vehicle runs at the fixed {scenario.load_factor:g} load factor (Appendix B), so a larger vehicle is "
+        "always more capacity per dollar. Only energy per passenger-km (os3a_full, PLAN.md J) credits the "
+        "smaller vehicle, and not by enough to change the ranking.\n\n"
+        "Making the reference the MIT shuttles (PLAN.md F is open) would be defensible, a status-quo "
+        "reference, but would lose the designed-vs.-existing comparison and the anchor's role as a "
+        "check on the model. If empty seats matter, the fix is an attribute or a demand-based load factor "
+        "that measures them.\n\n"
+    )
 
 
 def _marker_table(markers: pd.DataFrame) -> pd.DataFrame:
