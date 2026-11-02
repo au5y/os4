@@ -512,6 +512,41 @@ def _requirement_rows(df: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
                         columns=["requirement", "target", "type", "architectures failing", "share"])
 
 
+def _bike_only_floor(scenario: Scenario) -> str:
+    """Why the smallest bike-only fleets never reach the map: the best fleet at the grid's smallest size against
+    each screen, and the smallest size that clears the thresholds and the bike ceiling (PLAN.md L)."""
+    if scenario.max_bike_trips_per_day is None:
+        return ""
+    variants = prune_variants(all_variants(scenario))
+    df = tradespace(scenario, n_road=(), variants=variants[variants["kind"] == "bike"], screen=False)
+    df = df.assign(thresholds=meets_thresholds(df["fleet_capacity_per_h"], df["passenger_volume"], scenario),
+                   ceiling=meets_bike_ceiling(df["bike_trips_per_vehicle_day"], scenario))
+    n0 = int(df["n_bike"].min())
+    best = df[df["n_bike"] == n0].sort_values("fleet_capacity_per_h").iloc[-1]
+    n_thresholds = int(df.loc[df["thresholds"], "n_bike"].min())
+    n_both = int(df.loc[df["thresholds"] & df["ceiling"], "n_bike"].min())
+    table = pd.DataFrame([
+        ("daily volume", f">= {scenario.min_daily_volume:,.0f} trips/day", f"{best['passenger_volume']:,.0f}"),
+        ("peak throughput", f">= {scenario.min_peak_throughput:g} trips/h", f"{best['fleet_capacity_per_h']:.0f}"),
+        ("off-peak throughput", f">= {scenario.min_offpeak_throughput:g} trips/h",
+         f"{best['fleet_capacity_per_h']:.0f}"),
+        ("riders per bike per day", f"<= {scenario.max_bike_trips_per_day:g}",
+         f"{best['bike_trips_per_vehicle_day']:.0f}"),
+    ], columns=["requirement", "target", f"{n0} × {best['bike_variant']}"])
+    return (
+        "### Why bike-only fleets start at "
+        f"{n_both} bikes\n\n"
+        f"The bike grid starts at {n0}, but no bike-only fleet that small is feasible, so none appear on the map or "
+        f"in the explorer (screened fleets are not exported). The highest-capacity {n0}-bike fleet fails every "
+        "screen:\n\n"
+        f"{_md_table(table)}\n"
+        f"Bike-only fleets first meet the Table 1 thresholds at {n_thresholds} bikes, but the ceiling of "
+        f"{scenario.max_bike_trips_per_day:g} riders per bike per day (PLAN.md L) binds until {n_both}, the "
+        f"smallest bike-only fleet in the tradespace. Small bike counts ({n0}+) appear only in mixed fleets, "
+        "where the road vehicles carry most of the demand.\n\n"
+    )
+
+
 LOAD_FACTORS = (0.25, 0.5, 0.75, 1.0)
 LOAD_FACTOR_COLORS = ("#86b6ef", "#3987e5", "#1c5cab", "#0d366b")  # ordinal ramp steps 250/400/550/700
 
@@ -791,6 +826,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"{max(scenario.node_distances_km.values()):g} km) would take ≥ 9.4 min and is left for later. "
         "Availability is *service* availability (Q14): the chance the vehicles in service can carry the hour's "
         "demand, so spare vehicles raise it.\n\n"
+        f"{_bike_only_floor(scenario)}"
         "## Load-factor sensitivity\n\n"
         "Appendix B assumes trips average 75% full; the model keeps 0.75 as the baseline for road vehicles. "
         "E-bikes use riders per trip by seats instead (PLAN.md K): a 1-seat bike carries its 1 rider, a 2-seat "
