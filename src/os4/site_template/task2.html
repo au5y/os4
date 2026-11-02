@@ -9,21 +9,37 @@
 <body>
 <main class="wrap" id="main">
   <h1>Task 2 · Technical system model</h1>
-  <p class="muted">Architectures are a road-vehicle variant × fleet size plus an e-bike variant × fleet size. Click ☆ to add any of them to your selection.</p>
+  <p class="muted">Architectures are a road-vehicle variant × fleet size plus an e-bike variant × fleet size.</p>
+  <nav class="page-sections" aria-label="Sections">
+    <a href="#writeup">Write-up</a>
+    <a href="#interactive">Interactive</a>
+  </nav>
 
-  <h2>The five current Task 2 architectures</h2>
+  <section id="writeup" class="report">
+  <h2>Write-up</h2>
+  <!-- report:task2_model -->
+  <p class="muted">No write-up yet: run <code>python -m os4</code> to write <code>outputs/task2_model.md</code>.</p>
+  <!-- /report -->
+  </section>
+
+  <section id="interactive">
+  <h2>Interactive</h2>
+  <p class="muted">Click ☆ to add any architecture to your selection.</p>
+
+  <h3>The five current Task 2 architectures</h3>
   <p class="muted">From <code>model.architecture_table</code> (PLAN.md Q17, still open). These are also drawn as numbered rings on the Task 3 tradespace.</p>
   <div id="archs"></div>
 
-  <h2>Highlighted candidates</h2>
+  <h3>Highlighted candidates</h3>
   <p class="muted" id="hl-note"></p>
   <div class="filters" id="hl-filters"></div>
   <div id="highlights"></div>
 
-  <h2>Vehicle variants</h2>
+  <h3>Vehicle variants</h3>
   <p class="muted" id="var-note"></p>
   <div class="filters" id="var-filters"></div>
   <div id="variants"></div>
+  </section>
 </main>
 <script src="data/meta.js"></script>
 <script src="data/task2.js"></script>

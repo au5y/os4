@@ -227,6 +227,9 @@ dd.parts { white-space: pre-line; font-size: 0.9em; }
 .tooltip .parts { color: var(--ink-2); font-size: 11px; margin-bottom: 4px; }
 
 /* rendered Markdown reports (site.write_reports) */
+.page-sections { display: flex; gap: 0.5rem; margin: 0.8rem 0 0.4rem; }
+.page-sections a { padding: 0.3rem 0.8rem; border: 1px solid var(--border); border-radius: 999px; text-decoration: none; }
+section + section { margin-top: 2.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
 .report img { display: block; max-width: 100%; height: auto; margin: 0.8rem 0; border: 1px solid var(--border); border-radius: 8px; }
 .report .table-wrap { margin: 0.6rem 0 1rem; }
 .report th, .report td { text-align: left; vertical-align: top; white-space: normal; }

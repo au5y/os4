@@ -149,3 +149,17 @@ def test_reports_are_rendered_with_their_images(tmp_path):
     assert 'src="img/chart.png"' in page and (out / "img" / "chart.png").exists()
     assert 'href="report_task9_demo.html"' in (out / "reports.html").read_text(encoding="utf-8")
     assert out / "reports.html" in paths
+
+
+def test_report_is_embedded_in_its_page_slot(tmp_path):
+    src, out = tmp_path / "src", tmp_path / "site"
+    src.mkdir(), out.mkdir()
+    (src / "task9_demo.md").write_text("# Demo report\n\n## Results\n\nBody text.\n", encoding="utf-8")
+    slot = "<h2>Write-up</h2>\n<!-- report:task9_demo -->\n<p>fallback</p>\n<!-- /report -->\n"
+    (out / "task9.html").write_text(slot, encoding="utf-8")
+    (out / "other.html").write_text("<!-- report:task8_other -->\n<p>fallback</p>\n<!-- /report -->", encoding="utf-8")
+    write_reports(src, out)
+    page = (out / "task9.html").read_text(encoding="utf-8")
+    assert "<h3>Results</h3>" in page and "Body text." in page
+    assert "fallback" not in page and "Demo report" not in page
+    assert "fallback" in (out / "other.html").read_text(encoding="utf-8")

@@ -530,6 +530,9 @@ REPORT_PAGE = """<!doctype html>
 </html>
 """
 IMG_SRC = re.compile(r'<img alt="([^"]*)" src="(?:media/)?([^"/]+)"')
+# A page section that shows a report inline: <!-- report:<stem> --> fallback <!-- /report -->.
+REPORT_SLOT = re.compile(r"<!-- report:([\w-]+) -->.*?<!-- /report -->", re.S)
+HEADING = re.compile(r"<(/?)h([1-5])>")
 
 
 def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
@@ -553,6 +556,7 @@ def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
                 shutil.copy2(found, img_dir / src)
                 paths.append(img_dir / src)
         body = IMG_SRC.sub(r'<img alt="\1" src="img/\2"', body)
+        _embed_report(out_dir, md_path.stem, md_path.name, body)
         page = out_dir / f"report_{md_path.stem}.html"
         page.write_text(REPORT_PAGE.format(title=html.escape(title), source=md_path.name, body=body), encoding="utf-8")
         reports.append((page.name, title, md_path.name))
@@ -565,6 +569,21 @@ def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
         body=f"<h1>Reports</h1>\n<p>The Markdown reports the model writes next to its figures.</p>\n<ul>\n{items}\n</ul>"),
         encoding="utf-8")
     return [index] + paths
+
+
+def _embed_report(out_dir: Path, stem: str, source: str, body: str) -> None:
+    """Put a rendered report into every page with a ``<!-- report:<stem> -->`` slot (e.g. Task 2's write-up).
+
+    The report's own title is dropped (the page has one) and its headings move down a level to
+    sit under the slot's section heading.
+    """
+    inline = HEADING.sub(lambda m: f"<{m[1]}h{int(m[2]) + 1}>", re.sub(r"<h1>.*?</h1>\n?", "", body, count=1))
+    note = f'<p class="muted small">Rendered from <code>outputs/{source}</code>, written by <code>python -m os4</code>.</p>'
+    for page in out_dir.glob("*.html"):
+        text = page.read_text(encoding="utf-8")
+        filled = REPORT_SLOT.sub(lambda m: f"{note}\n{inline}" if m[1] == stem else m[0], text)
+        if filled != text:
+            page.write_text(filled, encoding="utf-8")
 
 
 def write_site(scenario: Scenario, out_dir: Path = OUTPUT_DIR / "site", n_road=None, n_bike=None,
