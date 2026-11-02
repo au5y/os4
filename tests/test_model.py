@@ -68,3 +68,10 @@ def test_anchors_match_their_published_headway_or_fleet_size():
     # One vehicle fewer would miss the published headway.
     fewer = headway["model_headway_min"] * headway["n_road"] / (headway["n_road"] - 1)
     assert (fewer > headway["published_headway_min"]).all()
+
+
+def test_task2_architectures_pass_the_utilization_ceilings():
+    # PLAN.md L / Q17: fleets 1 and 4 were sized up to pass the bike and car ceilings.
+    table = architecture_table(primary_scenario())
+    assert table["meets_thresholds"].all()
+    assert table["meets_bike_ceiling"].all() and table["meets_car_ceiling"].all()
