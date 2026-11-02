@@ -781,6 +781,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
             f"![Tradespace with the full proposed MAU]({media_link(png_full)})\n\n"
         )
     requirements = _requirement_rows(frames["removable"], scenario)
+    plateau = _mau_plateau(frames["removable"], scenario)
     frames.clear()
     fronts = load_factor_fronts(scenario)
     lf_png = plot_load_factor_fronts(fronts, media / "task3_load_factor_fronts.png", scenario.load_factor)
@@ -807,6 +808,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"{', '.join(f'{k:g}' for k in scenario.bike_spare_options if k > 0)} spare packs per bike (each spare adds "
         "its battery and a charger slot to the bike's cost). Pruning keeps only the spare counts worth buying.\n\n"
         f"{_md_table(pd.DataFrame(summary))}\n"
+        f"{plateau}"
         "## Reference architecture and anchors\n\n"
         "The **reference** (PLAN.md F, proposed) was chosen from design reasoning before reading the "
         "tradespace: C4 8-seat shuttles (MIT P&T's \"small on-demand EV shuttles from a central hub\"), A3 (the "
@@ -840,6 +842,39 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         + "".join(sections)
     )
     return paths + [md_path]
+
+
+def _mau_plateau(df: pd.DataFrame, scenario: Scenario) -> str:
+    """Why the Appendix A front levels off below 1: the best SAU any architecture reaches, attribute by
+    attribute. Throughput and volume count demand served (Q11), so demand caps them."""
+    weights = load_weights()
+    best = {a: float(sau(a, df[a].to_numpy()).max()) for a in weights}
+    rows = pd.DataFrame([{
+        "attribute": a,
+        "weight": w,
+        "best in tradespace": _fmt_best(df[a].min() if a == "wait_time" else df[a].max()),
+        "best SAU": round(best[a], 3),
+        "weight × SAU": round(w * best[a], 4),
+    } for a, w in weights.items()])
+    ceiling = sum(w * best[a] for a, w in weights.items())
+    return (
+        "### Why the front levels off below 1\n\n"
+        "Demand caps two of the four Appendix A attributes. Peak throughput counts the demand actually served "
+        f"(Q11), so no fleet scores past the {scenario.peak_demand_per_h:g} trips/h peak, and passenger volume "
+        f"stops at the {scenario.demand['trips_per_hour'].sum() * scenario.demand_bin_h:,.0f} trips/day of "
+        "Appendix B demand. Only wait and service availability keep improving as vehicles are added, and both "
+        "approach their best SAU of 1. The MAU ceiling is the weighted sum of each attribute's best SAU:\n\n"
+        f"{_md_table(rows)}\n"
+        f"Ceiling {ceiling:.3f}; the best front MAU is {df['mau'].max():.4f}. Once a fleet meets demand, extra "
+        "vehicles only buy seconds of wait, so the front runs flat and the cheapest fleet that meets demand is "
+        "the practical choice. The extended weights level off similarly (travel time is capped by the speed "
+        "limit); the full proposed weights turn down instead, because fleet size and energy per passenger-km "
+        "get worse with every extra vehicle.\n\n"
+    )
+
+
+def _fmt_best(x: float) -> str:
+    return f"{x:,.0f}" if x >= 10 else f"{x:.3f}"
 
 
 def _reference_vs_shuttles(markers: pd.DataFrame, scenario: Scenario) -> str:
