@@ -22,6 +22,7 @@ from os4.fleet import (
     fleet_cost_usd,
     fleet_size,
     peak_throughput,
+    trips_per_vehicle_day,
     vehicle_availability,
     vehicle_capacity_per_h,
 )
@@ -102,6 +103,7 @@ def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
             row[f"{part}_{col}"] = np.nan if vehicle is None else float(vehicle[col])
     row["fleet_capacity_per_h"] = capacity
     row["vehicle_availability"] = vehicle_availability(fleet, scenario)
+    row |= trips_per_vehicle_day(fleet, scenario)
     row |= mops | proposed
     for a, x in (mops | proposed).items():
         row[f"u_{a}"] = float(sau(a, x))

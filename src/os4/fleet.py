@@ -165,6 +165,22 @@ def energy_per_pkm(fleet: Fleet, scenario: Scenario) -> float:
     return wh / (daily_passenger_volume(fleet, scenario) * km_per_trip)
 
 
+def trips_per_vehicle_day(fleet: Fleet, scenario: Scenario) -> dict[str, float]:
+    """Riders served per vehicle per day, overall and for the road and bike parts (0 for an absent part).
+
+    A realism check (PLAN.md L), not a utility attribute: the model lets every vehicle cycle without
+    idle time, so these are upper bounds to compare with real systems (e.g. rides per Bluebike per
+    day). Each part serves the day's volume in proportion to its capacity, as in ``energy_per_pkm``.
+    """
+    capacity = fleet_capacity_per_h(fleet, scenario)
+    volume = daily_passenger_volume(fleet, scenario)
+    out = {"trips_per_vehicle_day": volume / fleet_size(fleet) if fleet_size(fleet) else 0.0}
+    for part, vehicle, n in (("road", fleet.road, fleet.n_road), ("bike", fleet.bike, fleet.n_bike)):
+        served = volume * _part_capacity(vehicle, n, scenario) / capacity if vehicle is not None and n and capacity else 0.0
+        out[f"{part}_trips_per_vehicle_day"] = served / n if vehicle is not None and n else 0.0
+    return out
+
+
 def fleet_size(fleet: Fleet) -> int:
     """Operational-complexity attribute: vehicles to manage, charge and dispatch (team proposal, PLAN.md J)."""
     return int(sum(n for _, n in fleet.members()))

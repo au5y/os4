@@ -160,6 +160,18 @@ def test_report_is_embedded_in_its_page_slot(tmp_path):
     (out / "other.html").write_text("<!-- report:task8_other -->\n<p>fallback</p>\n<!-- /report -->", encoding="utf-8")
     write_reports(src, out)
     page = (out / "task9.html").read_text(encoding="utf-8")
-    assert "<h3>Results</h3>" in page and "Body text." in page
+    assert '<h3 id="results">Results</h3>' in page and "Body text." in page
     assert "fallback" not in page and "Demo report" not in page
     assert "fallback" in (out / "other.html").read_text(encoding="utf-8")
+
+
+def test_long_report_tables_start_collapsed(tmp_path):
+    src, out = tmp_path / "src", tmp_path / "site"
+    src.mkdir(), out.mkdir()
+    rows = "".join(f"| {i} | x |\n" for i in range(20))
+    (src / "task9_demo.md").write_text(f"# Demo\n\n| a | b |\n| --- | --- |\n{rows}\n| a | b |\n| --- | --- |\n| 1 | 2 |\n",
+                                      encoding="utf-8")
+    write_reports(src, out)
+    page = (out / "report_task9_demo.html").read_text(encoding="utf-8")
+    assert page.count('<details class="long-table">') == 1
+    assert "Table: 20 rows (click to expand)" in page

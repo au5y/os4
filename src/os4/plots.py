@@ -192,6 +192,7 @@ ARCH_COLUMNS = {
     "bike_range_km": "bike range (km)",
     "fleet_capacity_per_h": "fleet throughput (trips/h)",
     "passenger_volume": "volume (trips/day)",
+    "trips_per_vehicle_day": "riders per vehicle per day",
     "wait_time": "avg wait (min)",
     "availability": "availability",
     "road_cost_usd": "road vehicle cost",
@@ -338,7 +339,7 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         ("Dwell / load factor", f"{scenario.dwell_s:g} s / {scenario.load_factor:g} (road vehicles)", "Appendix B"),
         ("E-bike riders per trip", ", ".join(f"{p}-seat {p * lf:.2g}" for p, lf in scenario.bike_load_factors),
          "Team fix (PLAN.md K): a bike only moves with a rider"),
-        ("Throughput MoP", scenario.throughput_measure, "Q11 (open)"),
+        ("Throughput MoP", scenario.throughput_measure, "Q11 (decided): demand actually served"),
         ("Demand", f"peak {scenario.peak_demand_per_h:g} trips/h, "
                    f"{scenario.demand['trips_per_hour'].sum() * scenario.demand_bin_h:,.0f} trips/day", "Appendix B, Kendall origin"),
     ], columns=["input", "value", "source"])
@@ -357,7 +358,7 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "- **Vehicle (Appendix B):** weight = components + 100 kg × pax; Wh/km = nominal + 0.1 × (weight − chassis) "
         "+ autonomy; range = kWh × 1000 / (Wh/km); speed = min(700 × kW / kg, cap); charge = kWh / kW; "
         "up-time = range / speed; down-time = charge + 0.25 h; availability = up / (up + down).\n"
-        "- **Fleet:** cycle = trip × (1 + deadhead) / speed + dwell; capacity per vehicle = 60 / cycle × pax × 0.75; "
+        "- **Fleet:** cycle = trip × (1 + deadhead) / speed + dwell; capacity per vehicle = 60 / cycle × pax × load factor (road 0.75; bikes by seats, PLAN.md K); "
         "fleet capacity = Σ N × availability × capacity per vehicle; volume = Σ over 2-h bins of min(demand, capacity) × 2.\n"
         "- **Wait (Q12):** headway / 2 at the Kendall hub, × 1 / (1 − ρ) as demand nears capacity, capped at "
         f"{scenario.max_wait_min:g} min, demand-weighted over the day. **Availability (Q14):** service availability, the demand-weighted "

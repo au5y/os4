@@ -81,6 +81,9 @@ COLUMN_LABELS = {
     "bike_share": "bike share",
     "energy_per_pkm": "energy (Wh/passenger-km)",
     "fleet_size": "fleet size (vehicles)",
+    "trips_per_vehicle_day": "riders per vehicle per day",
+    "road_trips_per_vehicle_day": "riders per road vehicle per day",
+    "bike_trips_per_vehicle_day": "riders per bike per day",
     "fleet_cost_usd": "fleet cost",
     "mau": "MAU (Appendix A)",
     "mau_os3a_extended": "MAU (OS3A extended, proposed)",
@@ -532,7 +535,10 @@ REPORT_PAGE = """<!doctype html>
 IMG_SRC = re.compile(r'<img alt="([^"]*)" src="(?:media/)?([^"/]+)"')
 # A page section that shows a report inline: <!-- report:<stem> --> fallback <!-- /report -->.
 REPORT_SLOT = re.compile(r"<!-- report:([\w-]+) -->.*?<!-- /report -->", re.S)
-HEADING = re.compile(r"<(/?)h([1-5])>")
+HEADING = re.compile(r"<(/?)h([1-5])((?: [^>]*)?)>")
+TABLE = re.compile(r'<div class="table-wrap"><table>.*?</table></div>', re.S)
+# Tables longer than this (e.g. the Pareto fronts) start collapsed, so the page can be scrolled past them.
+LONG_TABLE_ROWS = 12
 
 
 def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
@@ -547,8 +553,9 @@ def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
     for md_path in sorted(Path(src_dir).glob("task*.md")):
         text = md_path.read_text(encoding="utf-8")
         title = next((line.lstrip("# ").strip() for line in text.splitlines() if line.startswith("# ")), md_path.stem)
-        body = markdown.markdown(text, extensions=["tables", "fenced_code"])
+        body = markdown.markdown(text, extensions=["tables", "fenced_code", "toc"])
         body = body.replace("<table>", '<div class="table-wrap"><table>').replace("</table>", "</table></div>")
+        body = TABLE.sub(_collapse_long_table, body)
         for _, src in IMG_SRC.findall(body):
             found = next((p for p in (md_path.parent / "media" / src, md_path.parent / src) if p.exists()), None)
             if found:
@@ -558,7 +565,8 @@ def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
         body = IMG_SRC.sub(r'<img alt="\1" src="img/\2"', body)
         _embed_report(out_dir, md_path.stem, md_path.name, body)
         page = out_dir / f"report_{md_path.stem}.html"
-        page.write_text(REPORT_PAGE.format(title=html.escape(title), source=md_path.name, body=body), encoding="utf-8")
+        page.write_text(REPORT_PAGE.format(title=html.escape(title), source=md_path.name,
+                                           body=_with_contents(body, 2)), encoding="utf-8")
         reports.append((page.name, title, md_path.name))
         paths.append(page)
     items = "\n".join(f'<li><a href="{href}">{html.escape(title)}</a> <span class="muted small">({source})</span></li>'
@@ -571,13 +579,45 @@ def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
     return [index] + paths
 
 
+def _collapse_long_table(m: re.Match) -> str:
+    """Wrap a table longer than ``LONG_TABLE_ROWS`` in a collapsed <details>."""
+    rows = m[0].count("<tr>") - 1
+    if rows <= LONG_TABLE_ROWS:
+        return m[0]
+    return (f'<details class="long-table"><summary>Table: {rows} rows (click to expand)</summary>\n'
+            f"{m[0]}\n</details>")
+
+
+def _with_contents(body: str, level: int) -> str:
+    """Prepend links to the report's level-``level`` headings, with their level + 1 subsections nested
+    (needs the toc extension's ids)."""
+    heads = re.findall(rf'<h({level}|{level + 1}) id="([^"]+)">(.*?)</h\1>', body)
+    if sum(int(h) == level for h, _, _ in heads) < 3:
+        return body
+    items, open_sub = [], False
+    for h, i, t in heads:
+        if int(h) == level:
+            if open_sub:
+                items.append("</ul></li>")
+            elif items:
+                items.append("</li>")
+            items.append(f'<li><a href="#{i}">{t}</a>')
+            open_sub = False
+        elif items:
+            items.append(("" if open_sub else "<ul>") + f'<li><a href="#{i}">{t}</a></li>')
+            open_sub = True
+    items.append("</ul></li>" if open_sub else "</li>")
+    return f'<nav class="report-toc" aria-label="Contents"><b>Contents</b><ol>{"".join(items)}</ol></nav>\n{body}'
+
+
 def _embed_report(out_dir: Path, stem: str, source: str, body: str) -> None:
     """Put a rendered report into every page with a ``<!-- report:<stem> -->`` slot (e.g. Task 2's write-up).
 
     The report's own title is dropped (the page has one) and its headings move down a level to
     sit under the slot's section heading.
     """
-    inline = HEADING.sub(lambda m: f"<{m[1]}h{int(m[2]) + 1}>", re.sub(r"<h1>.*?</h1>\n?", "", body, count=1))
+    inline = HEADING.sub(lambda m: f"<{m[1]}h{int(m[2]) + 1}{m[3]}>", re.sub(r"<h1[^>]*>.*?</h1>\n?", "", body, count=1))
+    inline = _with_contents(inline, 3)
     note = f'<p class="muted small">Rendered from <code>outputs/{source}</code>, written by <code>python -m os4</code>.</p>'
     for page in out_dir.glob("*.html"):
         text = page.read_text(encoding="utf-8")

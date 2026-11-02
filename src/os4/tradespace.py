@@ -248,6 +248,9 @@ def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scena
         "bike_share": bike_share,
         "energy_per_pkm": energy,
         "fleet_size": n_r + n_b,
+        "trips_per_vehicle_day": volume / (n_r + n_b),
+        "road_trips_per_vehicle_day": np.where(n_r > 0, volume * rp["capacity"] / capacity / np.maximum(n_r, 1), 0.0),
+        "bike_trips_per_vehicle_day": np.where(n_b > 0, volume * bp["capacity"] / capacity / np.maximum(n_b, 1), 0.0),
         "fleet_cost_usd": rp["cost"] + bp["cost"],
     })
     weights = load_weights()
@@ -787,6 +790,7 @@ def _marker_table(markers: pd.DataFrame) -> pd.DataFrame:
         "model headway (min)": markers["model_headway_min"].round(1),
         "capacity (trips/h)": markers["fleet_capacity_per_h"].round(0),
         "wait (min)": markers["wait_time"].round(1),
+        "riders per vehicle per day": markers["trips_per_vehicle_day"].round(0),
         "availability": markers["availability"].round(3),
         "MAU": markers["mau"].round(3),
         "fleet cost": markers["fleet_cost_usd"].map(lambda c: f"${c:,.0f}"),
