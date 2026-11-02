@@ -40,8 +40,8 @@ def cycle_time_min(vehicle: pd.Series, scenario: Scenario) -> float:
 
 
 def vehicle_capacity_per_h(vehicle: pd.Series, scenario: Scenario) -> float:
-    """Passenger trips/h one vehicle can serve: (60 / cycle) * pax * load factor."""
-    return 60.0 / cycle_time_min(vehicle, scenario) * vehicle["pax"] * scenario.load_factor
+    """Passenger trips/h one vehicle can serve: (60 / cycle) * pax * its load factor (bikes by seats, PLAN.md K)."""
+    return 60.0 / cycle_time_min(vehicle, scenario) * vehicle["pax"] * vehicle["load_factor"]
 
 
 def effective_fleet(n: int, availability: float) -> float:

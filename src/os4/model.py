@@ -153,7 +153,7 @@ def reference_architecture(scenario: Scenario) -> Fleet:
     N = f * cycle / 60 / availability, rounded up.
     """
     vehicle = get_variant(REFERENCE_VARIANT, scenario)
-    f = scenario.peak_demand_per_h / (REFERENCE_MAX_LOAD_RATIO * vehicle["pax"] * scenario.load_factor)
+    f = scenario.peak_demand_per_h / (REFERENCE_MAX_LOAD_RATIO * vehicle["pax"] * vehicle["load_factor"])
     n = math.ceil(f * cycle_time_min(vehicle, scenario) / 60.0 / vehicle["availability"])
     return Fleet(road=vehicle, n_road=n)
 
