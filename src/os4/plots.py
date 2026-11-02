@@ -322,7 +322,8 @@ def assumptions_table(scenario) -> pd.DataFrame:
     rows = [
         ("Demand and network", "Appendix B demand, all starting at the Kendall hub, to Lechmere or Central; "
          f"peak {scenario.peak_demand_per_h:g} trips/h", f"Q4; Appendix B {_ref(1)}"),
-        ("Empty return", f"every trip returns to Kendall empty (deadhead {scenario.deadhead_fraction:g} × trip)", "Q13"),
+        ("Empty return", f"every trip returns to Kendall empty (deadhead {scenario.deadhead_fraction:g} × trip)",
+         "Q13"),
         ("Trip length", f"road {scenario.avg_trip_km:g} km, bike {scenario.bike_trip_km:g} km (OSRM)",
          f"Q1, Q13 {_ref(23, 24)}"),
         ("Access", "riders start at the hub; no walk or access time", "Q4 (limitation)"),
@@ -332,6 +333,9 @@ def assumptions_table(scenario) -> pd.DataFrame:
         ("Dwell", f"{scenario.dwell_s:g} s per trip", "Appendix B"),
         ("Operations", "every vehicle in service cycles all day without idle time or rebalancing", "Q12 (limitation)"),
         ("Bike utilization ceiling", ceiling, f"PLAN.md L {_ref(25, 26, 27, 28, 29)}"),
+        ("Car utilization ceiling", "none" if scenario.max_car_trips_per_day is None else
+         f"≤ {scenario.max_car_trips_per_day:g} rides per car per day for road chassis of 1–"
+         f"{scenario.car_max_seats} seats (Waymo about 24; NYC taxis 14, Uber/Lyft 11)", f"PLAN.md L {_ref(31, 32, 33)}"),
         ("Wait", f"headway / 2 × 1 / (1 − ρ), capped at {scenario.max_wait_min:g} min, demand-weighted", "Q12"),
         ("Availability", "service availability; vehicles go out of service independently (normal approximation)",
          "Q14"),

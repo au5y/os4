@@ -90,6 +90,8 @@ COLUMN_LABELS = {
     "mau_os3a_full": "MAU (OS3A full, proposed)",
     "meets_thresholds": "meets thresholds",
     "meets_bike_ceiling": "bike ceiling (≤ 15 riders/bike/day)",
+    "meets_car_ceiling": "car ceiling (≤ 25 rides/car/day)",
+    "car_trips_per_vehicle_day": "rides per car per day",
     "meets_wait_goal": "wait goal (≤ 5 min)",
     "meets_travel_goal": "travel goal (≤ 7 min)",
     "meets_availability_benchmark": "availability ≥ 0.75",

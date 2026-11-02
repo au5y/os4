@@ -68,11 +68,24 @@ def meets_bike_ceiling(bike_trips_per_vehicle_day, scenario: Scenario):
     return trips <= scenario.max_bike_trips_per_day + 1e-9
 
 
+def meets_car_ceiling(car_trips_per_vehicle_day, scenario: Scenario):
+    """Feasibility gate (PLAN.md L): vehicle trips per car per day at most ``scenario.max_car_trips_per_day``.
+
+    Fleets without small cars report 0 and always pass (vectorized).
+    """
+    trips = np.asarray(car_trips_per_vehicle_day, dtype=float)
+    if scenario.max_car_trips_per_day is None:
+        return np.ones(trips.shape, dtype=bool)
+    return trips <= scenario.max_car_trips_per_day + 1e-9
+
+
 def requirement_flags(df: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
-    """Pass/fail columns for the thresholds, the bike ceiling, the "desired" goals and the availability benchmark."""
+    """Pass/fail columns for the thresholds, the bike and car ceilings, the "desired" goals and the availability
+    benchmark."""
     return pd.DataFrame({
         "meets_thresholds": meets_thresholds(df["fleet_capacity_per_h"], df["passenger_volume"], scenario),
         "meets_bike_ceiling": meets_bike_ceiling(df["bike_trips_per_vehicle_day"], scenario),
+        "meets_car_ceiling": meets_car_ceiling(df["car_trips_per_vehicle_day"], scenario),
         "meets_wait_goal": df["wait_time"] <= scenario.goal_wait_min,
         "meets_travel_goal": df["travel_time"] <= scenario.goal_travel_min,
         "meets_availability_benchmark": df["availability"] >= scenario.benchmark_availability,

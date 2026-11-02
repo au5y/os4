@@ -166,7 +166,8 @@ def energy_per_pkm(fleet: Fleet, scenario: Scenario) -> float:
 
 
 def trips_per_vehicle_day(fleet: Fleet, scenario: Scenario) -> dict[str, float]:
-    """Riders served per vehicle per day, overall and for the road and bike parts (0 for an absent part).
+    """Riders served per vehicle per day, overall and for the road and bike parts (0 for an absent part), and
+    vehicle trips (rides) per car per day for a road part of at most ``scenario.car_max_seats`` seats.
 
     A realism check (PLAN.md L), not a utility attribute: the model lets every vehicle cycle without
     idle time, so these are upper bounds to compare with real systems (e.g. rides per Bluebike per
@@ -180,6 +181,10 @@ def trips_per_vehicle_day(fleet: Fleet, scenario: Scenario) -> dict[str, float]:
             out[f"{part}_trips_per_vehicle_day"] = 0.0
             continue
         out[f"{part}_trips_per_vehicle_day"] = volume * _part_capacity(vehicle, n, scenario) / capacity / n
+    road = fleet.road
+    is_car = road is not None and fleet.n_road and road["pax"] <= scenario.car_max_seats
+    out["car_trips_per_vehicle_day"] = (out["road_trips_per_vehicle_day"] / (road["pax"] * road["load_factor"])
+                                        if is_car else 0.0)
     return out
 
 

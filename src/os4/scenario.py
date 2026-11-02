@@ -56,6 +56,12 @@ class Scenario:
     # Real systems: Bluebikes about 2.5 and Citi Bike 3.3 per bike per day (2024 annual averages; 3-5
     # is typical), Citi Bike e-bikes about 15 (2018), the busiest observed case and our ceiling.
     max_bike_trips_per_day: float | None = 15.0
+    # Same gate for small on-demand cars (PLAN.md L): at most this many vehicle trips (rides) per car per
+    # day, Waymo's observed rate (about 24: 250,000 paid rides a week on over 1,500 vehicles, spring 2025).
+    # "Cars" are road chassis of 1-6 seats (C1-C3, team decision); larger shuttles
+    # and buses are in line with transit (MBTA about 300 riders per bus per day) and are not gated.
+    max_car_trips_per_day: float | None = 25.0
+    car_max_seats: int = 6
     # Riders per bike trip as a fraction of seats, by seat count (team fix, PLAN.md K). An on-demand bike
     # only moves with someone on it (its empty return is the deadhead), so a 1-seat bike carries 1 rider;
     # a 2-seat bike carries a second rider about one trip in three (2 riders every 3 trips: 4/3 riders,

@@ -26,6 +26,7 @@ from os4.model import (  # noqa: E402
     architecture_table,
     evaluate_many,
     meets_bike_ceiling,
+    meets_car_ceiling,
     meets_thresholds,
     reference_and_anchor_table,
     requirement_flags,
@@ -152,8 +153,8 @@ def tradespace(
     One row per architecture with the same MoPs, SAUs, MAUs and cost as
     ``model.evaluate``, computed with numpy in chunks of ``CHUNK_ROWS``. With
     ``screen``, architectures that miss a Table 1 threshold
-    (``model.meets_thresholds``) or the bike ceiling (``model.meets_bike_ceiling``,
-    PLAN.md L) are dropped right after capacity and volume are known, before the
+    (``model.meets_thresholds``) or a utilization ceiling (``model.meets_bike_ceiling``,
+    ``model.meets_car_ceiling``, PLAN.md L) are dropped right after capacity and volume are known, before the
     wait and utility calculations. ``df.attrs`` records
     ``screened_out`` and ``threshold_failures`` (counts over the whole grid).
     """
@@ -177,7 +178,8 @@ def tradespace(
         blocks.append(np.array(np.meshgrid(r_idx, nr_opts, b_idx, nb_opts, indexing="ij")).reshape(4, -1))
     grid = np.concatenate(blocks, axis=1)
 
-    failures = {"daily_volume": 0, "peak_throughput": 0, "offpeak_throughput": 0, "bike_ceiling": 0}
+    failures = {"daily_volume": 0, "peak_throughput": 0, "offpeak_throughput": 0, "bike_ceiling": 0,
+                "car_ceiling": 0}
     chunks = [_score_chunk(grid[:, i:i + CHUNK_ROWS], road, bike, scenario, screen, failures)
               for i in range(0, grid.shape[1], CHUNK_ROWS)]
     df = pd.concat(chunks, ignore_index=True)
@@ -209,17 +211,24 @@ def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scena
     failures["offpeak_throughput"] += int((capacity < scenario.min_offpeak_throughput).sum())
     with np.errstate(divide="ignore", invalid="ignore"):
         bike_trips = np.where(n_b > 0, volume * bp["capacity"] / capacity / np.maximum(n_b, 1), 0.0)
-    within_ceiling = meets_bike_ceiling(bike_trips, scenario)
-    failures["bike_ceiling"] += int((~within_ceiling).sum())
+        road_trips = np.where(n_r > 0, volume * rp["capacity"] / capacity / np.maximum(n_r, 1), 0.0)
+    pax = road_rows["pax"].to_numpy(float)
+    car_trips = np.where((n_r > 0) & (pax <= scenario.car_max_seats),
+                         road_trips / (pax * road_rows["load_factor"].to_numpy(float)), 0.0)
+    bike_ok, car_ok = meets_bike_ceiling(bike_trips, scenario), meets_car_ceiling(car_trips, scenario)
+    within_ceiling = bike_ok & car_ok
+    failures["bike_ceiling"] += int((~bike_ok).sum())
+    failures["car_ceiling"] += int((~car_ok).sum())
 
-    # Early exit: drop architectures that break a Table 1 threshold or the bike ceiling (PLAN.md L)
+    # Early exit: drop architectures that break a Table 1 threshold or a utilization ceiling (PLAN.md L)
     # before the costlier steps.
     keep = meets_thresholds(capacity, volume, scenario) & within_ceiling
     if not screen:
         keep = np.ones(len(capacity), dtype=bool)
     rp = {k: v[keep] for k, v in rp.items()}
     bp = {k: v[keep] for k, v in bp.items()}
-    capacity, volume, bike_trips = capacity[keep], volume[keep], bike_trips[keep]
+    capacity, volume = capacity[keep], volume[keep]
+    bike_trips, road_trips, car_trips = bike_trips[keep], road_trips[keep], car_trips[keep]
     n_r, n_b = n_r[keep], n_b[keep]
     road_rows, bike_rows = road_rows[keep], bike_rows[keep]
 
@@ -258,8 +267,9 @@ def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scena
         "energy_per_pkm": energy,
         "fleet_size": n_r + n_b,
         "trips_per_vehicle_day": volume / (n_r + n_b),
-        "road_trips_per_vehicle_day": np.where(n_r > 0, volume * rp["capacity"] / capacity / np.maximum(n_r, 1), 0.0),
+        "road_trips_per_vehicle_day": road_trips,
         "bike_trips_per_vehicle_day": bike_trips,
+        "car_trips_per_vehicle_day": car_trips,
         "fleet_cost_usd": rp["cost"] + bp["cost"],
     })
     weights = load_weights()
@@ -474,7 +484,7 @@ def plot_knee(df: pd.DataFrame, path: Path, markers: pd.DataFrame | None = None,
 
 
 def _requirement_rows(df: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
-    """How many architectures fail each Table 1 requirement and the bike ceiling (PLAN.md L).
+    """How many architectures fail each Table 1 requirement and the utilization ceilings (PLAN.md L).
 
     Thresholds and the ceiling are counted over the whole grid during screening (``df.attrs``); the desired goals and
     the availability benchmark are counted over the architectures that pass the thresholds.
@@ -488,6 +498,9 @@ def _requirement_rows(df: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
          failures["offpeak_throughput"], grid),
         *([("riders per bike per day", f"<= {scenario.max_bike_trips_per_day:g}", "realism gate (PLAN.md L)",
             failures["bike_ceiling"], grid)] if scenario.max_bike_trips_per_day is not None else []),
+        *([(f"rides per car (1–{scenario.car_max_seats} seats) per day", f"<= {scenario.max_car_trips_per_day:g}",
+            "realism gate (PLAN.md L)", failures["car_ceiling"], grid)]
+          if scenario.max_car_trips_per_day is not None else []),
         ("wait in boundary", f"<= {scenario.goal_wait_min:g} min", "desired", int((~df["meets_wait_goal"]).sum()), n),
         ("travel time, average Kendall trip", f"<= {scenario.goal_travel_min:g} min", "desired",
          int((~df["meets_travel_goal"]).sum()), n),

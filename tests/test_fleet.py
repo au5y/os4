@@ -149,3 +149,11 @@ def test_trips_per_vehicle_day_splits_by_capacity(scenario):
     assert t["trips_per_vehicle_day"] == pytest.approx(volume / 68)
     assert 8 * t["road_trips_per_vehicle_day"] + 60 * t["bike_trips_per_vehicle_day"] == pytest.approx(volume)
     assert trips_per_vehicle_day(Fleet(road=car, n_road=12), scenario)["bike_trips_per_vehicle_day"] == 0.0
+
+
+def test_car_trips_count_rides_for_small_cars_only(scenario):
+    car, shuttle = get_variant("C2-P2-G3-M2-A3", scenario), get_variant("C6-P4-G3-M3-A3", scenario)
+    t = trips_per_vehicle_day(Fleet(road=car, n_road=12), scenario)
+    # Riders per car / riders per ride (4 seats x 0.75): PLAN.md L.
+    assert t["car_trips_per_vehicle_day"] == pytest.approx(t["road_trips_per_vehicle_day"] / 3)
+    assert trips_per_vehicle_day(Fleet(road=shuttle, n_road=4), scenario)["car_trips_per_vehicle_day"] == 0.0
