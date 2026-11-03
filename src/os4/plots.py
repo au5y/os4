@@ -170,7 +170,7 @@ def write_task1(out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "## Full breakdown\n\n"
         f"{_md_table(table)}\n"
         "## MAU under each weight set\n\n"
-        "`appendix_a` is the given weighting; `os3a_reweight` is the team's proposal from OS3A (PLAN.md Q8).\n\n"
+        "`appendix_a` is the given weighting; `os3a_reweight` is the team's proposal from OS3A (PLAN.md Q10).\n\n"
         f"{_md_table(weight_sets.round(3))}\n"
         "## Weight sensitivity (each weight ±0.1, others renormalized)\n\n"
         f"{_md_table(sensitivity.round(3))}"
@@ -340,7 +340,7 @@ def _bike_availability_note(variants: pd.DataFrame, scenario) -> str:
         "### Why fixed-battery e-bikes are rarely available\n\n"
         "The low number is not an assumption: it is the Appendix B availability equations applied to the "
         f"Appendix D e-bike components {_ref(1)} at the {scenario.bike_assisted_speed_kmh:g} km/h assisted speed "
-        f"(Q5 {_ref(14)}). The best fixed-battery bike, worked through:\n\n"
+        f"(Q6 {_ref(14)}). The best fixed-battery bike, worked through:\n\n"
         f"{_md_table(steps)}\n"
         "Leaving out the 0.25 h overhead, availability is at most charger power / (charger power + power drawn "
         f"while riding), and riding power is Wh/km × km/h. {best['variant_id']} draws "
@@ -355,7 +355,7 @@ def _bike_availability_note(variants: pd.DataFrame, scenario) -> str:
         f"The faster assisted speed lowers availability: at the Appendix B formula speed "
         f"({formula['speed_kmh']:.1f} km/h, slower than walking) the same bike drains more slowly per hour and reaches "
         f"{formula['availability']:.2f}. Two responses in the model: availability is scored as *service* "
-        "availability (Q14), so a large pool of bikes can still cover demand, and the removable-battery option "
+        "availability (Q19), so a large pool of bikes can still cover demand, and the removable-battery option "
         "below.\n\n"
     )
 
@@ -372,32 +372,31 @@ def assumptions_table(scenario) -> pd.DataFrame:
                else f"≤ {scenario.max_bike_trips_per_day:g} riders per bike per day (typical systems: 3–5)")
     rows = [
         ("Demand and network", "Appendix B demand, all starting at the Kendall hub, to Lechmere or Central; "
-         f"peak {scenario.peak_demand_per_h:g} trips/h", f"Q4; Appendix B {_ref(1)}"),
+         f"peak {scenario.peak_demand_per_h:g} trips/h", f"Q5; Appendix B {_ref(1)}"),
         ("Empty return", f"every trip returns to Kendall empty (deadhead {scenario.deadhead_fraction:g} × trip)",
-         "Q13"),
+         "Q3"),
         ("Trip length", f"road {scenario.avg_trip_km:g} km, bike {scenario.bike_trip_km:g} km (OSRM)",
-         f"Q1, Q13 {_ref(23, 24)}"),
-        ("Access", "riders start at the hub; no walk or access time", "Q4 (limitation)"),
+         f"Q2, Q3 {_ref(23, 24)}"),
+        ("Access", "riders start at the hub; no walk or access time", "Q5 (limitation)"),
         ("Speed", f"road capped at {scenario.speed_limit_kmh:g} km/h (signals, congestion); "
-         f"bikes fixed at {scenario.bike_assisted_speed_kmh:g} km/h", f"Q3, Q5 {_ref(10, 11, 14)}"),
-        ("Occupancy", f"road load factor {scenario.load_factor:g} (Appendix B); bikes by seats: {lf}", "PLAN.md K"),
+         f"bikes fixed at {scenario.bike_assisted_speed_kmh:g} km/h", f"Q4, Q6 {_ref(10, 11, 14)}"),
+        ("Occupancy", f"road load factor {scenario.load_factor:g} (Appendix B); bikes by seats: {lf}", "PLAN.md Q16"),
         ("Dwell", f"{scenario.dwell_s:g} s per trip", "Appendix B"),
-        ("Operations", "every vehicle in service cycles all day without idle time or rebalancing", "Q12 (limitation)"),
-        ("Bike utilization ceiling", ceiling, f"PLAN.md L {_ref(25, 26, 27, 28, 29)}"),
+        ("Operations", "every vehicle in service cycles all day without idle time or rebalancing", "Q18 (limitation)"),
+        ("Bike utilization ceiling", ceiling, f"PLAN.md Q22 {_ref(25, 26, 27, 28, 29)}"),
         ("Car utilization ceiling", "none" if scenario.max_car_trips_per_day is None else
          f"≤ {scenario.max_car_trips_per_day:g} rides per car per day for road chassis of 1–"
-         f"{scenario.car_max_seats} seats (Waymo about 24; NYC taxis 14, Uber/Lyft 11)", f"PLAN.md L {_ref(31, 32, 33)}"),
-        ("Wait", f"headway / 2 × 1 / (1 − ρ), capped at {scenario.max_wait_min:g} min, demand-weighted", "Q12"),
+         f"{scenario.car_max_seats} seats (Waymo about 24; NYC taxis 14, Uber/Lyft 11)", f"PLAN.md Q22 {_ref(31, 32, 33)}"),
+        ("Wait", f"headway / 2 × 1 / (1 − ρ), capped at {scenario.max_wait_min:g} min, demand-weighted", "Q18"),
         ("Availability", "service availability; vehicles go out of service independently (normal approximation)",
-         "Q14"),
-        ("Throughput", f"peak throughput = demand served ({scenario.throughput_measure})", "Q11"),
+         "Q19"),
+        ("Throughput", f"peak throughput = demand served ({scenario.throughput_measure})", "Q17"),
         ("Removable batteries", f"{scenario.bike_swap_h * 60:g}-min swap, pooled spares; swap labor not counted",
-         "PLAN.md B, Q15"),
-        ("Cost", "vehicle capital cost only; no operating, labor, A3 attendant or swap cost", "Q15"),
+         "PLAN.md Q15, Q21"),
+        ("Cost", "vehicle capital cost only; no operating, labor, A3 attendant or swap cost", "Q21"),
         ("Autonomy", f"allowed levels {', '.join(scenario.allowed_autonomy)} (A3 minimum inside the boundary)",
-         f"Q6 {_ref(20)}"),
-        ("Fleet", "one road design and one e-bike design per architecture; progressive fleet-size grid", "Q10"),
-        ("Energy (proposed)", "vehicles in service run all day, so empty running counts", "PLAN.md J"),
+         f"Q7 {_ref(20)}"),
+        ("Fleet", "one road design and one e-bike design per architecture; progressive fleet-size grid", "Q14"),
     ]
     return pd.DataFrame(rows, columns=["assumption", "value", "decided / source"])
 
@@ -425,14 +424,14 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         shown[col] = shown[col].map(lambda c: "-" if pd.isna(c) else f"${c:,.0f}")
     shown = shown.round(2).fillna("-")
     inputs = pd.DataFrame([
-        ("Road average-speed cap", f"{scenario.speed_limit_kmh:g} km/h", "Q3: 20 mph posted; signals hold peak speed near 13 mph"),
-        ("E-bike speed", f"{scenario.bike_assisted_speed_kmh:g} km/h", "Q5: fixed assist instead of 700·P/W"),
-        ("Trip length (road / bike)", f"{scenario.avg_trip_km:g} / {scenario.bike_trip_km:g} km", "Q13: Kendall links measured on OSRM (Q1)"),
-        ("Empty return (deadhead)", f"{scenario.deadhead_fraction:g} × trip", "Q13 (open): vehicles return to Kendall empty"),
+        ("Road average-speed cap", f"{scenario.speed_limit_kmh:g} km/h", "Q4: 20 mph posted; signals hold peak speed near 13 mph"),
+        ("E-bike speed", f"{scenario.bike_assisted_speed_kmh:g} km/h", "Q6: fixed assist instead of 700·P/W"),
+        ("Trip length (road / bike)", f"{scenario.avg_trip_km:g} / {scenario.bike_trip_km:g} km", "Q3: Kendall links measured on OSRM (Q2)"),
+        ("Empty return (deadhead)", f"{scenario.deadhead_fraction:g} × trip", "Q3: vehicles return to Kendall empty"),
         ("Dwell / load factor", f"{scenario.dwell_s:g} s / {scenario.load_factor:g} (road vehicles)", "Appendix B"),
         ("E-bike riders per trip", ", ".join(f"{p}-seat {p * lf:.2g}" for p, lf in scenario.bike_load_factors),
-         "Team fix (PLAN.md K): a bike only moves with a rider"),
-        ("Throughput MoP", scenario.throughput_measure, "Q11 (decided): demand actually served"),
+         "Team fix (PLAN.md Q16): a bike only moves with a rider"),
+        ("Throughput MoP", scenario.throughput_measure, "Q17 (decided): demand actually served"),
         ("Demand", f"peak {scenario.peak_demand_per_h:g} trips/h, "
                    f"{scenario.demand['trips_per_hour'].sum() * scenario.demand_bin_h:,.0f} trips/day", "Appendix B, Kendall origin"),
     ], columns=["input", "value", "source"])
@@ -456,10 +455,10 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "+ autonomy; range = kWh × 1000 / (Wh/km); speed = min(700 × kW / kg, cap); charge = kWh / kW; "
         "up-time = range / speed; down-time = charge + 0.25 h; availability = up / (up + down).\n"
         "- **Fleet:** cycle = trip × (1 + deadhead) / speed + dwell; capacity per vehicle = 60 / cycle × pax × load "
-        "factor (road 0.75; bikes by seats, PLAN.md K); "
+        "factor (road 0.75; bikes by seats, PLAN.md Q16); "
         "fleet capacity = Σ N × availability × capacity per vehicle; volume = Σ over 2-h bins of min(demand, capacity) × 2.\n"
-        "- **Wait (Q12):** headway / 2 at the Kendall hub, × 1 / (1 − ρ) as demand nears capacity, capped at "
-        f"{scenario.max_wait_min:g} min, demand-weighted over the day. **Availability (Q14):** service availability, the demand-weighted "
+        "- **Wait (Q18):** headway / 2 at the Kendall hub, × 1 / (1 − ρ) as demand nears capacity, capped at "
+        f"{scenario.max_wait_min:g} min, demand-weighted over the day. **Availability (Q19):** service availability, the demand-weighted "
         "chance that the vehicles in service (each in service with its Appendix B availability) can carry each "
         "bin's demand (normal approximation); the capacity-weighted vehicle availability is also reported.\n\n"
         "## Five architectures\n\n"
@@ -485,7 +484,7 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "and charger; `prune_variants` keeps only the spare counts worth buying "
         f"(options {', '.join(f'{k:g}' for k in scenario.bike_spare_options)}).\n\n"
         f"{_md_table(_swap_table(variants))}\n"
-        "Not counted: swap labor and swap-station space (operating cost, Q15). Task 3 shows the tradespace with and "
+        "Not counted: swap labor and swap-station space (operating cost, Q21). Task 3 shows the tradespace with and "
         "without this option.\n\n"
         "## Hand-calculation check\n\n"
         "Worked by hand from Appendix B and asserted in `tests/test_vehicle.py` and `tests/test_fleet.py`:\n\n"

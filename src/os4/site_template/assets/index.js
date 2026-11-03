@@ -16,7 +16,7 @@
 
   const cases = Object.entries(m.cases || {});
   const tasks = [
-    ["task1.html", "Task 1 · Stakeholder utility", "SAU curves (including the two proposed ones), cases A–C, MAU under each weight set, weight sensitivity.", "done", null],
+    ["task1.html", "Task 1 · Stakeholder utility", "SAU curves, cases A–C, MAU under each weight set, weight sensitivity.", "done", null],
     ["task2.html", "Task 2 · Technical system model", "The five Task 2 architectures, ~50 highlighted candidates to pick from, and every vehicle variant.", "in progress", null],
     [
       "task3.html",

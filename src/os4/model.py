@@ -16,11 +16,9 @@ from os4.fleet import (
     cycle_time_min,
     daily_passenger_volume,
     _trip_km,
-    energy_per_pkm,
     fleet_availability,
     fleet_capacity_per_h,
     fleet_cost_usd,
-    fleet_size,
     peak_throughput,
     trips_per_vehicle_day,
     vehicle_availability,
@@ -58,7 +56,7 @@ def meets_thresholds(capacity, volume, scenario: Scenario):
 
 
 def meets_bike_ceiling(bike_trips_per_vehicle_day, scenario: Scenario):
-    """Feasibility gate (PLAN.md L): riders per bike per day at most ``scenario.max_bike_trips_per_day``.
+    """Feasibility gate (PLAN.md Q22): riders per bike per day at most ``scenario.max_bike_trips_per_day``.
 
     Fleets without bikes report 0 and always pass (vectorized).
     """
@@ -69,7 +67,7 @@ def meets_bike_ceiling(bike_trips_per_vehicle_day, scenario: Scenario):
 
 
 def meets_car_ceiling(car_trips_per_vehicle_day, scenario: Scenario):
-    """Feasibility gate (PLAN.md L): vehicle trips per car per day at most ``scenario.max_car_trips_per_day``.
+    """Feasibility gate (PLAN.md Q22): vehicle trips per car per day at most ``scenario.max_car_trips_per_day``.
 
     Fleets without small cars report 0 and always pass (vectorized).
     """
@@ -99,9 +97,8 @@ def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
     and range, the four MoPs (``passenger_volume``, ``peak_throughput``,
     ``wait_time``, ``availability``), their SAUs, ``mau``, and ``fleet_cost_usd``.
 
-    Also reports the proposed attributes (``travel_time``, ``energy_per_pkm``, ``fleet_size``;
-    ``bike_share`` is parked, not weighted), ``mau_os3a_extended`` and ``mau_os3a_full`` so Task 3
-    can compare weightings (PLAN.md Q8, J).
+    Also reports the proposed attributes (``travel_time`` and ``bike_share``, not weighted) and
+    ``mau_os3a_reweight`` so Task 3 can compare weightings (PLAN.md Q10).
     """
     mops = {
         "passenger_volume": daily_passenger_volume(fleet, scenario),
@@ -114,8 +111,6 @@ def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
     proposed = {
         "travel_time": _travel_time_min(fleet, scenario),
         "bike_share": bike_capacity / capacity if capacity > 0 else 0.0,
-        "energy_per_pkm": energy_per_pkm(fleet, scenario),
-        "fleet_size": fleet_size(fleet),
     }
     row = {
         "road_variant": None if fleet.road is None else fleet.road["variant_id"],
@@ -133,8 +128,7 @@ def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
     for a, x in (mops | proposed).items():
         row[f"u_{a}"] = float(sau(a, x))
     row["mau"] = float(mau(**mops))
-    row["mau_os3a_extended"] = float(weighted_mau(mops | proposed, load_weights("os3a_extended")))
-    row["mau_os3a_full"] = float(weighted_mau(mops | proposed, load_weights("os3a_full")))
+    row["mau_os3a_reweight"] = float(weighted_mau(mops, load_weights("os3a_reweight")))
     row["fleet_cost_usd"] = fleet_cost_usd(fleet)
     row |= requirement_flags(pd.DataFrame([row]), scenario).iloc[0].to_dict()
     return row
@@ -146,15 +140,15 @@ def evaluate_many(fleets: list[Fleet], scenario: Scenario) -> pd.DataFrame:
 
 
 def representative_architectures(scenario: Scenario) -> dict[str, Fleet]:
-    """The five architectures for the Task 2 deliverable table (Q17).
+    """The five architectures for the Task 2 deliverable table (Q24).
 
     Small C2 road fleet, large C6/C7 shuttles, bike-only, mixed road + bike,
     and a high-autonomy or long-range variant.
 
-    Starting picks (Q17 still open): each fleet is sized to cover the 150 trips/h
+    Current picks (Q24): each fleet is sized to cover the 150 trips/h
     peak with some headroom, so the table compares architectures on cost and
     utility rather than on whether they meet demand. Fleets 1 and 4 were then
-    enlarged just enough to pass the utilization ceilings (PLAN.md L): 1 from 12
+    enlarged just enough to pass the utilization ceilings (PLAN.md Q22): 1 from 12
     to 24 cars (24.9 rides per car per day), 4 from 60 to 115 bikes (24.6 rides
     per car, 10.4 riders per bike).
     """
@@ -177,7 +171,7 @@ def architecture_table(scenario: Scenario) -> pd.DataFrame:
 
 
 def reference_architecture(scenario: Scenario) -> Fleet:
-    """Task 3 reference architecture (F): ``REFERENCE_VARIANT`` sized by load management.
+    """Task 3 reference architecture (PLAN.md Q26): ``REFERENCE_VARIANT`` sized by load management.
 
     Departures needed f = P / (X * pax * load factor) at the peak; vehicles needed
     N = f * cycle / 60 / availability, rounded up.
@@ -189,7 +183,7 @@ def reference_architecture(scenario: Scenario) -> Fleet:
 
 
 def anchor_architectures(scenario: Scenario) -> dict[str, Fleet]:
-    """Anchors (Q16): today's shuttle and bus services, run through the same model.
+    """Anchors (Q23): today's shuttle and bus services, run through the same model.
 
     Each anchor (``data/anchors.csv``) is either a published headway or a known fleet size, from OS3A.
     The vehicle is the Appendix C chassis closest to the real one (C8, 30 seats, for buses; C6, 16 seats,

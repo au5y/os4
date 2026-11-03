@@ -21,7 +21,7 @@ import matplotlib.ticker  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from os4.fleet import MAX_WH_PER_PKM, Fleet, service_probability  # noqa: E402
+from os4.fleet import Fleet, service_probability  # noqa: E402
 from os4.model import (  # noqa: E402
     architecture_table,
     evaluate_many,
@@ -54,7 +54,7 @@ def progressive_grid(segments: Iterable[tuple[int, int, int]]) -> tuple[int, ...
     return tuple(sorted({0} | {n for start, stop, step in segments for n in range(start, stop + 1, step)}))
 
 
-# Q10: steps widen as fleets grow. Small fleets (a few buses, a few bikes next to them) decide where the
+# Q14: steps widen as fleets grow. Small fleets (a few buses, a few bikes next to them) decide where the
 # front starts, so they get step 1 (road) or 5 (bikes); past the knee cost rises linearly with N while
 # utility is flat, so coarse steps lose nothing.
 ROAD_SEGMENTS = ((1, 15, 1), (20, 50, 5), (60, 100, 10), (125, 300, 25))
@@ -95,7 +95,7 @@ def enumerate_architectures(
     n_bike: Iterable[int],
     variants: pd.DataFrame | None = None,
 ) -> list[Fleet]:
-    """Cross (pruned) road and bike variants with the fleet-size grids (Q10).
+    """Cross (pruned) road and bike variants with the fleet-size grids (Q14).
 
     Builds ``Fleet`` objects, which is fine for small grids; use ``tradespace``
     for the full space.
@@ -132,9 +132,6 @@ def _part_arrays(rows: pd.DataFrame, n: np.ndarray, trip_km: float, scenario: Sc
         "availability": a,
         "cost": n * rows["cost_usd"].to_numpy(float),
         "travel": 60.0 * trip_km / speed,
-        "trip_km": np.full(len(n), trip_km),
-        "wh_per_h": n * a * 60.0 / cycle * trip_km * (1.0 + scenario.deadhead_fraction)
-        * rows["wh_per_km"].to_numpy(float),
     }
 
 
@@ -155,7 +152,7 @@ def tradespace(
     ``model.evaluate``, computed with numpy in chunks of ``CHUNK_ROWS``. With
     ``screen``, architectures that miss a Table 1 threshold
     (``model.meets_thresholds``) or a utilization ceiling (``model.meets_bike_ceiling``,
-    ``model.meets_car_ceiling``, PLAN.md L) are dropped right after capacity and volume are known, before the
+    ``model.meets_car_ceiling``, PLAN.md Q22) are dropped right after capacity and volume are known, before the
     wait and utility calculations. ``df.attrs`` records
     ``screened_out`` and ``threshold_failures`` (counts over the whole grid).
     """
@@ -221,7 +218,7 @@ def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scena
     failures["bike_ceiling"] += int((~bike_ok).sum())
     failures["car_ceiling"] += int((~car_ok).sum())
 
-    # Early exit: drop architectures that break a Table 1 threshold or a utilization ceiling (PLAN.md L)
+    # Early exit: drop architectures that break a Table 1 threshold or a utilization ceiling (PLAN.md Q22)
     # before the costlier steps.
     keep = meets_thresholds(capacity, volume, scenario) & within_ceiling
     if not screen:
@@ -245,10 +242,6 @@ def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scena
         bike_share = np.where(capacity > 0, bp["capacity"] / capacity, 0.0)
         travel = np.where(capacity > 0, (rp["travel"] * rp["capacity"] + bp["travel"] * bp["capacity"]) / capacity,
                           20.0)
-        km_per_trip = (rp["trip_km"] * rp["capacity"] + bp["trip_km"] * bp["capacity"]) / capacity
-        hours = len(demand) * scenario.demand_bin_h
-        energy = np.where(capacity > 0, (rp["wh_per_h"] + bp["wh_per_h"]) * hours / (volume * km_per_trip),
-                          MAX_WH_PER_PKM)
     service = service_probability(capacity, rp["capacity_var"] + bp["capacity_var"], demand) @ demand / demand.sum()
 
     df = pd.DataFrame({
@@ -265,8 +258,6 @@ def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scena
         "vehicle_availability": vehicle_avail,
         "travel_time": travel,
         "bike_share": bike_share,
-        "energy_per_pkm": energy,
-        "fleet_size": n_r + n_b,
         "trips_per_vehicle_day": volume / (n_r + n_b),
         "road_trips_per_vehicle_day": road_trips,
         "bike_trips_per_vehicle_day": bike_trips,
@@ -275,10 +266,8 @@ def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scena
     })
     weights = load_weights()
     df["mau"] = sum(weights[a] * sau(a, df[a].to_numpy()) for a in ATTRIBUTES)
-    extended = load_weights("os3a_extended")
-    df["mau_os3a_extended"] = sum(w * sau(a, df[a].to_numpy()) for a, w in extended.items())
-    full = load_weights("os3a_full")
-    df["mau_os3a_full"] = sum(w * sau(a, df[a].to_numpy()) for a, w in full.items())
+    reweight = load_weights("os3a_reweight")
+    df["mau_os3a_reweight"] = sum(w * sau(a, df[a].to_numpy()) for a, w in reweight.items())
     return pd.concat([df, requirement_flags(df, scenario)], axis=1)
 
 
@@ -485,7 +474,7 @@ def plot_knee(df: pd.DataFrame, path: Path, markers: pd.DataFrame | None = None,
 
 
 def _requirement_rows(df: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
-    """How many architectures fail each Table 1 requirement and the utilization ceilings (PLAN.md L).
+    """How many architectures fail each Table 1 requirement and the utilization ceilings (PLAN.md Q22).
 
     Thresholds and the ceiling are counted over the whole grid during screening (``df.attrs``); the desired goals and
     the availability benchmark are counted over the architectures that pass the thresholds.
@@ -497,10 +486,10 @@ def _requirement_rows(df: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
          failures["peak_throughput"], grid),
         ("off-peak throughput", f">= {scenario.min_offpeak_throughput:g} trips/h", "threshold",
          failures["offpeak_throughput"], grid),
-        *([("riders per bike per day", f"<= {scenario.max_bike_trips_per_day:g}", "realism gate (PLAN.md L)",
+        *([("riders per bike per day", f"<= {scenario.max_bike_trips_per_day:g}", "realism gate (PLAN.md Q22)",
             failures["bike_ceiling"], grid)] if scenario.max_bike_trips_per_day is not None else []),
         *([(f"rides per car (1–{scenario.car_max_seats} seats) per day", f"<= {scenario.max_car_trips_per_day:g}",
-            "realism gate (PLAN.md L)", failures["car_ceiling"], grid)]
+            "realism gate (PLAN.md Q22)", failures["car_ceiling"], grid)]
           if scenario.max_car_trips_per_day is not None else []),
         ("wait in boundary", f"<= {scenario.goal_wait_min:g} min", "desired", int((~df["meets_wait_goal"]).sum()), n),
         ("travel time, average Kendall trip", f"<= {scenario.goal_travel_min:g} min", "desired",
@@ -515,7 +504,7 @@ def _requirement_rows(df: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
 
 def _bike_only_floor(scenario: Scenario) -> str:
     """Why the smallest bike-only fleets never reach the map: the best fleet at the grid's smallest size against
-    each screen, and the smallest size that clears the thresholds and the bike ceiling (PLAN.md L)."""
+    each screen, and the smallest size that clears the thresholds and the bike ceiling (PLAN.md Q22)."""
     if scenario.max_bike_trips_per_day is None:
         return ""
     variants = prune_variants(all_variants(scenario))
@@ -542,7 +531,7 @@ def _bike_only_floor(scenario: Scenario) -> str:
         "screen:\n\n"
         f"{_md_table(table)}\n"
         f"Bike-only fleets first meet the Table 1 thresholds at {n_thresholds} bikes, but the ceiling of "
-        f"{scenario.max_bike_trips_per_day:g} riders per bike per day (PLAN.md L) binds until {n_both}, the "
+        f"{scenario.max_bike_trips_per_day:g} riders per bike per day (PLAN.md Q22) binds until {n_both}, the "
         f"smallest bike-only fleet in the tradespace. Small bike counts ({n0}+) appear only in mixed fleets, "
         "where the road vehicles carry most of the demand.\n\n"
     )
@@ -555,7 +544,7 @@ LOAD_FACTOR_COLORS = ("#86b6ef", "#3987e5", "#1c5cab", "#0d366b")  # ordinal ram
 def load_factor_fronts(scenario: Scenario, load_factors=LOAD_FACTORS) -> dict[float, pd.DataFrame]:
     """Pareto front of the full design space at each road-vehicle load factor (Appendix B uses 0.75).
 
-    Bikes keep their per-seat riders (``Scenario.bike_load_factors``, PLAN.md K): an on-demand bike
+    Bikes keep their per-seat riders (``Scenario.bike_load_factors``, PLAN.md Q16): an on-demand bike
     always carries its rider, so its occupancy isn't the open question this sweep explores.
     """
     fronts = {}
@@ -685,28 +674,15 @@ def _front_table(front: pd.DataFrame) -> pd.DataFrame:
     return fmt.fillna("-").round(3)
 
 
-def _full_front_table(front: pd.DataFrame, rows: int = 8) -> pd.DataFrame:
-    """Points spread along the ``mau_os3a_full`` front, cheapest first, with the two proposed attributes."""
-    picks = front.iloc[np.unique(np.linspace(0, len(front) - 1, min(rows, len(front))).round().astype(int))]
-    return pd.DataFrame({
-        "architecture": [_describe(r) for _, r in picks.iterrows()],
-        "fleet cost": [f"${c:,.0f}" for c in picks["fleet_cost_usd"]],
-        "MAU (full)": picks["mau_os3a_full"].round(3).to_numpy(),
-        "MAU (Appendix A)": picks["mau"].round(3).to_numpy(),
-        "Wh/passenger-km": picks["energy_per_pkm"].round(0).astype(int).to_numpy(),
-        "vehicles": picks["fleet_size"].to_numpy(),
-    })
-
-
-def _type_rows(df: pd.DataFrame, front: pd.DataFrame, front_ext: pd.DataFrame) -> pd.DataFrame:
+def _type_rows(df: pd.DataFrame, front: pd.DataFrame, front_rw: pd.DataFrame) -> pd.DataFrame:
     counts = df["fleet_type"].value_counts()
-    on_front, on_front_ext = front["fleet_type"].value_counts(), front_ext["fleet_type"].value_counts()
+    on_front, on_front_rw = front["fleet_type"].value_counts(), front_rw["fleet_type"].value_counts()
     return pd.DataFrame({
         "fleet type": FLEET_TYPES,
         "architectures": [f"{counts.get(t, 0):,}" for t in FLEET_TYPES],
         "on Pareto front": [on_front.get(t, 0) for t in FLEET_TYPES],
         "best MAU": [round(df.loc[df["fleet_type"] == t, "mau"].max(), 3) for t in FLEET_TYPES],
-        "on extended-MAU front": [on_front_ext.get(t, 0) for t in FLEET_TYPES],
+        "on os3a_reweight front": [on_front_rw.get(t, 0) for t in FLEET_TYPES],
     })
 
 
@@ -725,21 +701,18 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         df = tradespace(case)
         frames[key] = df
         front = pareto_front(df)
-        front_ext = pareto_front(df, "mau_os3a_extended")
-        front_full = pareto_front(df, "mau_os3a_full")
+        front_rw = pareto_front(df, "mau_os3a_reweight")
         cost0, util0 = utopia_point(df)
         front_path = media / f"task3_pareto_front_{key}.csv"
         front.round(4).to_csv(front_path, index=False)
         png = plot_tradespace(df, media / f"task3_tradespace_{key}.png", highlight,
                               title=f"Tradespace: {title}", markers=markers)
         knee_png = plot_knee(df, media / f"task3_knee_{key}.png", markers, title=f"Knee of the front: {title}")
-        png_ext = plot_tradespace(df, media / f"task3_tradespace_{key}_extended.png", highlight,
-                                  utility="mau_os3a_extended", title=f"Extended MAU: {title}", markers=markers)
-        png_full = plot_tradespace(df, media / f"task3_tradespace_{key}_full.png", highlight,
-                                   utility="mau_os3a_full", title=f"Full proposed MAU: {title}", markers=markers)
+        png_rw = plot_tradespace(df, media / f"task3_tradespace_{key}_reweight.png", highlight,
+                                 utility="mau_os3a_reweight", title=f"OS3A reweight MAU: {title}", markers=markers)
         road_png = plot_fleet_size(df, "road", media / f"task3_fleet_size_road_{key}.png", subtitle=title)
         bike_png = plot_fleet_size(df, "bike", media / f"task3_fleet_size_bike_{key}.png", subtitle=title)
-        paths += [front_path, png, knee_png, png_ext, png_full, road_png, bike_png]
+        paths += [front_path, png, knee_png, png_rw, road_png, bike_png]
         knee = front[front["mau"] >= 0.94].iloc[0]
         summary.append({
             "case": title,
@@ -755,7 +728,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
             f"![Tradespace]({media_link(png)})\n\n"
             f"Utopia point: ${cost0:,.0f} and MAU {util0:.3f}. Circled points are the five Task 2 architectures; "
             "the filled diamond is the reference architecture and the yellow-filled symbols are the anchors.\n\n"
-            f"{_md_table(_type_rows(df, front, front_ext))}\n"
+            f"{_md_table(_type_rows(df, front, front_rw))}\n"
             "### Knee of the front\n\n"
             "Linear axes, from the cheapest feasible fleet to where the front comes within "
             f"{KNEE_PLATEAU} of its best MAU. Labeled front points each add a visible step in utility; "
@@ -770,15 +743,11 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
             f"![Fleet size by e-bike frame]({media_link(bike_png)})\n\n"
             f"### Pareto front ({len(front)} architectures)\n\n"
             f"{_md_table(_front_table(front))}\n"
-            "### With the team's extended MAU\n\n"
-            f"Scored with the `os3a_extended` weights (adds travel time, PLAN.md Q8; bike share is parked); "
-            f"the front has {len(front_ext)} architectures.\n\n"
-            f"![Tradespace with the extended MAU]({media_link(png_ext)})\n\n"
-            "### With the full proposed MAU (PLAN.md J)\n\n"
-            "Scored with the `os3a_full` weights, which also weight energy per passenger-km (0.075) and "
-            f"fleet size (0.075); the front has {len(front_full)} architectures.\n\n"
-            f"{_md_table(_full_front_table(front_full))}\n"
-            f"![Tradespace with the full proposed MAU]({media_link(png_full)})\n\n"
+            "### With the team's OS3A weights\n\n"
+            "Scored with the `os3a_reweight` weights (volume 0.10 / peak 0.25 / wait 0.35 / availability 0.30, "
+            f"PLAN.md Q10): the same four attributes, weighted by our OS3A stakeholder priorities; "
+            f"the front has {len(front_rw)} architectures.\n\n"
+            f"![Tradespace with the OS3A reweight MAU]({media_link(png_rw)})\n\n"
         )
     requirements = _requirement_rows(frames["removable"], scenario)
     plateau = _mau_plateau(frames["removable"], scenario)
@@ -798,10 +767,10 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
     md_path.write_text(
         "# Task 3: Tradespace\n\n"
         f"Generated by `python -m os4` for the scenario *{scenario.name}*. "
-        f"Fleet sizes (PLAN.md Q10), steps widening as fleets grow: road {_segments_text(ROAD_SEGMENTS)}; "
+        f"Fleet sizes (PLAN.md Q14), steps widening as fleets grow: road {_segments_text(ROAD_SEGMENTS)}; "
         f"bikes {_segments_text(BIKE_SEGMENTS)}. "
         "Dominated vehicle variants are pruned first (`prune_variants`), so every road vehicle in the space is A3. "
-        "Peak throughput is the demand actually served (Q11) and costs are vehicle capital only (Q15).\n\n"
+        "Peak throughput is the demand actually served (Q17) and costs are vehicle capital only (Q21).\n\n"
         "The tradespace is run twice: with **fixed e-bike batteries** (Appendix B as given), and with the team's "
         "**removable-battery** option, where a bike swaps packs in "
         f"{scenario.bike_swap_h * 60:g} min and the fleet buys "
@@ -810,11 +779,11 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"{_md_table(pd.DataFrame(summary))}\n"
         f"{plateau}"
         "## Reference architecture and anchors\n\n"
-        "The **reference** (PLAN.md F, proposed) was chosen from design reasoning before reading the "
+        "The **reference** (PLAN.md Q26) was chosen from design reasoning before reading the "
         "tradespace: C4 8-seat shuttles (MIT P&T's \"small on-demand EV shuttles from a central hub\"), A3 (the "
         "minimum inside the boundary), M2 (smallest motor at the speed cap), G3 (fastest charger) and P2 (about a "
         "service day of range), sized by load management at the peak, f >= P / (X * C_car) with X = 0.90. "
-        "The **anchors** (Q16) are today's services run through the same model (`data/anchors.csv`): the "
+        "The **anchors** (Q23) are today's services run through the same model (`data/anchors.csv`): the "
         "Appendix C chassis closest to the real vehicle (C8, 30 seats, for buses; C6, 16 seats, for the 14-seat "
         "MIT shuttles) at its cheapest spec that reaches the speed cap and the 0.75 availability benchmark. A "
         "headway anchor gets the fewest vehicles whose model headway is at most the published one; the MIT "
@@ -828,12 +797,12 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "Travel time is the average Kendall trip (1.75 km road, 1.6 km bike; team decision): 5.0 min at the "
         f"{scenario.speed_limit_kmh:g} km/h road cap. The longest link (Lechmere–Central, "
         f"{max(scenario.node_distances_km.values()):g} km) would take ≥ 9.4 min and is left for later. "
-        "Availability is *service* availability (Q14): the chance the vehicles in service can carry the hour's "
+        "Availability is *service* availability (Q19): the chance the vehicles in service can carry the hour's "
         "demand, so spare vehicles raise it.\n\n"
         f"{_bike_only_floor(scenario)}"
         "## Load-factor sensitivity\n\n"
         "Appendix B assumes trips average 75% full; the model keeps 0.75 as the baseline for road vehicles. "
-        "E-bikes use riders per trip by seats instead (PLAN.md K): a 1-seat bike carries its 1 rider, a 2-seat "
+        "E-bikes use riders per trip by seats instead (PLAN.md Q16): a 1-seat bike carries its 1 rider, a 2-seat "
         "bike 2 riders every 3 trips (4/3 riders, 67% of seats), so this sweep varies road vehicles only. The "
         "same design space scored at 25%, 50%, 75% and 100% (the removable-battery case, which also contains "
         "every fixed-battery option):\n\n"
@@ -846,7 +815,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
 
 def _mau_plateau(df: pd.DataFrame, scenario: Scenario) -> str:
     """Why the Appendix A front levels off below 1: the best SAU any architecture reaches, attribute by
-    attribute. Throughput and volume count demand served (Q11), so demand caps them."""
+    attribute. Throughput and volume count demand served (Q17), so demand caps them."""
     weights = load_weights()
     best = {a: float(sau(a, df[a].to_numpy()).max()) for a in weights}
     rows = pd.DataFrame([{
@@ -857,19 +826,21 @@ def _mau_plateau(df: pd.DataFrame, scenario: Scenario) -> str:
         "weight × SAU": round(w * best[a], 4),
     } for a, w in weights.items()])
     ceiling = sum(w * best[a] for a, w in weights.items())
+    ceiling_rw = sum(w * best[a] for a, w in load_weights("os3a_reweight").items())
     return (
         "### Why the front levels off below 1\n\n"
         "Demand caps two of the four Appendix A attributes. Peak throughput counts the demand actually served "
-        f"(Q11), so no fleet scores past the {scenario.peak_demand_per_h:g} trips/h peak, and passenger volume "
+        f"(Q17), so no fleet scores past the {scenario.peak_demand_per_h:g} trips/h peak, and passenger volume "
         f"stops at the {scenario.demand['trips_per_hour'].sum() * scenario.demand_bin_h:,.0f} trips/day of "
         "Appendix B demand. Only wait and service availability keep improving as vehicles are added, and both "
         "approach their best SAU of 1. The MAU ceiling is the weighted sum of each attribute's best SAU:\n\n"
         f"{_md_table(rows)}\n"
         f"Ceiling {ceiling:.3f}; the best front MAU is {df['mau'].max():.4f}. Once a fleet meets demand, extra "
         "vehicles only buy seconds of wait, so the front runs flat and the cheapest fleet that meets demand is "
-        "the practical choice. The extended weights level off similarly (travel time is capped by the speed "
-        "limit); the full proposed weights turn down instead, because fleet size and energy per passenger-km "
-        "get worse with every extra vehicle.\n\n"
+        "the practical choice. The `os3a_reweight` weights score the same four attributes, so they level off "
+        f"the same way (ceiling {ceiling_rw:.3f}). Past that point extra vehicles only add cost, and cost is "
+        "the other axis of the tradespace, so they fall off the front without a separate fleet-size "
+        "attribute.\n\n"
     )
 
 
@@ -878,7 +849,7 @@ def _fmt_best(x: float) -> str:
 
 
 def _reference_vs_shuttles(markers: pd.DataFrame, scenario: Scenario) -> str:
-    """The reference (PLAN.md F) beside the MIT-shuttle anchor (Q16): why the anchor scores higher for less."""
+    """The reference (PLAN.md Q26) beside the MIT-shuttle anchor (Q23): why the anchor scores higher for less."""
     shuttles = load("anchors").set_index("id").loc["mit_shuttle", "name"]
     ref = markers[markers["role"] == "reference"].iloc[0]
     mit = markers[markers["architecture"] == shuttles].iloc[0]
@@ -899,9 +870,8 @@ def _reference_vs_shuttles(markers: pd.DataFrame, scenario: Scenario) -> str:
         ("capacity (trips/h)", f"{ref['fleet_capacity_per_h']:.0f}", f"{mit['fleet_capacity_per_h']:.0f}"),
         ("wait (min)", f"{ref['wait_time']:.1f}", f"{mit['wait_time']:.1f}"),
         ("service availability", f"{ref['availability']:.3f}", f"{mit['availability']:.3f}"),
-        ("energy per passenger-km (Wh)", f"{ref['energy_per_pkm']:.0f}", f"{mit['energy_per_pkm']:.0f}"),
-        ("MAU (Appendix A / os3a_full)", f"{ref['mau']:.3f} / {ref['mau_os3a_full']:.3f}",
-         f"{mit['mau']:.3f} / {mit['mau_os3a_full']:.3f}"),
+        ("MAU (Appendix A / os3a_reweight)", f"{ref['mau']:.3f} / {ref['mau_os3a_reweight']:.3f}",
+         f"{mit['mau']:.3f} / {mit['mau_os3a_reweight']:.3f}"),
     ]
     table = pd.DataFrame(rows, columns=["", "reference", shuttles])
     return (
@@ -916,9 +886,8 @@ def _reference_vs_shuttles(markers: pd.DataFrame, scenario: Scenario) -> str:
         "has more capacity for less money. The model cannot see the reason the reference chose 8 seats, MIT "
         "P&T's warning against half-empty large shuttles [[15]](../docs/references.md#ref-15): every road "
         f"vehicle runs at the fixed {scenario.load_factor:g} load factor (Appendix B), so a larger vehicle is "
-        "always more capacity per dollar. Only energy per passenger-km (os3a_full, PLAN.md J) credits the "
-        "smaller vehicle, and not by enough to change the ranking.\n\n"
-        "Making the reference the MIT shuttles (PLAN.md F is open) would be defensible, a status-quo "
+        "always more capacity per dollar, and no weighted attribute credits the smaller vehicle.\n\n"
+        "Making the reference the MIT shuttles would be defensible, a status-quo "
         "reference, but would lose the designed-vs.-existing comparison and the anchor's role as a "
         "check on the model. If empty seats matter, the fix is an attribute or a demand-based load factor "
         "that measures them.\n\n"

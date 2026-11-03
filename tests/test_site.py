@@ -4,7 +4,8 @@ import re
 import pytest
 
 from os4.scenario import primary_scenario
-from os4.site import arch_id, case_frames, highlight_architectures, sample_rows, write_docs, write_reports, write_site
+from os4.site import (arch_id, case_frames, highlight_architectures, link_questions, plan_questions, sample_rows,
+                      write_docs, write_reports, write_site)
 from os4.tradespace import pareto_front
 
 GRID = {"n_road": (0, 5, 10, 20), "n_bike": (0, 25, 50, 100)}
@@ -87,7 +88,7 @@ def test_sample_rows_respects_cap(frames):
     idx = sample_rows(df, mixed_cap=50)
     assert idx.is_unique
     assert set(pareto_front(df).index) <= set(idx)
-    front_mixed = sum((pareto_front(df, u)["fleet_type"] == "mixed").sum() for u in ("mau", "mau_os3a_extended"))
+    front_mixed = sum((pareto_front(df, u)["fleet_type"] == "mixed").sum() for u in ("mau", "mau_os3a_reweight"))
     assert df.loc[idx, "fleet_type"].eq("mixed").sum() <= max(50, front_mixed)
     assert (df.loc[idx, "fleet_type"] != "mixed").sum() == (df["fleet_type"] != "mixed").sum()
     assert sample_rows(df, mixed_cap=50).equals(idx)  # seeded
@@ -112,10 +113,9 @@ def test_highlights_unique_with_reasons(frames, site):
 def test_task1_and_task2_payloads(site):
     out, _ = site
     t1 = _data(out, "task1")
-    assert {s["attribute"] for s in t1["saus"]} >= {"passenger_volume", "peak_throughput", "wait_time",
-                                                    "availability", "travel_time", "energy_per_pkm", "fleet_size"}
-    assert "bike_share" not in {s["attribute"] for s in t1["saus"]}  # parked: in no weight set
-    assert [s["proposed"] for s in t1["saus"] if s["attribute"] == "travel_time"] == [True]
+    # Only weighted attributes get a curve on the page; travel time and bike share are unweighted.
+    assert {s["attribute"] for s in t1["saus"]} == {"passenger_volume", "peak_throughput", "wait_time",
+                                                    "availability"}
     assert [c["mau"] for c in t1["cases"]] == pytest.approx([0.613, 0.6385, 0.651], abs=1e-3)
     t2 = _data(out, "task2")
     assert len(t2["architectures"]) == 5
@@ -188,5 +188,22 @@ def test_plan_is_rendered_view_only_with_working_links(tmp_path):
     page = (out / "plan.html").read_text(encoding="utf-8")
     assert "View only." in page and 'OS4.util.header("plan.html")' in page
     assert 'href="references.html#ref-1"' in page and 'href="report_task1_cases.html"' in page
-    assert '<pre class="math">U = \\sum k_i u_i</pre>' in page
+    assert '<div class="math">\\[U = \\sum k_i u_i\\]</div>' in page and "katex.min.js" in page
     assert (out / "references.html").exists()
+
+
+def test_question_ids_link_to_their_definition_in_the_plan(tmp_path):
+    docs, out = tmp_path / "docs", tmp_path / "site"
+    docs.mkdir(), out.mkdir()
+    (docs / "PLAN.md").write_text("# Plan\n\n#### <a id=\"q3\"></a>Q3. How fast is `it`?\n\n**Answer:** 21.\n\n"
+                                  "See [Q3](#q3), Q3, Q9 and `Q3`.\n", encoding="utf-8")
+    write_docs(docs, out)
+    (out / "task2.html").write_text("<p>See PLAN.md Q3.</p>", encoding="utf-8")
+    questions = plan_questions(docs / "PLAN.md")
+    assert questions == {"3": "How fast is it?"}
+    link_questions(out, questions)
+    plan = (out / "plan.html").read_text(encoding="utf-8")
+    tip = 'title="Q3. How fast is it?"'
+    assert plan.count('id="q3"') == 1
+    assert f'See <a class="qref" href="#q3" {tip}>Q3</a>, <a class="qref" href="#q3" {tip}>Q3</a>, Q9 and <code>Q3</code>' in plan
+    assert f'<a class="qref" href="plan.html#q3" {tip}>Q3</a>' in (out / "task2.html").read_text(encoding="utf-8")

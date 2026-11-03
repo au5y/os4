@@ -19,7 +19,7 @@ uv run python -m os4       # run Tasks 1-3 and write everything to outputs/
 
 ## Conventions
 
-- Modeling decisions live in `docs/PLAN.md` as **Q#** questions; code that depends on one is tagged with its Q number. Open questions are the group's call: implement a clearly labeled default, don't decide them.
+- Modeling decisions live in `docs/PLAN.md` as **Q1–Q27**, numbered in document order. Each is a heading `#### <a id="qN"></a>QN. <the question>?` followed by **Answer** (labeled Decision / From OS3A / Assumption / Deviation from Appendix B) and **Discussion**; other mentions link to it as `[QN](#qN)`. Code that depends on one is tagged `PLAN.md QN`. Renumbering means updating every tag in `src/`, `tests/`, README and this file. Open questions are the group's call: implement a clearly labeled default, don't decide them.
 - Sources are numbered in `docs/references.md` and tagged in line as `[[n]](references.md#ref-n)`.
 - Any change to an equation must keep `tradespace.tradespace` (vectorized) in step with `fleet.py` / `model.evaluate`; `tests/test_tradespace.py` checks they match.
 - Work on a branch and open a PR into `main`.
@@ -75,8 +75,8 @@ As examples, a bus route with a frequency of 6 buses/hr and a maximum of 55 pers
 
 ### How the model uses these
 
-- **Capacity:** `fleet.vehicle_capacity_per_h` is C<sub>route</sub> = f · N<sub>car</sub> · C<sub>car</sub> per vehicle, with f = 60 / cycle time, N<sub>car</sub> = 1, and C<sub>car</sub> = pax × the vehicle's load factor: Appendix B's 0.75 for road vehicles; for e-bikes, riders per trip by seats (1-seat 1 rider, 2-seat 4/3 riders; `Scenario.bike_load_factors`, PLAN.md K).
-- **Cycle time:** `fleet.cycle_time_min` follows the sample problem: running time at the average speed plus dwell, with the empty return leg in place of the inbound trip (Q13 deadhead).
-- **Headway:** the wait model (Q12) starts from headway / 2, with headway = 60 / departures per hour at the Kendall hub.
-- **Fleet sizing:** load management gives a cited rule. Departures needed f ≥ P / (X · 1 · C<sub>car</sub>); vehicles needed N = f × cycle / 60 / availability. For the C2 car (4 pax × 0.75 = 3 riders per trip, 11-min cycle, availability 0.922) at P = 150 trips/h: X = 1 gives f ≥ 50/h and N = 10, the capacity-only minimum; X = 0.8 gives f ≥ 62.5/h and N = 13. The model uses X = 0.90 only to size the reference architecture; a utilization factor X on every architecture's capacity was not adopted (PLAN.md L). Instead, the utilization ceilings (PLAN.md L) screen out overworked fleets: at most 25 rides per car per day for C1–C3, so the smallest feasible C2 fleet is 24, not 10.
-- The *Network Design and Frequency* page also gives Mohring's cost-minimizing frequency, f = √(VOT · p / (2 · C · T)), which trades waiting time against operating cost. It is not in the assignment's extracts, and we don't model operating cost (Q15).
+- **Capacity:** `fleet.vehicle_capacity_per_h` is C<sub>route</sub> = f · N<sub>car</sub> · C<sub>car</sub> per vehicle, with f = 60 / cycle time, N<sub>car</sub> = 1, and C<sub>car</sub> = pax × the vehicle's load factor: Appendix B's 0.75 for road vehicles; for e-bikes, riders per trip by seats (1-seat 1 rider, 2-seat 4/3 riders; `Scenario.bike_load_factors`, PLAN.md Q16).
+- **Cycle time:** `fleet.cycle_time_min` follows the sample problem: running time at the average speed plus dwell, with the empty return leg in place of the inbound trip (Q3 deadhead).
+- **Headway:** the wait model (Q18) starts from headway / 2, with headway = 60 / departures per hour at the Kendall hub.
+- **Fleet sizing:** load management gives a cited rule. Departures needed f ≥ P / (X · 1 · C<sub>car</sub>); vehicles needed N = f × cycle / 60 / availability. For the C2 car (4 pax × 0.75 = 3 riders per trip, 11-min cycle, availability 0.922) at P = 150 trips/h: X = 1 gives f ≥ 50/h and N = 10, the capacity-only minimum; X = 0.8 gives f ≥ 62.5/h and N = 13. The model uses X = 0.90 only to size the reference architecture; a utilization factor X on every architecture's capacity was not adopted (PLAN.md Q22). Instead, the utilization ceilings (PLAN.md Q22) screen out overworked fleets: at most 25 rides per car per day for C1–C3, so the smallest feasible C2 fleet is 24, not 10.
+- The *Network Design and Frequency* page also gives Mohring's cost-minimizing frequency, f = √(VOT · p / (2 · C · T)), which trades waiting time against operating cost. It is not in the assignment's extracts, and we don't model operating cost (Q21).

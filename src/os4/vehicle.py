@@ -32,7 +32,7 @@ VARIANT_COLUMNS = [
     "chassis", "battery", "charger", "motor", "autonomy",
     "spares_per_bike",  # removable-battery option; 0 = fixed battery (always 0 for road)
     "pax",
-    "load_factor",  # average riders per trip / seats (road: Appendix B 0.75; bikes: by seats, PLAN.md K)
+    "load_factor",  # average riders per trip / seats (road: Appendix B 0.75; bikes: by seats, PLAN.md Q16)
     "weight_kg",
     "cost_usd",
     "wh_per_km",
@@ -84,7 +84,7 @@ def road_speed_kmh(motor_kw, total_kg, speed_limit_kmh):
 
 
 def bike_speed_kmh(motor_kw, total_kg, scenario: Scenario):
-    """E-bike average speed with the D5 / Q5 modification.
+    """E-bike average speed with the Q6 modification.
 
     If ``scenario.bike_assisted_speed_kmh`` is set, use it (capped at the bike
     speed limit); otherwise fall back to the Appendix B formula. The slide shows
@@ -208,7 +208,7 @@ def bike_variants(scenario: Scenario) -> pd.DataFrame:
 
 
 def bike_load_factor(pax, scenario: Scenario) -> np.ndarray:
-    """Riders per bike trip / seats for each bike's seat count (``scenario.bike_load_factors``, PLAN.md K)."""
+    """Riders per bike trip / seats for each bike's seat count (``scenario.bike_load_factors``, PLAN.md Q16)."""
     factors = dict(scenario.bike_load_factors)
     pax = np.asarray(pax)
     missing = set(np.unique(pax)) - set(factors)

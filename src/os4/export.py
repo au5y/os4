@@ -45,14 +45,10 @@ UNITS = {
     "availability": "fraction",
     "travel_time": "min",
     "bike_share": "fraction of trips",
-    "energy_per_pkm": "Wh per passenger-km",
-    "fleet_size": "vehicles",
 }
 SOURCES = {a: "Appendix A" for a in ATTRIBUTES} | {
-    "travel_time": "Team proposal: Table 1 (7 min max) and OS3A MOE 1",
+    "travel_time": "Not weighted: Table 1 (7 min max) and OS3A MOE 1; a pass/fail goal here, kept for Task 4",
     "bike_share": "Parked (not weighted): OS3A MOE 2 (11% baseline)",
-    "energy_per_pkm": "Proposed (os3a_full): sustainability, Appendix B consumption incl. empty running",
-    "fleet_size": "Proposed (os3a_full): operational complexity, vehicles to manage",
 }
 
 
@@ -107,8 +103,6 @@ def _readme(wb: Workbook) -> None:
         ("Weight sets", BOLD),
         ("appendix_a: the given stakeholder weights (used for the Task 1 results).", None),
         ("os3a_reweight: team proposal from our OS3A MOEs; moves weight from volume to availability.", None),
-        ("os3a_extended: adds the proposed travel-time SAU; scores Task 2+ architectures (bike share is parked).", None),
-        ("os3a_full (proposed): also weights energy per passenger-km and fleet size (PLAN.md J).", None),
     ]
     for row, (text, font) in enumerate(lines, start=1):
         cell = ws.cell(row=row, column=1, value=text)
@@ -149,7 +143,7 @@ def _weights_sheet(wb: Workbook) -> dict[str, dict[str, str]]:
     ws.cell(row=1, column=1, value="MAU weights").font = TITLE
     _header(ws, 3, ["attribute", *WEIGHT_SETS])
     sets = {name: load_weights(name) for name in WEIGHT_SETS}
-    attributes = ATTRIBUTES + PROPOSED_ATTRIBUTES
+    attributes = ATTRIBUTES
     refs: dict[str, dict[str, str]] = {name: {} for name in WEIGHT_SETS}
     for r, attribute in enumerate(attributes, start=4):
         ws.cell(row=r, column=1, value=attribute)
@@ -166,11 +160,8 @@ def _weights_sheet(wb: Workbook) -> dict[str, dict[str, str]]:
         cell.fill = FORMULA_FILL
     notes = [
         "os3a_reweight: wait stays largest (OS3A MOE 4 is a direct match); weight moves from volume to",
-        "availability because reliability (MOE 1) dominated the stakeholder evidence. See docs/PLAN.md Q8.",
-        "os3a_extended: keeps the os3a_reweight priorities for the Appendix A four (x0.85) and gives 0.15",
-        "to the proposed travel-time attribute. Bike share is kept as an SAU but not weighted (parked).",
-        "os3a_full (proposed, PLAN.md J): the Appendix A four at x0.70, travel time 0.15, energy per",
-        "passenger-km 0.075 and fleet size 0.075.",
+        "availability because reliability (MOE 1) dominated the stakeholder evidence. See docs/PLAN.md Q10.",
+        "Travel time and bike share have SAU tables but no weights (PLAN.md Q11, Q13).",
     ]
     for i, text in enumerate(notes, start=total_row + 2):
         ws.cell(row=i, column=1, value=text).font = NOTE
@@ -218,8 +209,7 @@ def _cases_sheet(wb: Workbook, refs: dict[str, dict[str, str]]) -> None:
             diff.number_format = "0.0E+00"
             col += 4
     ws.cell(row=last + 2, column=1,
-            value="Hand check (Appendix A weights): A 0.613, B 0.639 (0.6385), C 0.651. "
-                  "os3a_extended is not scored here: the cases give no travel time.").font = NOTE
+            value="Hand check (Appendix A weights): A 0.613, B 0.639 (0.6385), C 0.651.").font = NOTE
     _widths(ws, {1: 7, **{c: 14 for c in range(2, 2 + 2 * n + 4 * len(four_attribute_sets))}})
     ws.row_dimensions[3].height = 32
     ws.freeze_panes = "B4"
@@ -282,22 +272,22 @@ def _scenario_sheet(wb: Workbook, scenario: Scenario) -> None:
     ws.cell(row=1, column=1, value=f"Operating scenario: {scenario.name}").font = TITLE
     _header(ws, 3, ["name", "value", "unit", "source"])
     rows = [
-        ("road_speed_cap", scenario.speed_limit_kmh, "km/h", "Q3: achieved speed in signals/congestion (posted 20 mph)"),
+        ("road_speed_cap", scenario.speed_limit_kmh, "km/h", "Q4: achieved speed in signals/congestion (posted 20 mph)"),
         ("bike_assist_speed", scenario.bike_assisted_speed_kmh if scenario.bike_assisted_speed_kmh is not None else "",
-         "km/h", "Q5: fixed assisted e-bike speed (blank = Appendix B formula)"),
+         "km/h", "Q6: fixed assisted e-bike speed (blank = Appendix B formula)"),
         ("bike_speed_cap", scenario.bike_speed_limit_kmh if scenario.bike_speed_limit_kmh is not None else 1e9,
          "km/h", "Class 1/2 e-bike assist cap (20 mph)"),
-        ("trip_km_road", scenario.avg_trip_km, "km", "Q13: mean of the Kendall links (Q1)"),
+        ("trip_km_road", scenario.avg_trip_km, "km", "Q3: mean of the Kendall links (Q2)"),
         ("trip_km_bike", scenario.bike_trip_km if scenario.bike_trip_km is not None else scenario.avg_trip_km,
-         "km", "Q13: Kendall bike links (Q1)"),
-        ("deadhead", scenario.deadhead_fraction, "fraction of trip", "Q13 (open): empty return to Kendall"),
+         "km", "Q3: Kendall bike links (Q2)"),
+        ("deadhead", scenario.deadhead_fraction, "fraction of trip", "Q3: empty return to Kendall"),
         ("dwell_s", scenario.dwell_s, "s", "Appendix B"),
         ("load_factor", scenario.load_factor, "fraction", "Appendix B (road vehicles)"),
-        *((f"bike_load_factor_{pax}", lf, "fraction of seats", f"PLAN.md K: {pax}-seat e-bike, riders per trip / seats")
+        *((f"bike_load_factor_{pax}", lf, "fraction of seats", f"PLAN.md Q16: {pax}-seat e-bike, riders per trip / seats")
           for pax, lf in scenario.bike_load_factors),
-        ("max_wait", scenario.max_wait_min, "min", "Q12: wait for an empty or overloaded fleet"),
+        ("max_wait", scenario.max_wait_min, "min", "Q18: wait for an empty or overloaded fleet"),
         ("bin_h", scenario.demand_bin_h, "h", "Appendix B demand bins"),
-        ("throughput_measure", scenario.throughput_measure, "", "Q11: capacity or served"),
+        ("throughput_measure", scenario.throughput_measure, "", "Q17: capacity or served"),
         ("pax_kg", 100.0, "kg", "Appendix B"),
         ("charge_overhead_h", 0.25, "h", "Appendix B"),
         ("bike_swap_h", scenario.bike_swap_h, "h", "Team proposal: removable e-bike battery swap time"),
@@ -309,7 +299,7 @@ def _scenario_sheet(wb: Workbook, scenario: Scenario) -> None:
         ws.cell(row=r, column=4, value=source).font = NOTE
         _name(wb, name, ws, f"$B${r}")
     r = 5 + len(rows)
-    ws.cell(row=r, column=1, value="Node distances (Q1, OSRM driving, mean of both directions)").font = BOLD
+    ws.cell(row=r, column=1, value="Node distances (Q2, OSRM driving, mean of both directions)").font = BOLD
     for i, ((a, b), km) in enumerate(scenario.node_distances_km.items(), start=r + 1):
         ws.cell(row=i, column=1, value=f"{a}-{b}")
         ws.cell(row=i, column=2, value=km)
@@ -417,8 +407,8 @@ def _architectures_sheet(wb: Workbook, scenario: Scenario, refs: dict[str, dict[
     ws = wb.create_sheet("Architectures")
     ws.cell(row=1, column=1, value="Task 2: five architectures (fleet model as formulas)").font = TITLE
     ws.cell(row=2, column=1, value="Fleet parts look up their vehicle on the Variants sheet. Availability is service "
-                                   "availability (Q14). Wait time comes from os4.fleet (a demand-weighted queue over "
-                                   "the day's bins, Q12) and is entered as a value.").font = NOTE
+                                   "availability (Q19). Wait time comes from os4.fleet (a demand-weighted queue over "
+                                   "the day's bins, Q18) and is entered as a value.").font = NOTE
     archs = representative_architectures(scenario)
     python = architecture_table(scenario).set_index("architecture")
 
@@ -446,7 +436,7 @@ def _architectures_sheet(wb: Workbook, scenario: Scenario, refs: dict[str, dict[
                 13: f"=D{r}*G{r}",
                 14: f"=M{r}*L{r}",
                 15: f"=I{r}*D{r}",
-                # Variance of the capacity in service: N a (1 - a) c^2 (service availability, Q14).
+                # Variance of the capacity in service: N a (1 - a) c^2 (service availability, Q19).
                 16: f"=D{r}*G{r}*(1-G{r})*L{r}^2",
             }
             for c, f in formulas.items():
@@ -470,7 +460,7 @@ def _architectures_sheet(wb: Workbook, scenario: Scenario, refs: dict[str, dict[
             2: f"=SUMIF({a_rng},$A{i},$N${part_first}:$N${part_last})",
             3: f"=SUMPRODUCT((demand_trips<B{i})*demand_trips+(demand_trips>=B{i})*B{i})*bin_h",
             4: f'=IF(throughput_measure="served",MIN(B{i},MAX(demand_trips)),B{i})',
-            # Service availability (Q14): demand-weighted P(capacity in service >= demand), normal approximation.
+            # Service availability (Q19): demand-weighted P(capacity in service >= demand), normal approximation.
             # NORMSDIST, not NORM.S.DIST: Excel 2010+ functions need an _xlfn. prefix in the file, and
             # openpyxl writes formula text verbatim, so the newer name would show #NAME? in Excel.
             6: f"=IF(B{i}=0,0,SUMPRODUCT(demand_trips*NORMSDIST((B{i}-demand_trips)"

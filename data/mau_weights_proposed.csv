@@ -1,9 +1,5 @@
-attribute,os3a_reweight,os3a_extended,os3a_full
-passenger_volume,0.10,0.08,0.07
-peak_throughput,0.25,0.21,0.175
-wait_time,0.35,0.30,0.245
-availability,0.30,0.26,0.21
-travel_time,,0.15,0.15
-bike_share,,,
-energy_per_pkm,,,0.075
-fleet_size,,,0.075
+attribute,os3a_reweight
+passenger_volume,0.10
+peak_throughput,0.25
+wait_time,0.35
+availability,0.30

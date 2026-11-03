@@ -20,10 +20,10 @@ from os4.tradespace import (
 from os4.vehicle import all_variants, get_variant
 
 COMPARED = ["fleet_capacity_per_h", "passenger_volume", "peak_throughput", "wait_time", "availability",
-            "vehicle_availability", "travel_time", "bike_share", "energy_per_pkm", "fleet_size", "trips_per_vehicle_day",
+            "vehicle_availability", "travel_time", "bike_share", "trips_per_vehicle_day",
             "road_trips_per_vehicle_day", "bike_trips_per_vehicle_day", "car_trips_per_vehicle_day",
             "fleet_cost_usd",
-            "mau", "mau_os3a_extended", "mau_os3a_full"]
+            "mau", "mau_os3a_reweight"]
 
 
 @pytest.fixture(scope="module")
@@ -31,7 +31,7 @@ def scenario():
     return primary_scenario()
 
 
-# A small grid keeps the tests quick; the report uses the full Q10 grid.
+# A small grid keeps the tests quick; the report uses the full Q14 grid.
 SMALL_ROAD, SMALL_BIKE = range(0, 61, 5), range(0, 301, 25)
 
 

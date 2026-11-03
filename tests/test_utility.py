@@ -94,10 +94,9 @@ def test_weight_sets_sum_to_one(weight_set):
 
 
 def test_os3a_reweight_hand_calc():
-    # PLAN.md Q8: volume 0.10 / peak 0.25 / wait 0.35 / availability 0.30
+    # PLAN.md Q10: volume 0.10 / peak 0.25 / wait 0.35 / availability 0.30
     result = compare_weight_sets().set_index("case")
     assert result["mau_os3a_reweight"].to_dict() == pytest.approx({"A": 0.628, "B": 0.6185, "C": 0.676})
-    assert "mau_os3a_extended" not in result
 
 
 def test_weighted_mau_matches_mau_on_appendix_a():
@@ -105,12 +104,10 @@ def test_weighted_mau_matches_mau_on_appendix_a():
     assert weighted_mau(values, load_weights()) == pytest.approx(mau(**values))
 
 
-def test_extended_mau_best_worst_and_missing_values():
-    weights = load_weights("os3a_extended")
-    best = {"passenger_volume": 1e6, "peak_throughput": 1e6, "wait_time": 0, "availability": 1.0,
-            "travel_time": 0, "bike_share": 1.0}
-    worst = {"passenger_volume": 0, "peak_throughput": 0, "wait_time": 1e6, "availability": 0.0,
-             "travel_time": 1e6, "bike_share": 0.0}
+def test_reweight_mau_best_worst_and_missing_values():
+    weights = load_weights("os3a_reweight")
+    best = {"passenger_volume": 1e6, "peak_throughput": 1e6, "wait_time": 0, "availability": 1.0}
+    worst = {"passenger_volume": 0, "peak_throughput": 0, "wait_time": 1e6, "availability": 0.0}
     assert weighted_mau(best, weights) == pytest.approx(1.0)
     assert weighted_mau(worst, weights) == pytest.approx(0.0)
     with pytest.raises(ValueError):
@@ -135,20 +132,9 @@ def test_sau_inverse_recovers_case_inputs():
     assert sau_inverse("availability", 0.70) == pytest.approx(0.7)
 
 
-def test_os3a_full_weights_energy_and_fleet_size():
-    # PLAN.md J (proposed): the Appendix A four at x0.70, travel time 0.15, energy and fleet size 0.075 each.
-    full = load_weights("os3a_full")
-    assert full["energy_per_pkm"] == full["fleet_size"] == pytest.approx(0.075)
-    assert full["travel_time"] == pytest.approx(0.15)
-    reweight = load_weights("os3a_reweight")
-    assert all(full[a] == pytest.approx(0.70 * reweight[a]) for a in ATTRIBUTES)
-    assert "bike_share" not in full
-    assert sau("energy_per_pkm", 200) == pytest.approx(0.5)
-    assert sau("fleet_size", 50) == pytest.approx(0.5)
-
-
-def test_bike_share_is_parked():
-    # Removed from the extended weights (PLAN.md H); its SAU stays available for later.
-    assert "bike_share" not in load_weights("os3a_extended")
-    assert load_weights("os3a_extended")["travel_time"] == pytest.approx(0.15)
+def test_proposed_attributes_are_unweighted():
+    # Travel time and bike share keep their SAUs but are in no weight set (PLAN.md Q11, Q13).
+    for name in WEIGHT_SETS:
+        assert set(load_weights(name)) == set(ATTRIBUTES)
+    assert sau("travel_time", 7) == pytest.approx(0.8)
     assert sau("bike_share", 0.11) == pytest.approx(0.3)

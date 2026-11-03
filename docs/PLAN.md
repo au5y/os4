@@ -1,464 +1,432 @@
-# Game plan: Tasks 1 & 2
-
-Sources are tagged in line by number, e.g. [[1]](references.md#ref-1), and listed in [references.md](references.md).
-
-# Task 1 approach:
--- Determine SAU function(s). I used the slope and point slope form to come up with SAU function. 
- Note that SAU function is the rule that I used to measure x into a utility score (U). 
-
-# Passenger trips/day SAU function( x = trips/day) & U<sub>m</sub> means utility slope 
- | x1   |   x2 | U1  |  U2 |
- | :--- | ---: | :-- | --: |
- | 0    |  500 | 0   | 0.2 |
- | 500  | 1000 | 0.2 | 0.4 |
- | 1000 | 1500 | 0.4 | 0.8 |
- | 1500 | 2000 | 0.8 | 1.0 |
-
-For the purposes of validation, calculate the function formula for changes X & change U:
-
-+ 0 to 500 -- U<sub>m</sub> (0.2-0)/(500-0) = 0.0004 | equation <sub>1</sub> -- U = 0.0004x (AM: slopes are plain numbers, so I dropped the trailing "x" from every U<sub>m</sub> in this doc; the "x" belongs only in the equations)
-
-+ 500 to 1000 -- U<sub>m</sub> (0.4-0.2)/(1000-500) = 0.0004 | equation <sub>2</sub> -- U = 0.2 + 0.0004 (x - 500) 
-
-+ 1000 to 1500 -- U<sub>m</sub> (0.8-0.4)/(1500-1000) = 0.0008 | equation <sub>3</sub> -- U = 0.4 + 0.0008 (x - 1000)
-
-+ 1500 to 2000 -- U<sub>m</sub> (1.0-0.8)/(2000-1500) = 0.0004 | equation <sub>4</sub> --  U = 0.8 + 0.0004 (x - 1500)
-
-From the above SAU functions, we can deviate U<sub>case c</sub> at 750 passenger trips/day 
-
-750 is between 500 to 1000, use equation <sub>2</sub> to calculate U<sub>case c</sub>
-
-U<sub>case c</sub> = 0.2 + 0.0004(750-500) = 0.3
-
-+ U<sub>case a</sub> = 0.4 @ 1000 passenger trips/day ** In appendix A
-
-+ U<sub>case b</sub> = 1.0 @ 2000 passenger trips/day ** in appendix A
-
-+ U<sub>case c</sub> = 0.3 @ 750 passenger trips/day ** Calculated 
-
-# Peak passenger throughput SAU function( x = passenger trips/hour) & U<sub>m</sub> means utility slope 
- | x1  |  x2 | U1  |  U2 |
- | :-- | --: | :-- | --: |
- | 0   |  50 | 0   | 0.2 |
- | 50  | 100 | 0.2 | 0.5 |
- | 100 | 150 | 0.5 | 0.9 |
- | 150 | 200 | 0.9 | 1.0 |
-
-For the purposes of validation, calculate the function formula for changes X & change U:
-
-+ 0 to 50 -- U<sub>m</sub> (0.2-0)/(50-0) = 0.004 | equation <sub>1</sub> -- U = 0.004x
-
-+ 50 to 100 -- U<sub>m</sub> (0.5-0.2)/(100-50) = 0.006 | equation <sub>2</sub> -- U = 0.2 + 0.006 (x - 50) 
-
-+ 100 to 150 -- U<sub>m</sub> (0.9-0.5)/(150-100) = 0.008 | equation <sub>3</sub> -- U = 0.5 + 0.008 (x - 100)
-
-+ 150 to 200 -- U<sub>m</sub> (1.0-0.9)/(200-150) = 0.002 (AM: i think slope is wrong as written, U1 here is 0.9 not 0.0; 0.002 is right) | equation <sub>4</sub> --  U = 0.9 + 0.002 (x - 150)
-
-From the above SAU functions, we can deviate U<sub>case a</sub> at 75 passenger trips/hour & U<sub>case c</sub>  at 75 passenger trips/hour 
-
-75 is between 50 to 100, use equation <sub>2</sub> to calculate U<sub>case a</sub> & U<sub>case c</sub>
-
-# Peak passenger throughput (passenger trips/hour)
-
-U<sub>case a</sub> = 0.2 + 0.006(75-50) = 0.35 ** Calculated
-
-U<sub>case b</sub> = 0.5 @ 100 passenger trips/hour ** in appendix A (AM: this line had case A's formula copied in; 100 is a table point so no equation is needed)
-
-U<sub>case c</sub> = 0.2 + 0.006(75-50) = 0.35 ** calculated
-
-# Average wait time, at MIT/kendall square node (minutes) SAU function( x = minutes) & U<sub>m</sub> means utility slope 
- | x1  |  x2 | U1   |   U2 |
- | :-- | --: | :--- | ---: |
- | 0   |   5 | 1    | 0.95 |
- | 5   |  10 | 0.95 | 0.75 |
- | 10  |  15 | 0.75 |  0.4 |
- | 15  |  20 | 0.4  |  0.2 |
- | 20  |  30 | 0.2  |    0 |
-
-For the purposes of validation, calculate the function formula for changes X & change U:
-
-+ 0 to 5 -- U<sub>m</sub> (0.95-1)/(5-0) = -0.01 | equation <sub>1</sub> -- U = 1 - 0.01x
-
-+ 5 to 10 -- U<sub>m</sub> (0.75-0.95)/(10-5) = -0.04 | equation <sub>2</sub> -- U = 0.95 - 0.04 (x - 5) 
-
-+ 10 to 15 -- U<sub>m</sub> (0.4-0.75)/(15-10) = -0.07 | equation <sub>3</sub> -- U = 0.75 - 0.07 (x - 10)
-
-+ 15 to 20 -- U<sub>m</sub> (0.2-0.4)/(20-15) = -0.04 | equation <sub>4</sub> --  U = 0.4 - 0.04 (x - 15)
-
-+ 20 to 30 -- U<sub>m</sub> (0-0.2)/(30-20) = -0.02 | equation <sub>5</sub> (AM: was numbered 4 twice) --  U = 0.2 - 0.02 (x - 20)
-
-From the above SAU functions, we can derive U<sub>case a</sub> at 8 min, U<sub>case b</sub> at 12 min & U<sub>case c</sub> at 6 min (AM: this line was copied from the throughput section, which said 75 passenger trips/hour)
-
-8 is between 5 to 10, use equation <sub>2</sub> to calculate U<sub>case a</sub> 
-12 is between 10 to 15, use equation <sub>3</sub> to calculate U<sub>case b</sub> 
-6 is between 5 to 10, use equation <sub>2</sub> to calculate U<sub>case c</sub> 
-
-# Average wait time ( minutes)
-
-U<sub>case a</sub> = 0.95 - 0.04(8-5) = 0.83 (AM: sign was +, slope is negative; 0.83 is right) ** Calculated
-
-U<sub>case b</sub> = 0.75 - 0.07(12-10) = 0.61 (AM: sign was +, slope is negative; 0.61 is right) ** Calculated
-
-U<sub>case c</sub> = 0.95 - 0.04(6-5) = 0.91 (AM: sign was +, slope is negative; 0.91 is right) ** calculated
-
-# Availability (dml4)
- | x1  |  x2 | U1  |  U2 |
- | :-- | --: | :-- | --: |
- | 0   | 0.2 | 0   | 0.2 |
- | 0.2 | 0.4 | 0.2 | 0.4 |
- | 0.4 | 0.6 | 0.4 | 0.6 |
- | 0.6 | 0.8 | 0.6 | 0.8 |
- | 0.8 | 1.0 | 0.8 | 1.0 |
-
-+ 0 to 0.2 -- U<sub>m</sub> (0.2-0)/(0.2-0) = 1 | equation <sub>1</sub> -- U = 0 + 1(x-0)
-+ 0.2 to 0.4 -- U<sub>m</sub> (0.4-0.2)/(0.4-0.2) = 1 | equation <sub>2</sub> -- U = 0.2 + 1(x-0.2)
-+ 0.4 to 0.6 -- U<sub>m</sub> (0.6-0.4)/(0.6-0.4) = 1 | equation <sub>3</sub> -- U = 0.4 + 1(x-0.4)
-+ 0.6 to 0.8 -- U<sub>m</sub> (0.8-0.6)/(0.8-0.6) = 1 | equation <sub>4</sub> -- U = 0.6 + 1(x-0.6)
-+ 0.8 to 1 -- U<sub>m</sub> (1-0.8)/(1-0.8) = 1 | equation <sub>5</sub> -- U = 0.8 + 1(x-0.8)
-
-From the above SAU functions, we can derive U<sub>case a</sub> at 0.7, U<sub>case b</sub> at 0.6 & U<sub>case c</sub> at 0.8 availability (dml4).
-
-0.7 is between 0.6 to 0.8, use equation <sub>4</sub> to calculate U<sub>case a</sub> 
-
-U<sub>case a</sub> = 0.6 + 1(0.7-0.6) = 0.7 ** Calculated
-
-U<sub>case b</sub> = 0.6 ** in appendix A
-
-U<sub>case c</sub> = 0.8 ** in appendix A
-
-**Table 1: Attribute weights**
-
-| Attribute        | Weight |
-| :--------------- | -----: |
-| Passenger volume |   0.15 |
-| Peak throughput  |   0.25 |
-| Average wait     |   0.35 |
-| Availability     |   0.25 |
-
-# Multi-attribute utility (MAU)
-For reference: *w* = weight; *U* = utility score.
-
-**Formula**
-
-MAU = *w*<sub>volume</sub> × *U*<sub>volume</sub> + *w*<sub>peak throughput</sub> × *U*<sub>peak throughput</sub> + *w*<sub>average wait</sub> × *U*<sub>average wait</sub> + *w*<sub>availability</sub> × *U*<sub>availability</sub>
-
-MAU<sub>case a</sub> = (0.15) × (0.40) + (0.25) × (0.35) + (0.35) × (0.83) + (0.25) × (0.70) = 0.613
-
-MAU<sub>case b</sub> = (0.15) × (1.00) + (0.25) × (0.50) + (0.35) × (0.61) + (0.25) × (0.60) = 0.6385 ≈ 0.639
-
-MAU<sub>case c</sub> = (0.15) × (0.30) + (0.25) × (0.35) + (0.35) × (0.91) + (0.25) × (0.80) = 0.651
-
-# Final results
-
-**Table 2: Utility scores and MAU for Cases A, B, and C**
-
-| Case | Passenger volume utility | Peak throughput utility | Average wait utility | Availability utility |   MAU |
-| :--: | -----------------------: | ----------------------: | -------------------: | -------------------: | ----: |
-|  A   |                     0.40 |                    0.35 |                 0.83 |                 0.70 | 0.613 |
-|  B   |                     1.00 |                    0.50 |                 0.61 |                 0.60 | 0.639 |
-|  C   |                     0.30 |                    0.35 |                 0.91 |                 0.80 | 0.651 |
-
-`src/os4/utility.py` reproduces every value in Table 2 (`evaluate_cases()`; checked in `tests/test_utility.py`). `python -m os4` writes the computed table to [outputs/task1_cases.md](../outputs/task1_cases.md) (this will only link if the code has been run).
-
-# For Task 1 - validation 
-
-Here are my thoughts 
-    1. Incorporate test scenarios 
-        - Use MOE # 1, 4, , & 8 to test and analyze the Utility outcome. 
-    2. We can use the equations and reproduce the data - we can either start with x and look for U or the other way around.
-
-# Our MOEs from OS-3 assignment. - Test scenarios
- MOE #4 pickup waits:
-   - EZride shuttle 8- 12 minutes 
-        - Start with the lower end of the range of wait times @ 8 minutes. 
-        
-            I am going to reference equation <sub>2</sub> 0.95 - 0.04 (x - 5) since 8 minutes is between 5- 10 minutes. 
-
-        U <sub>@ 8 minutes test</sub> = 0.95 - 0.04 (8 - 5) = 0.83
-
-      - Start with the upper end of the range of wait times @ 12 minutes. I am going to reference equation <sub>3</sub> U = 0.75 - 0.07 (x - 10) since 12 minutes is between 10- 15 minutes. 
-
-      U <sub>@ 12 minutes test</sub> = 0.75 - 0.07 (12 - 10) = 0.61
-
-- Across the range from 8 to 12 minutes pickup wait time, utility drops by 0.83 - 0.61 = 0.22 ** important for us to note in the write up. Our MOE #4 EZride wait times are also wait times for Case A and Case B. Therefore scenario is valid. 
-
-  (AM: EZRide's 8–12 minutes is the frequency or how often a shuttle comes [[18]](references.md#ref-18), not how long a rider waits. The *Transit Operations and Capacity* page defines headway as "the time between vehicles past a given point" [[5]](references.md#ref-5) (see the Appendix). A rider who arrives at a random time waits on average half the headway (just an assumption in transportation planning), so EZRide's average wait is about **4–6 minutes**, not 8–12. On equation <sub>1</sub>/<sub>2</sub> that is U = 1 − 0.01(4) = **0.96** at 4 min and U = 0.95 − 0.04(6 − 5) = **0.91** at 6 min. So EZRide scores *better* than Cases A (0.83) and B (0.61), not the same; the 8- and 12-minute utilities above are correct for Cases A and B but don't represent EZRide. Our OS3A MOE #4 baseline lists EZRide "every 8–12 min", which is where the headway got read as a wait. The model's wait time (Q12) uses the same headway / 2 rule.)
-
-SAU function validation Table 4
-
-| Measure | Utility bounds | Direction | Equation check (x → U) | Inverse check (U → x) | Cases (A, B, C) |
-|----------|----------|----------|----------|----------|----------|
-| Passenger volume | U = 0 at 0 trips/day; U = 1 at 2000 trips/day | Increasing | Returns all 5 points in the Appendix A table | U = 0.40, 1.00, 0.30 → 1000, 2000, 750 | 1000 → 0.40; 2000 → 1.00; 750 → 0.30 |
-| Peak throughput | U = 0 at 0 trips/hr; U = 1 at 200 trips/hr | Increasing | Returns all 5 points in the Appendix A table | U = 0.35, 0.50, 0.35 → 75, 100, 75 | 75 → 0.35; 100 → 0.50; 75 → 0.35 |
-| Average wait time | U = 0 at 30 min; U = 1 at 0 min | Decreasing | Returns all 6 points in the Appendix A table | U = 0.83, 0.61, 0.91 → 8, 12, 6 | 8 → 0.83; 12 → 0.61; 6 → 0.91 |
-| Availability | U = 0 at 0; U = 1 at 1.0 | Increasing (U = x) | Returns all 6 points in the Appendix A table | U = 0.70, 0.60, 0.80 → 0.7, 0.6, 0.8 | 0.7 → 0.70; 0.6 → 0.60; 0.8 → 0.80 |
-| MOE #4 pickup wait time (EZRide) | Same curve as average wait time: U = 1 at 0 min; U = 0 at 30 min | Decreasing | Headways of 8 and 12 min give U = 0.83 and 0.61, the same as Cases A and B; as average waits (half the headway, 4–6 min) U = 0.96–0.91 | U = 0.96, 0.91 → 4, 6 min | Headway 8, 12 min → average wait 4, 6 min |
-
-Every check is automated in `tests/test_utility.py`: table points (`test_sau_reproduces_table_points`), bounds (`test_sau_clamps_to_unit_interval`), direction (`test_sau_is_monotone`), x → U for the cases (`test_case_saus_match_hand_calc`), and U → x with `utility.sau_inverse` (`test_sau_inverse_recovers_case_inputs`, plus `test_sau_inverse_round_trips` over each whole curve). The inverse also reads targets off a curve: U = 0.9 needs 1,750 trips/day, 150 trips/hr, a 6.25 min wait, or 0.9 availability.
-
-(AM: Yonis added the MOE #4 row in parallel; merged here. Its bounds and direction follow the wait-time curve (U falls from 1 at 0 min to 0 at 30 min), and EZRide's 8–12 min are headways, so its average wait is 4–6 min; see the note under the MOE #4 check above.)
-
-
-
-**How to use this doc:** open questions for the team are marked **❓ Q#**. Write the decision under **Answer:** (replace _TBD_) and initial it. Lines marked **decided (from OS3A)** adopt the answer proposed by `resources/OS3A_H2_Team13.pdf` [[2]](references.md#ref-2); override them if the team disagrees.
+# OS4 model plan
+
+How the team's model works, and every decision and assumption behind it. Sources are tagged in line by number, e.g. [[1]](references.md#ref-1), and listed in [references.md](references.md).
+
+**How the questions are laid out.** Every modeling question is numbered Q1–Q27 in the order it comes up, and code that depends on one is tagged with its number (e.g. `PLAN.md Q18`). Each question has a heading that states the question (with an anchor, so `[Q18](#q18)` links to it), then:
+
+- **Answer:** what the model does, labeled with where the answer came from:
+  - **Decision (Austin, date)** or **Decision (team, date):** a choice and who made it, when that was recorded.
+  - **Decision:** a choice with no owner recorded.
+  - **From OS3A:** adopted from our OS3A report [[2]](references.md#ref-2).
+  - **Assumption:** a modeling simplification we state as a limitation.
+  - **Deviation from Appendix B:** where we changed the assignment's equations.
+- **Discussion:** the evidence and reasoning behind the answer.
+
+| # | Question | # | Question |
+| --- | --- | --- | --- |
+| [Q1](#q1) | Operating scenario | [Q15](#q15) | Removable e-bike batteries |
+| [Q2](#q2) | Boundary and node distances | [Q16](#q16) | Riders per e-bike trip |
+| [Q3](#q3) | Trip length and empty return | [Q17](#q17) | Peak throughput |
+| [Q4](#q4) | Road speed | [Q18](#q18) | Wait model |
+| [Q5](#q5) | Demand | [Q19](#q19) | Availability attribute |
+| [Q6](#q6) | E-bike speed | [Q20](#q20) | Travel time |
+| [Q7](#q7) | Autonomy level | [Q21](#q21) | Cost |
+| [Q8](#q8) | Accessibility | [Q22](#q22) | Utilization ceilings |
+| [Q9](#q9) | MOE mapping | [Q23](#q23) | Anchors |
+| [Q10](#q10) | Team weights | [Q24](#q24) | The five Task 2 architectures |
+| [Q11](#q11) | Travel time as an attribute | [Q25](#q25) | Tools |
+| [Q12](#q12) | Bike share as an attribute | [Q26](#q26) | Task 3 reference architecture |
+| [Q13](#q13) | Energy and fleet size as attributes | [Q27](#q27) | Load factor |
+| [Q14](#q14) | Architectures and fleet grid | | |
 
 ---
 
-## Team decisions needed first (these block Task 2)
+## 1. Operating scenario
 
-D1–D6 are complete (✅): the default shown is the decision the team agreed on, with details in Q1–Q6 (D5: fixed 18 km/h e-bike assist; D6: A3 inside the boundary).
+The primary scenario is a **weekday on-demand last-mile service from a hub at Kendall T to Lechmere and Central**, using small road EVs and/or e-bikes. It lives in `scenario.primary_scenario()`, separate from the design vector, so later tasks can rerun the same architectures under a different scenario.
 
-| #   | Decision                                                                                       | Why it matters                                                              | Suggested default                                                                                                                            |
-| --- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1 ✅ | **Service-area boundary and node network** (Lechmere/Cambridge Crossing, Kendall/MIT, Central) | Sets trip distances, which set cycle time, throughput and wait              | 3 nodes. Measured road distances: Lechmere–Kendall 1.9 km, Kendall–Central 1.6 km, Lechmere–Central 3.3 km (see Q1).                        |
-| D2 ✅ | **Primary operating scenario** (pull from an OS3 report, with a sentence on why)               | The model has to show it meets this scenario                                | Weekday a.m.-peak, on-demand last-mile service from a Kendall hub to Lechmere and Central, using small road EVs and/or e-bikes; demand from Appendix B (see Q2). |
-| D3 ✅ | **Speed limit and achieved speed**                                                             | Caps average road speed; at a ~21 km/h cap about half the road variants hit it, so bigger motors buy no speed | Posted 20 mph (32 km/h) in Kendall and Central squares and on most local streets; arterials 25 mph unless posted. Signals and congestion hold peak speeds near 13 mph (~21 km/h), so use that as the average-speed cap. See Q3. |
-| D4 ✅ | **Demand outside MIT/Kendall**                                                                 | Appendix B only gives Kendall-origin demand                                 | Model Kendall only as the design node (where the SAU wait time is measured) and use the Appendix B demand as is (see Q4).        |
-| D5 ✅ | **What the e-bike speed equation does**                                                        | `700·P/W` gives about 5–8 km/h for bikes with a rider, which is unrealistic | Add rider pedal power (~0.1 kW) or use a fixed assisted speed (~18–20 km/h, under the 20 mph class-1/2 cap). Must be justified on the slide. |
-| D6 ✅ | **Autonomy level vs. scenario**                                                                | The constraints tie L3/L4/L5 to where vehicles operate [[1]](references.md#ref-1), [[3]](references.md#ref-3)                      | Primary scenario inside the boundary → A3 allowed. Leave A4/A5 in the vector for the Task 4 scenario that goes outside the boundary.         |
+| Input | Value | Question |
+| --- | --- | --- |
+| Nodes | Lechmere / Cambridge Crossing, Kendall / MIT, Central | [Q2](#q2) |
+| Demand | Appendix B as given: Kendall-origin trips, 1,790 trips/day, peak 150 trips/h (8:00–14:00) | [Q5](#q5) |
+| Trip length | 1.75 km by road, 1.6 km by bike | [Q3](#q3) |
+| Empty return (deadhead) | 1.0: every trip returns to Kendall empty | [Q3](#q3) |
+| Road speed | Capped at 21 km/h average (achieved, not posted) | [Q4](#q4) |
+| Bike speed | Fixed 18 km/h with assist | [Q6](#q6) |
+| Dwell | 60 s per trip (Appendix B) | |
+| Autonomy | A3 is allowed inside the boundary | [Q7](#q7) |
 
-## Assumptions Made
+**Why vehicles start at Kendall and return empty.** Appendix B gives demand only for trips that start at Kendall. Each vehicle therefore cycles all day: leave the hub with riders, drop them off, return empty, repeat. That one assumption sets the cycle time, the wait (measured at the hub), and each vehicle's capacity.
 
-> **Q1 / D1, decided (boundary from OS3A; distances measured):** The OS3A boundary (Fig. 1) [[2]](references.md#ref-2) runs from Central Sq in the west, north through East Cambridge, east to Cambridge Crossing, and south along the Charles/MIT. That matches the assignment, so the **boundary is settled.** OS3A also puts South Station/Boston in the *context* boundary, which is outside the system. That is useful for a Task 4 scenario.
+#### <a id="q1"></a>Q1. What service does the system provide, and when?
 
-> **Node distances (measured Nov. 1, 2026).** Station coordinates from OpenStreetMap via Nominatim [[22]](references.md#ref-22): Lechmere 42.37128, −71.07615; Kendall/MIT 42.36242, −71.08572; Central 42.36532, −71.10356. Road and bike routes from OSRM on OpenStreetMap data [[23]](references.md#ref-23), [[24]](references.md#ref-24), both directions (one-way streets make them differ). Road vehicles use the mean of the two driving directions; bikes use the mean of the two bike directions (1.6 / 1.6 / 3.1 km).
->
-> | Pair | Straight line | Drive (each direction) | Bike (each direction) | **Model distance** | Time at 21 km/h |
-> | --- | --- | --- | --- | --- | --- |
-> | Lechmere–Kendall | 1.26 km | 1.65 / 2.11 km | 1.58 / 1.63 km | **1.9 km** | 5.4 min |
-> | Kendall–Central | 1.50 km | 1.60 / 1.60 km | 1.64 / 1.63 km | **1.6 km** | 4.6 min |
-> | Lechmere–Central | 2.35 km | 3.62 / 2.91 km | 2.99 / 3.17 km | **3.3 km** | 9.4 min |
->
-> **Finding:** Lechmere–Central breaks the 7-minute in-boundary travel-time requirement [[1]](references.md#ref-1) at the ~21 km/h achieved speed (Q3): 8.3 min even in the shorter direction. Meeting it needs ~28 km/h average on that link, which needs dedicated lanes or signal priority on that link (routing via Kendall is longer, 3.5 km). Google Maps was not checked (no API key).
+**Answer (From OS3A):** a.m.-peak, on-demand last-mile service from a hub at Kendall T.
 
-> **Q2 / D2, decided (from OS3A):** OS3A points to **weekday a.m.-peak last-mile service from Kendall T** (MOE 1 sets the a.m. peak as its measurement condition; MOE 4 covers demand-responsive pickups). MIT P&T [[15]](references.md#ref-15) asked for *"small on-demand EV shuttles from a central hub"* and warned that empty shuttles are not financially viable. Proposal: on-demand small road EVs and/or e-bikes from a Kendall hub serving Lechmere and Central. OS3B is not in the repo yet; check whether it suggests something different.
+**Discussion.** OS3A's MOE 1 sets the a.m. peak as its measurement condition, and MOE 4 covers demand-responsive pickups. MIT Parking & Transportation [[15]](references.md#ref-15) asked for *"small on-demand EV shuttles from a central hub"* and warned that empty shuttles are not financially viable.
 
-> **Q3 / D3, decided:** The posted limit is **20 mph (32 km/h) inside our boundary**. Kendall and Central are two of the five squares the City dropped from 25 to 20 mph in 2018 (Safer Squares) [[6]](references.md#ref-6), and Residential Safety Zones (2019–21) put about 80% of city streets at 20 mph under MGL c.90 §18B [[7]](references.md#ref-7), [[9]](references.md#ref-9). Arterials stay at the 25 mph citywide default (Cambridge opted into MGL c.90 §17C in 2016 [[7]](references.md#ref-7); Cambridge Traffic Regulations §5.1 [[8]](references.md#ref-8)) unless posted lower, and state-run DCR roads such as Memorial Drive keep their own limits.
-> **Achieved speed is lower than posted** because of the traffic signals and congestion. No Kendall-specific measurement exists, so use the closest proxies: INRIX's 2024 scorecard puts the average downtown Boston trip at 13 mph [[10]](references.md#ref-10); TomTom puts Boston's rush-hour average at 22.4 km/h ≈ 13.9 mph [[11]](references.md#ref-11); and the MBTA #1 bus on Mass Ave, with its stops, averages about 6 mph [[12]](references.md#ref-12). **Model choice:** cap road-vehicle average speed at ~21 km/h (13 mph) in the primary scenario and show 32 km/h (the posted limit, e.g. dedicated lanes with signal priority) as a sensitivity. Bikes use the fixed assisted speed from Q5 (18–20 km/h), which is already below the posted limit and the 20 mph class 1/2 e-bike assist cap.
+#### <a id="q2"></a>Q2. Where is the system boundary, and how far apart are its nodes?
 
-> **Q4 / D4, decided (from OS3A):** Model the Kendall node only and use the Appendix B demand as is. OS3A gives scale but no per-node demand: 74,000 employees, 6,878 daily Red Line riders at Kendall, and a mode split of 26% walk / 29% MBTA / 22% bike / 22% drive [[2]](references.md#ref-2), [[13]](references.md#ref-13). Appendix B's ~1,790 trips/day is about 26% of Kendall T boardings, so it reads as a plausible last-mile capture. We can cite that as validation for using Appendix B as is.
+**Answer (From OS3A; distances Decision, measured 2026-11-01):** the OS3A boundary, which matches the assignment. Node distances are the mean of the two directions of each OpenStreetMap route (table below).
 
-> **Q5 / D5, decided (from OS3A):** Use a fixed assisted e-bike speed of ~18–20 km/h instead of the formula, and show the formula value alongside it on the slide. **OS3A gives us a validation anchor.** The interviewee [[14]](references.md#ref-14) rides South Station → Draper (2–2.5 mi) in a reliable 13–15 min, about **15–18 km/h door to door**, and an e-bike saves only ~3 min because of traffic and red lights. That supports a **fixed assisted speed of ~18–20 km/h** over the formula. The interview also says e-bikes help most on inclines and for riders with injuries, which is the comfort and accessibility case for bikes.
+**Discussion.** The OS3A boundary [[2]](references.md#ref-2) runs from Central Square in the west, north through East Cambridge, east to Cambridge Crossing, and south along the Charles and MIT. OS3A puts South Station and Boston in the *context* boundary, outside the system.
 
-> **Q6 / D6, decided (from OS3A):** OS3A's constraints are the real problem here: MA law requires a human at the wheel [[20]](references.md#ref-20), no AV test permits are active, and Optimus Ride shut down in 2022 [[19]](references.md#ref-19). Public opposition to AVs is 75% statewide against our MOE 5 target of under 25%. L3 road vehicles need dedicated lanes, but OS3A found bike and curb lanes routinely blocked by trucks and rideshares. Proposal: A3 inside the boundary for the primary scenario, with A4/A5 only in the Task 4 scenario. Flag deployment realism for Task 5. E-bikes come with L4 built in and ride in the already-growing bike network, which is a point in their favor.
+Station coordinates come from OpenStreetMap via Nominatim [[22]](references.md#ref-22): Lechmere 42.37128, −71.07615; Kendall/MIT 42.36242, −71.08572; Central 42.36532, −71.10356. Road and bike routes come from OSRM on OpenStreetMap data [[23]](references.md#ref-23), [[24]](references.md#ref-24), in both directions; one-way streets make them differ.
+
+| Pair | Straight line | Drive (each direction) | Bike (each direction) | **Road model** | **Bike model** | Road time at 21 km/h |
+| --- | --- | --- | --- | --- | --- | --- |
+| Lechmere–Kendall | 1.26 km | 1.65 / 2.11 km | 1.58 / 1.63 km | **1.9 km** | **1.6 km** | 5.4 min |
+| Kendall–Central | 1.50 km | 1.60 / 1.60 km | 1.64 / 1.63 km | **1.6 km** | **1.6 km** | 4.6 min |
+| Lechmere–Central | 2.35 km | 3.62 / 2.91 km | 2.99 / 3.17 km | **3.3 km** | **3.1 km** | 9.4 min |
+
+Google Maps was not checked (no API key). Lechmere–Central would break the 7-minute travel-time requirement [[1]](references.md#ref-1) at 21 km/h (8.3 min even in the shorter direction), but the primary scenario has no trips on that link.
+
+#### <a id="q3"></a>Q3. How long is a trip, and do vehicles return empty?
+
+**Answer (Decision):** road trips average **1.75 km** and bike trips **1.6 km**. **Assumption:** deadhead 1.0, so every vehicle returns to Kendall empty.
+
+**Discussion.** 1.75 km is the plain mean of the two Kendall road links (1.9 and 1.6 km, [Q2](#q2)); both Kendall bike links are 1.6 km. **Assumption:** the plain mean splits riders evenly between Lechmere and Central (Appendix B gives no destinations), and both ends are station coordinates, not real pickup and drop-off points. The empty return is conservative: half of all driving carries no one.
+
+#### <a id="q4"></a>Q4. What average speed do road vehicles reach?
+
+**Answer (Decision):** **the model caps road-vehicle average speed at 21 km/h (13 mph).**
+
+**Discussion.** The posted limit inside the boundary is **20 mph (32 km/h)**. Kendall and Central are two of the five squares the City dropped from 25 to 20 mph in 2018 [[6]](references.md#ref-6), and Residential Safety Zones (2019–21) put about 80% of city streets at 20 mph [[7]](references.md#ref-7), [[9]](references.md#ref-9). Arterials keep the 25 mph citywide default unless posted lower [[7]](references.md#ref-7), [[8]](references.md#ref-8). Signals and congestion hold achieved speed well below posted, and no Kendall-specific measurement exists. The closest proxies: INRIX puts the average downtown Boston trip at 13 mph [[10]](references.md#ref-10), TomTom puts Boston's rush-hour average at 22.4 km/h [[11]](references.md#ref-11), and the MBTA #1 bus averages about 6 mph with its stops [[12]](references.md#ref-12). The cap binds for 55% of road variants, so bigger motors on small chassis rarely buy speed.
+
+#### <a id="q5"></a>Q5. What demand does the system serve?
+
+**Answer (From OS3A):** the Kendall node only, with Appendix B demand as given.
+
+**Discussion.** OS3A gives scale but no per-node demand: 74,000 employees, 6,878 daily Red Line riders at Kendall, and a mode split of 26% walk / 29% MBTA / 22% bike / 22% drive [[2]](references.md#ref-2), [[13]](references.md#ref-13). Appendix B's 1,790 trips/day is about 26% of Kendall T boardings, a plausible last-mile share.
+
+#### <a id="q6"></a>Q6. How fast do e-bikes go?
+
+**Answer (From OS3A; Deviation from Appendix B):** a **fixed assisted speed of 18 km/h**. The Appendix B formula's value is reported alongside it.
+
+**Discussion.** Appendix B's `700·P/W` gives 5–8 km/h for a bike with a rider, which is unrealistic. 18 km/h is the low end of 18–20 km/h and under the 20 mph class 1/2 assist cap. The validation anchor is the OS3A interview [[14]](references.md#ref-14): South Station to Draper (2–2.5 mi) in a reliable 13–15 min, about 15–18 km/h door to door. An e-bike saves only about 3 min, because of traffic and red lights.
+
+#### <a id="q7"></a>Q7. What autonomy level is allowed?
+
+**Answer (From OS3A):** A3 inside the boundary. A4 and A5 stay in the design vector for scenarios that leave the boundary. E-bikes have L4 built into the frame cost.
+
+**Discussion.** Massachusetts law requires a human at the wheel [[20]](references.md#ref-20), no AV test permits are active, and Optimus Ride shut down in 2022 [[19]](references.md#ref-19). Public opposition to AVs is 75% statewide, against our MOE 5 target of under 25%.
+
+#### <a id="q8"></a>Q8. Is accessibility screened?
+
+**Answer (Decision):** no accessibility screen in the primary scenario.
+
+**Discussion.** OS3A notes that no wheelchair-accessible AVs exist and that e-bikes serve no one with a mobility disability.
 
 ---
 
-## Task 1: MAU (1 slide + backup)
+## 2. Task 1: multi-attribute utility
 
-**Method** (from lecture, MATE): piecewise-linear SAUs that interpolate the Appendix A points and clamp outside the table range, combined into an **additive weighted MAU**:
+### Method
+
+Each single-attribute utility (SAU) is piecewise linear between the Appendix A points and clamps outside the table. The SAUs combine into an additive multi-attribute utility (MAU):
 
 $$U = \sum_i k_i\,u_i(x_i), \quad \sum k_i = 1$$
 
-with k = {volume 0.15, peak 0.25, wait 0.35, availability 0.25} (Yonis's Table 1).
+| Attribute | Appendix A weight |
+| --- | ---: |
+| Passenger volume (trips/day) | 0.15 |
+| Peak throughput (trips/h) | 0.25 |
+| Average wait at Kendall (min) | 0.35 |
+| Availability | 0.25 |
 
-**Hand calculation (Yonis, "Task 1 approach" at the top of this doc).** For each SAU, Yonis wrote one point-slope equation per table segment, U = U<sub>1</sub> + U<sub>m</sub>(x − x<sub>1</sub>) with slope U<sub>m</sub> = (U<sub>2</sub> − U<sub>1</sub>)/(x<sub>2</sub> − x<sub>1</sub>), then used the equation for the segment each case falls in. This is the same linear interpolation the code uses, so the two are independent checks of each other:
+### Hand calculation (Yonis)
 
-| Case value | How Yonis got it | Code / workbook |
-| --- | --- | --- |
-| Volume A (1000), B (2000); throughput B (100); availability B (0.6), C (0.8) | Read directly from Appendix A (table points) | `test_sau_reproduces_table_points` |
-| Volume C (750) | Equation 2: 0.2 + 0.0004(750 − 500) = 0.30 | `sau()` gives 0.30 |
-| Throughput A, C (75) | Equation 2: 0.2 + 0.006(75 − 50) = 0.35 | `sau()` gives 0.35 |
-| Wait A (8), B (12), C (6) | Equations 2, 3, 2: 0.83, 0.61, 0.91 | `sau()` gives 0.83, 0.61, 0.91 |
-| Availability A (0.7) | Equation 4: 0.6 + 1(0.7 − 0.6) = 0.70 | `sau()` gives 0.70 |
+For each segment of each SAU, the slope is U<sub>m</sub> = (U<sub>2</sub> − U<sub>1</sub>) / (x<sub>2</sub> − x<sub>1</sub>), and the point-slope equation is U = U<sub>1</sub> + U<sub>m</sub>(x − x<sub>1</sub>). Each case uses the equation for the segment its value falls in. This is the same linear interpolation the code uses, so the hand calculation and the code check each other.
 
-The slope column on the workbook's SAU sheet reproduces every U<sub>m</sub> in Yonis's equations, and the code reproduces his Table 2 exactly: **A 0.613, B 0.639 (0.6385 unrounded), C 0.651**, ranking C > B > A. Use Yonis's Table 2 as the results table on the slide.
+**Passenger volume** (x = trips/day)
 
-**Interpretation for the slide.** C has the lowest volume yet ranks highest, because wait time carries the largest weight (0.35) and C has the shortest wait. B has the highest volume but the longest wait and lowest availability. All three cases fall within about 0.04 of each other, so the ranking depends on the weights (see the sensitivity check below).
+| Segment | x<sub>1</sub>–x<sub>2</sub> | U<sub>1</sub>–U<sub>2</sub> | Slope U<sub>m</sub> | Equation |
+| --- | --- | --- | --- | --- |
+| 1 | 0–500 | 0–0.2 | 0.0004 | U = 0.0004x |
+| 2 | 500–1000 | 0.2–0.4 | 0.0004 | U = 0.2 + 0.0004(x − 500) |
+| 3 | 1000–1500 | 0.4–0.8 | 0.0008 | U = 0.4 + 0.0008(x − 1000) |
+| 4 | 1500–2000 | 0.8–1.0 | 0.0004 | U = 0.8 + 0.0004(x − 1500) |
 
-**Code: `src/os4/utility.py`**
-- `sau(attribute, x)`: `np.interp` over the `sau_*.csv` points (handles the decreasing wait curve; clamps automatically).
-- `mau(volume, peak, wait, availability, weights=None)`: vectorized so the tradespace can call it on arrays.
-- `evaluate_cases()`: returns a DataFrame for `mau_test_cases.csv`.
-- `load_weights(weight_set)`, `compare_weight_sets()` and `weighted_mau(values, weights)`: the Appendix A, `os3a_reweight` and `os3a_extended` weight sets (Q8).
+Case A (1000) = 0.40 and Case B (2000) = 1.00 are table points. Case C (750), equation 2: 0.2 + 0.0004(750 − 500) = **0.30**.
 
-**Outputs (`python -m os4`):** the report `outputs/task1_cases.md`, and in `outputs/media/`: `task1_cases.csv`, `task1_mau.csv` (MAU and rank under each weight set), `task1_weight_sensitivity.csv`, the two figures, and the Excel backup `os4_model.xlsx`. The workbook's SAU and MAU cells are live formulas (interpolation via named ranges, weighted sums, `RANK`) with the Python values and a `diff` column beside them.
+**Peak throughput** (x = trips/h)
 
-**Verification (tests in `tests/test_utility.py`):**
-- Every SAU returns its table points exactly, is monotone, and clamps to [0, 1].
-- Best on every attribute → 1.0, worst → 0.0, and the weights sum to 1.
-- Cases A/B/C match Yonis's hand calculations: each SAU value (`test_case_saus_match_hand_calc`) and each MAU (`test_cases_match_hand_calc`).
-- Validity: the MAU ranks a "meets every Table 1 requirement" point (1500, 150, 5, 0.75) above each of the cases. A sensitivity check sweeps each weight ±0.1 to show when the A/B/C ranking flips. This doubles as the "would we change the weights?" evidence.
+| Segment | x<sub>1</sub>–x<sub>2</sub> | U<sub>1</sub>–U<sub>2</sub> | Slope U<sub>m</sub> | Equation |
+| --- | --- | --- | --- | --- |
+| 1 | 0–50 | 0–0.2 | 0.004 | U = 0.004x |
+| 2 | 50–100 | 0.2–0.5 | 0.006 | U = 0.2 + 0.006(x − 50) |
+| 3 | 100–150 | 0.5–0.9 | 0.008 | U = 0.5 + 0.008(x − 100) |
+| 4 | 150–200 | 0.9–1.0 | 0.002 | U = 0.9 + 0.002(x − 150) |
 
-**Discussion (reflection the assignment asks for).** Q7 maps Appendix A to our OS3A MOEs, Q8 proposes new weights, and the proposed attributes below cover travel time (the 7-minute requirement). Still open: the OS3B operational objectives (Q22), outside-boundary wait (the 20-minute requirement, which belongs to the Task 4 scenario), and whether 0.35 on wait at a single node is too narrow.
+Cases A and C (75), equation 2: 0.2 + 0.006(75 − 50) = **0.35**. Case B (100) = 0.50 is a table point.
 
-> **Q7, decided (from OS3A):** OS3A MOE mapping (Table 3). OS3B was an individual assignment, so it doesn't block this: each member adds the operational objectives from their own OS3B as a bullet below (Q22).
-> - **MOE 4 pickup wait (<15 min)** ↔ the wait-time MoP (0.35). Direct match. Note the targets differ: OS3A says 15 min, Table 1 says 5 min.
-> - **MOE 1 allocated commute time / predictability** ↔ availability (partial). Reliability was the interviewee's #1 theme ("Red Line is the weakest link").
-> - **MOE 7 regional talent access** and **MOE 2 bike share** ↔ passenger volume and throughput (indirect).
-> - **MOE 3 serious crashes, MOE 6 stop announcements, MOE 5 AV opposition, MOE 8 curb access**: no Appendix A counterpart. OS3A already treats MOE 3 and MOE 6 as **pass/fail screens**, not weighted attributes.
+**Average wait** (x = minutes; utility falls as wait rises)
 
-> **Q8, decided (from OS3A):** Propose new weights of **volume 0.10 / peak 0.25 / wait 0.35 / availability 0.30.** Wait stays largest because MOE 4 is a direct match. Weight moves from volume to availability because reliability (MOE 1) dominated the stakeholder evidence while volume traces only indirectly. Keep safety and accessibility as pass/fail screens rather than weights, consistent with OS3A. With these weights the MAUs are A 0.628 / B 0.619 / C 0.676, so the ranking changes from C > B > A to C > A > B. In code this is the `os3a_reweight` set in `data/mau_weights_proposed.csv`.
+| Segment | x<sub>1</sub>–x<sub>2</sub> | U<sub>1</sub>–U<sub>2</sub> | Slope U<sub>m</sub> | Equation |
+| --- | --- | --- | --- | --- |
+| 1 | 0–5 | 1–0.95 | −0.01 | U = 1 − 0.01x |
+| 2 | 5–10 | 0.95–0.75 | −0.04 | U = 0.95 − 0.04(x − 5) |
+| 3 | 10–15 | 0.75–0.4 | −0.07 | U = 0.75 − 0.07(x − 10) |
+| 4 | 15–20 | 0.4–0.2 | −0.04 | U = 0.4 − 0.04(x − 15) |
+| 5 | 20–30 | 0.2–0 | −0.02 | U = 0.2 − 0.02(x − 20) |
 
-**Proposed additional attributes (team assumption, from the Q7 mapping).** Two of our OS3A MOEs have no Appendix A counterpart but can be computed by the Task 2 model, so we propose adding them as SAUs. Cases A–C don't report these levels, so the Task 1 results stay on the four Appendix A attributes; the extended MAU scores the Task 2+ architectures.
+Case A (8), equation 2: 0.95 − 0.04(8 − 5) = **0.83**. Case B (12), equation 3: 0.75 − 0.07(12 − 10) = **0.61**. Case C (6), equation 2: 0.95 − 0.04(6 − 5) = **0.91**.
 
-| Attribute | Traces to | SAU points (x → U) | Computed from |
-| --- | --- | --- | --- |
-| In-boundary travel time (min) | Table 1 (7 min max between any two locations) [[1]](references.md#ref-1); OS3A MOE 1 (predictable commute time) | 0 → 1.0, 4 → 0.95, 7 → 0.8, 10 → 0.5, 15 → 0.2, 20 → 0 | Average Kendall trip (1.75 km road, 1.6 km bike) ÷ speed (Q13, Q3): 5.0 min for a capped road fleet |
-| ~~Bike share of served trips~~ (removed from the weights, kept for later) | OS3A MOE 2 (bike commute share, 11% baseline) | 0 → 0, 0.11 → 0.3, 0.25 → 0.6, 0.5 → 0.9, 1.0 → 1.0 | Bike trips ÷ total served trips |
-| Energy per passenger-km (Wh/pkm), proposed (J) | Sustainability; replaces bike share as a solution-neutral attribute; MIT P&T's "empty shuttles" concern [[15]](references.md#ref-15) | 0 → 1.0, 50 → 0.9, 100 → 0.75, 200 → 0.5, 400 → 0.2, 1000 → 0 | Appendix B consumption × km driven by the vehicles in service all day (incl. deadhead and empty off-peak running) ÷ passenger-km served |
-| Fleet size (vehicles), proposed (J) | Operational complexity: vehicles to charge, dispatch, maintain and (at A3) staff; OS3B operational objectives (Q22) | 1 → 1.0, 5 → 0.95, 15 → 0.8, 50 → 0.5, 150 → 0.25, 400 → 0.1, 1000 → 0 | n_road + n_bike |
+**Availability** (U = x: slope 1 on every segment from 0 to 1)
 
-Safety (MOE 3), stop announcements (MOE 6) and accessibility (Q21) stay **pass/fail screens**, not weighted attributes. Extended weights (`os3a_extended`): keep the `os3a_reweight` priorities for the Appendix A four, scaled by 0.85, and give 0.15 to travel time: **volume 0.08 / peak 0.21 / wait 0.30 / availability 0.26 / travel time 0.15.** Wait plus travel time (0.45) then covers the door-to-door experience behind MOE 1 and MOE 4.
+Case A (0.7), equation 4: 0.6 + 1(0.7 − 0.6) = **0.70**. Case B (0.6) = 0.60 and Case C (0.8) = 0.80 are table points.
 
-**Bike share was removed from the weights (team decision, 2026-11-01).** It rewarded a type of solution (fleets that contain bikes) rather than an outcome, it doesn't match MOE 2 (which is commuters' own cycling), and it pulls against accessibility (Q21). Its SAU (`data/sau_bike_share.csv`) and the `bike_share` column are kept, so a sustainability attribute can come back later; a solution-neutral candidate is energy per passenger-km from the Appendix B consumption equation.
+Austin's corrections to the first draft: wait-time equations had a + sign where the slope is negative, the throughput case B line had case A's formula, and two equations shared a number. All final values above were already right.
+
+### Results
+
+MAU<sub>A</sub> = 0.15 × 0.40 + 0.25 × 0.35 + 0.35 × 0.83 + 0.25 × 0.70 = **0.613**
+MAU<sub>B</sub> = 0.15 × 1.00 + 0.25 × 0.50 + 0.35 × 0.61 + 0.25 × 0.60 = **0.639** (0.6385)
+MAU<sub>C</sub> = 0.15 × 0.30 + 0.25 × 0.35 + 0.35 × 0.91 + 0.25 × 0.80 = **0.651**
+
+| Case | Volume utility | Throughput utility | Wait utility | Availability utility | MAU |
+| :--: | ---: | ---: | ---: | ---: | ---: |
+| A | 0.40 | 0.35 | 0.83 | 0.70 | 0.613 |
+| B | 1.00 | 0.50 | 0.61 | 0.60 | 0.639 |
+| C | 0.30 | 0.35 | 0.91 | 0.80 | 0.651 |
+
+The ranking is C > B > A. C has the lowest volume but ranks highest, because wait carries the largest weight (0.35) and C has the shortest wait. B has the highest volume but the longest wait and the lowest availability. All three are within about 0.04 of each other, so the ranking depends on the weights.
+
+`src/os4/utility.py` reproduces every value (`evaluate_cases()`), and `python -m os4` writes the table to `outputs/task1_cases.md`.
+
+### Validation
+
+| Measure | Bounds | Direction | x → U | U → x | Cases A, B, C |
+| --- | --- | --- | --- | --- | --- |
+| Passenger volume | U = 0 at 0; U = 1 at 2000 trips/day | Increasing | All 5 table points | 0.40, 1.00, 0.30 → 1000, 2000, 750 | 0.40, 1.00, 0.30 |
+| Peak throughput | U = 0 at 0; U = 1 at 200 trips/h | Increasing | All 5 table points | 0.35, 0.50, 0.35 → 75, 100, 75 | 0.35, 0.50, 0.35 |
+| Average wait | U = 1 at 0; U = 0 at 30 min | Decreasing | All 6 table points | 0.83, 0.61, 0.91 → 8, 12, 6 | 0.83, 0.61, 0.91 |
+| Availability | U = 0 at 0; U = 1 at 1.0 | Increasing (U = x) | All 6 table points | 0.70, 0.60, 0.80 → 0.7, 0.6, 0.8 | 0.70, 0.60, 0.80 |
+
+Every check runs in `tests/test_utility.py`: table points, clamping to [0, 1], monotonicity, the case values (x → U), and the inverse (U → x, `utility.sau_inverse`). The MAU ranks a point that meets every Table 1 requirement (1500, 150, 5, 0.75) above each case. A sensitivity sweep moves each weight ±0.1 and shows where the A/B/C ranking flips.
+
+**Test scenario: OS3A MOE 4 pickup wait (EZRide).** EZRide runs every 8–12 min [[18]](references.md#ref-18). On the wait curve, 8 and 12 min score 0.83 and 0.61, the same as Cases A and B. But 8–12 min is EZRide's **headway** (time between shuttles [[5]](references.md#ref-5)), not the wait. A rider arriving at a random time waits half the headway on average, so EZRide's average wait is **4–6 min**, U = 0.96–0.91: better than Cases A and B. The model's wait ([Q18](#q18)) uses the same headway / 2 rule.
+
+### Weights and attributes
+
+#### <a id="q9"></a>Q9. How do our OS3A MOEs map to the Appendix A attributes?
+
+**Answer (From OS3A):** two direct or partial matches (wait, availability), two indirect (volume, throughput), and four MOEs with no counterpart, kept as screens or left out.
+
+**Discussion.**
+- **MOE 4 pickup wait (under 15 min)** ↔ average wait (0.35). Direct match. The targets differ: OS3A says 15 min, Table 1 says 5 min.
+- **MOE 1 commute time and predictability** ↔ availability (partial). Reliability was the interviewee's top theme ("Red Line is the weakest link").
+- **MOE 7 regional talent access** and **MOE 2 bike share** ↔ passenger volume and throughput (indirect).
+- **MOE 3 serious crashes, MOE 5 AV opposition, MOE 6 stop announcements, MOE 8 curb access:** no Appendix A counterpart. MOE 3 and MOE 6 stay **pass/fail screens**, not weighted attributes, as in OS3A.
+
+#### <a id="q10"></a>Q10. Should the team re-weight the Appendix A attributes?
+
+**Answer (From OS3A):** yes, as a second weight set, `os3a_reweight`: volume 0.10, throughput 0.25, wait 0.35, availability 0.30. Task 3 plots both weight sets. In code: `data/mau_weights_proposed.csv`.
+
+**Discussion.**
+
+| Attribute | Appendix A | `os3a_reweight` | Why |
+| --- | ---: | ---: | --- |
+| Passenger volume | 0.15 | **0.10** | Traces only indirectly to our MOEs ([Q9](#q9)) |
+| Peak throughput | 0.25 | 0.25 | |
+| Average wait | 0.35 | 0.35 | Stays largest: MOE 4 is a direct match |
+| Availability | 0.25 | **0.30** | Reliability (MOE 1) dominated the stakeholder evidence |
+
+Case MAUs become A 0.628 / B 0.619 / C 0.676, so the ranking changes from C > B > A to **C > A > B**.
+
+#### <a id="q11"></a>Q11. Should travel time be a weighted attribute?
+
+**Answer (Decision, Austin, 2026-11-03):** no. The 7-minute requirement stays a pass/fail flag (`meets_travel_goal`), and the SAU is kept for a scenario with longer trips.
+
+**Discussion.** Travel time traces to Table 1 (7 min maximum) [[1]](references.md#ref-1) and OS3A MOE 1, and has an SAU (`data/sau_travel_time.csv`: 0 → 1.0, 4 → 0.95, 7 → 0.8, 10 → 0.5, 15 → 0.2, 20 → 0). On Kendall trips it barely varies: a road vehicle at the speed cap takes 5.0 min and a bike 5.3 min. On the Pareto front it spans 5.0–6.6 min (SAU 0.90–0.82), at most 0.012 of MAU at a 0.15 weight. Only slow road variants score low, and their longer cycle already costs them throughput and wait. Every front architecture passes the 7-minute flag.
+
+#### <a id="q12"></a>Q12. Should bike share be a weighted attribute?
+
+**Answer (Decision, team, 2026-11-01):** no. Its SAU (`data/sau_bike_share.csv`) and the `bike_share` column are kept.
+
+**Discussion.** It rewarded a type of solution (fleets with bikes) rather than an outcome, it doesn't match MOE 2 (commuters' own cycling), and it works against accessibility ([Q8](#q8)).
+
+#### <a id="q13"></a>Q13. Should energy per passenger-km or fleet size be attributes?
+
+**Answer (Decision, Austin, 2026-11-03):** no; both were removed.
+
+**Discussion.**
+- **Fleet size:** what matters is that vehicles beyond what demand needs only add cost, and cost is already the tradespace's other axis. Those fleets fall off the Pareto front on their own; a fleet-size SAU would count cost twice.
+- **Energy per passenger-km:** it depended on every vehicle in service cycling all day whether or not anyone rides (the [Q18](#q18) assumption), so it measured that assumption more than the vehicles.
 
 ---
 
-## Task 2: system model (3 slides + backup)
-
-**Status (first pass, for review).** `scenario.primary_scenario()`, `vehicle.py`, `fleet.py` and `model.py` are implemented; `python -m os4` writes `outputs/media/task2_variants.csv` (1,578 feasible vehicles) and `outputs/media/task2_architectures.csv` (the 5-architecture table). Defaults used until the team decides, each tagged in the code:
-- **Q11 (decided):** peak throughput = the demand actually served, min(capacity, peak demand) (`throughput_measure="served"`).
-- **Q12:** demand-weighted wait over the day: headway / 2 at the Kendall hub, scaled by 1 / (1 − ρ) as demand nears capacity, capped at 30 min. Bikes return to the hub after each trip and use the same model.
-- **Q13 deadhead (decided for now):** 1.0. Every vehicle returns to Kendall empty, because Appendix B only gives Kendall-origin demand.
-- **Q14 (decided):** availability = *service* availability: the chance the vehicles in service can carry each hour's demand, averaged over the day by demand. The Appendix B vehicle availability is still reported as `vehicle_availability`.
-- **Travel time (decided):** the average Kendall trip (1.75 km road, 1.6 km bike) ÷ speed, weighted by each part's share of trips; 5.0 min for a capped road fleet. The longest link (Lechmere–Central, 9.4 min) is left for later.
-- **Fleet grid (Q10, decided):** steps widen as fleets grow: road 1–15 step 1, 20–50 step 5, 60–100 step 10, 125–300 step 25; bikes 5–50 step 5, 75–200 step 25, 250–750 step 50 (about 3.9 million architectures with removable batteries; `tradespace.ROAD_SEGMENTS` / `BIKE_SEGMENTS`).
-- **Load factor:** Appendix B's 0.75 stays the baseline; Task 3 also shows the Pareto front at 25 / 50 / 75 / 100% in one chart, because 0.75 is optimistic for large on-demand vehicles.
-- **Cost (Q15, assumption):** vehicle capital cost only for now; operating cost (staff, swap labor) is not modeled.
-- **Bike speed (Q5):** 18 km/h fixed assist, the low end of 18–20 km/h.
-
-**Findings to discuss:**
-- **E-bike availability is 0.14–0.42 under Appendix B,** far below the 0.75 benchmark. Small batteries (0.5–3 kWh) and slow chargers mean bikes charge much longer than they ride. A bike-only fleet needs ~150 bikes to cover the peak. Battery swapping would be a justified deviation worth proposing.
-- **Large shuttles look cheapest** (4 × C6 for $351k vs 24 × C2 for $1.44M, sized to the 25-rides-per-car ceiling, L) because Appendix B's 0.75 load factor fills a 16-seat shuttle with 12 riders per trip. For on-demand service at 150 trips/h that is optimistic; consider a lower load factor for big chassis, or a load factor tied to demand per departure.
-- **The 21 km/h cap binds for 55% of road variants,** so motors above M2 rarely buy speed on small chassis.
-- **MAU saturates once demand is met:** with served throughput (capped at 150 trips/h, U = 0.90), volume capped at 1,790 trips/day (U = 0.916), and service availability near 1 for almost every fleet that meets the thresholds, the MAU has a ceiling of 0.962. The front climbs quickly, then runs flat for hundreds of architectures that differ only by seconds of wait, so in practice the choice is the cheapest fleet that meets demand.
-- **Removable e-bike batteries (team proposal, a justified Appendix B deviation; kept as an alternate pathway next to fixed batteries):** bikes can swap packs in 5 min (assumed) instead of charging in place, with k spare packs per bike pooled across the fleet (0.5–3). Availability = min( U/(U+s), (1+k)·U/(U+s+C+0.25) ); each spare adds its battery and a charger slot to the bike cost. A B2 bike goes from 0.42 availability at $4,500 to 0.90 at $6,150 with 1.5 spares. Task 3 is run with and without the option. With the progressive grid (Q10), both fronts are mostly **small mixed fleets: 1–3 buses or shuttles plus bikes**. Without the option the front is 3 road-only / 20 bike-only / 682 mixed, and the cheapest feasible fleet is 2 × C8 at $182,200. With it the front is 0 / 44 / 698, and the cheapest is 1 × C8 + 10 × B3 (1.5 spares) at $161,100. Swap labor is not counted (Q15; team decision 2026-11-01: assume swaps happen and keep labor out of the model, stated as a limitation). Open for the group: adopt it, keep it as a what-if, or tie it to a scenario; and whether the availability attribute means vehicle or service availability (Q14).
-- **Requirements screening:** architectures that miss a Table 1 threshold (1,500 trips/day, 150 trips/h peak, 50 trips/h off-peak) are dropped from the tradespace before scoring: 88,172 of the fixed-battery grid and 116,491 of the removable-battery grid (mostly 1–4 vehicle fleets). The "desired" goals are flags only, because **no architecture meets the 7-minute travel goal** (Lechmere–Central takes ≥ 9.4 min at 21 km/h).
+## 3. Task 2: system model
 
 ### Design vector
 
-| Decision        | Road options               | Bike options                |
-| --------------- | -------------------------- | --------------------------- |
-| Chassis / frame | C1–C8                      | B1–B3                       |
-| Battery         | P1–P7 (weight ≤ ⅓ chassis) | E1–E3 (weight ≤ ½ frame)    |
-| Charger         | G1–G3                      | G1–G2                       |
-| Motor           | M1–M4                      | K1–K3                       |
-| Autonomy        | A3/A4/A5                   | fixed L4 (in frame cost)    |
-| Fleet size      | N_road: e.g. 0–60, step 5  | N_bike: e.g. 0–300, step 25 |
+| Decision | Road options | Bike options |
+| --- | --- | --- |
+| Chassis / frame | C1–C8 | B1–B3 |
+| Battery | P1–P7 (weight ≤ ⅓ chassis) | E1–E3 (weight ≤ ½ frame) |
+| Charger | G1–G3 | G1–G2 |
+| Motor | M1–M4 | K1–K3 |
+| Autonomy | A3 / A4 / A5 | L4, built into the frame |
+| Spare battery packs | — | none, or 0.5–3 per bike ([Q15](#q15)) |
+| Fleet size | 1–300 | 5–750 |
 
-Feasible vehicle variants after the battery constraint:
-- **Road:** C1–C2 → P1–P4; C3–C4 → P1–P5; C5 → P1–P6; C6–C7 → P1–P6; C8 → P1–P7. That gives 43 chassis/battery pairs × 3 chargers × 4 motors × 3 autonomy levels = **1,548**.
-- **Bike:** B1, B2 → E1 only; B3 → E1–E3. That gives 5 frame/battery pairs × 2 × 3 = **30**.
+After the battery-weight constraint, 1,548 road variants (43 chassis/battery pairs × 3 chargers × 4 motors × 3 autonomy levels) and 30 bike variants (5 frame/battery pairs × 2 chargers × 3 motors) are feasible.
 
-Crossing these with fleet sizes is the "MASSIVE" space the recitation warns about. Task 2's model handles all of them. Pruning (dominated vehicle variants, such as a bigger motor with no speed gain once the speed cap binds) belongs to Task 3, but the vehicle-level table should make that pruning trivial.
+#### <a id="q14"></a>Q14. Which architectures and fleet sizes are enumerated?
 
-> **Q10, decided:** One road variant plus one bike variant per architecture. Fleet-size grid: **road 1–15 step 1, 20–50 step 5, 60–100 step 10, 125–300 step 25; bikes 5–50 step 5, 75–200 step 25, 250–750 step 50** (team decision, revised 2026-11-01 from road 5–300 step 5 / bikes 25–750 step 25: the EZRide anchor showed 1–4 bus fleets meet the thresholds below the old grid's cheapest point. Past the knee, cost rises linearly with N while utility is flat, so coarse steps there lose nothing). OS3A argues against large, half-empty shuttles (MIT P&T quote [[15]](references.md#ref-15)) and in favor of more e-bikes (the interviewee's #1 request; Ames/Main Bluebikes already need valet service).
+**Answer (Decision, team, revised 2026-11-01):** each architecture has at most one road variant and one bike variant. Fleet sizes use steps that widen as fleets grow: **road 1–15 step 1, 20–50 step 5, 60–100 step 10, 125–300 step 25; bikes 5–50 step 5, 75–200 step 25, 250–750 step 50.**
 
-### Layer 1: vehicle model, `src/os4/vehicle.py` (Appendix B, as given)
-For each feasible variant compute: total weight (+100 kg × pax), cost, Wh/km, range, speed (capped at D3), charge time, up-time, down-time and **availability**. Return one tidy DataFrame with one row per variant.
-- Apply the e-bike modification from D5. Keep the original formula alongside it so the justification can show both.
+**Discussion.** The grid was revised from road 5–300 step 5 and bikes 25–750 step 25 because the EZRide anchor ([Q23](#q23)) showed that 1–4 bus fleets meet the thresholds below the old grid's cheapest point. Past the knee, cost rises linearly with N while utility is flat, so coarse steps there lose nothing.
 
-### Layer 2: fleet/operations model, `src/os4/fleet.py`
-Inputs: vehicle row(s), N_road, N_bike, scenario (network distances from Q1: 1.9 / 1.6 / 3.3 km, demand profile, speed limit). Proposed equations (based on the Wikibooks transit-capacity pages from Appendix B [[4]](references.md#ref-4), [[5]](references.md#ref-5)):
-- **Cycle time** per trip = (trip distance + empty repositioning distance) / speed + dwell (60 s). Trip distance is 1.75 km for road vehicles and 1.6 km for bikes (Q13). At 21 km/h a 1.75 km trip takes 5.0 min plus 1 min dwell, before deadhead.
-- **Per-vehicle capacity** = (60 / cycle_min) × pax × 0.75 load factor. A bike carries pax = 1 (2 for B3) and its repositioning leg runs autonomously.
-- **Effective fleet** = N × availability, since vehicles that are charging carry no passengers.
-- **Fleet throughput** (trips/h) = Σ effective vehicles × per-vehicle capacity. **Peak throughput MoP** = min(capacity, offered peak demand), or capacity alone. Decide which and document it, because the SAU runs to 200 while Appendix B demand peaks at 150.
-- **Daily passenger volume** = Σ over the 2-hour bins of min(demand_h, capacity) × 2.
-- **Average wait at Kendall:** headway/2 when vehicles are plentiful, where headway = 60 / (vehicle departures/h at the node). When demand exceeds capacity, add a queueing penalty (an M/M/c-style or simple backlog term) so wait rises steeply. For bikes, use time for the nearest idle bike to self-deliver, based on the idle-bike density over the service area.
-- **Availability MoP:** per-vehicle Appendix B availability. For a mixed fleet, use the capacity-weighted average. Compare against the 0.75 benchmark.
-- **Fleet cost** = Σ vehicle cost × N. State that charging infrastructure and operations cost are excluded, or add them as an assumption.
+### Vehicle layer (`vehicle.py`)
 
-> **Q11, decided:** peak throughput is the demand the fleet actually serves, min(capacity, peak demand), so it caps at 150 trips/h (U = 0.90). Capacity is still used for the Table 1 thresholds.
+Appendix B as given, for every feasible variant: total weight (+100 kg per passenger), cost, Wh/km, range, speed (capped, [Q4](#q4)), charge time, up-time = range / speed, down-time = charge time + 0.25 h, and availability = up-time / (up-time + down-time).
 
-> **Q12, decided (from OS3A):** Use an on-demand wait model rather than a fixed-route headway model. The exact formula and the bike self-delivery model are still open. MOE 4 explicitly covers *demand-responsive* pickups, so an on-demand wait model fits better than a fixed-route headway model. Anchors: EZRide runs every 8–12 min (≈ 4–6 min average wait) [[18]](references.md#ref-18), and MBTA buses every 15–30 min [[17]](references.md#ref-17).
+#### <a id="q15"></a>Q15. How can e-bikes reach useful availability?
 
-> **Q13, decided (OS3A + measured distances):** Average trip length **1.75 km** for road vehicles, the mean of the two Kendall-origin links from Q1 (Kendall–Lechmere 1.9 km, Kendall–Central 1.6 km), since the Appendix B demand starts at Kendall (Q4). Bikes use 1.6 km (both Kendall bike links). Travel time is measured on this average trip. **Deadhead 1.0** (empty return to Kendall), kept for now.
+**Answer (Decision, team, 2026-11-01; Deviation from Appendix B):** model both pathways: fixed batteries (Appendix B as given) and removable batteries swapped at the hub, with k spare packs per bike. This is our candidate for the rubric's "Above & Beyond: Excellency in Modeling".
 
-> **Q14, decided:** availability is **service availability**: P(capacity of the vehicles in service ≥ demand) in each 2-hour bin, averaged over the day weighted by demand. Each vehicle is in service with its Appendix B availability a, independently, so the capacity in service has mean Σ N·a·c and variance Σ N·a·(1−a)·c² (c = one vehicle's trips/h); the probability uses the normal approximation (Excel: `NORMSDIST`). Spare vehicles raise it, so a pool of 42%-available bikes can still serve almost every rider.
+**Discussion.** **E-bike availability is 0.14–0.42 under Appendix B,** far below the 0.75 benchmark. Small batteries (0.5–3 kWh) and slow chargers mean bikes charge much longer than they ride. **Assumption:** the formula assumes a vehicle rides nonstop until its battery is empty. Real bikes sit idle most of the day and could charge then, so it understates bike availability.
 
-> **Q15, decided (assumption):** vehicle capital cost only for now, as the tradespace axis; operating cost (staff, Level 3 attendants, battery-swap labor) is not modeled. MIT P&T's "not financially viable" concern and EZRide's funding from ~25 member firms are noted qualitatively.
+With removable batteries, a bike swaps packs in 5 min (**Assumption**) instead of charging in place, with k spare packs per bike pooled across the fleet (0.5, 1, 1.5, 2 or 3). Availability = min( U/(U+s), (1+k)·U/(U+s+C+0.25) ): the bike is limited either by the swap itself or by the supply of charged packs. Each spare adds its battery and a charger slot to the bike's cost. A B2 bike goes from 0.42 availability at $4,500 to 0.90 at $6,150 with 1.5 spares. **Decision (team, 2026-11-01):** swap labor is not counted ([Q21](#q21)), stated as a limitation.
 
-### Layer 3: glue, `src/os4/model.py` (new)
-`evaluate(architecture, scenario) -> dict` returns the MoPs, MAU and cost. Tasks 3 and 4 call this with a different scenario object, so put scenarios in `data/scenarios.yaml` or a dataclass rather than in constants.
+#### <a id="q16"></a>Q16. How many riders does an e-bike carry per trip?
 
-### Verification & validation (needed for the slide)
-- **Hand-calc check:** one road and one bike variant worked by hand (in a spreadsheet), matched by the code to 1e-9.
-- **Robustness sweep:** every feasible variant × fleet-size grid produces no NaN, inf or negative values, and availability stays in (0, 1). This is the assignment's "doesn't break down" requirement.
-- **Monotonicity tests:** throughput rises with N, wait falls with N, cost is linear in N, and N = 0 gives zero throughput and an infinite or maxed-out wait that is handled.
-- **Constraint tests:** infeasible battery/chassis pairs are excluded.
-- **Validation / anchor:** compare to real systems, such as Bluebikes trips and dock density in Cambridge, and the MBTA CT2/EZRide shuttle headways and fleet sizes. Show that the model lands in a plausible range. Show that the primary scenario's demand (150/h peak, sum ≈ 1,790 trips/day) is met by at least one architecture.
+**Answer (Decision, Austin, 2026-11-01; Deviation from Appendix B):** **1-seat bikes (B1, B2) carry 1 rider; 2-seat bikes (B3) carry 2 riders every 3 trips** (4/3 riders, load factor 0.67) (`Scenario.bike_load_factors`). Road vehicles keep Appendix B's 0.75.
 
-> **Q16 anchors, implemented (`data/anchors.csv`, `model.anchor_architectures`):** today's service levels run through the same model and plotted on every tradespace (yellow-filled symbols) and the knee zoom. Each anchor is a published headway: **EZRide every 10 min** (midpoint of 8–12 [[18]](references.md#ref-18)) and **MBTA bus every 15 min** (frequent end of 15–30 [[17]](references.md#ref-17)). Vehicle: the cheapest 30-seat C8 (closest to a transit bus) that reaches the speed cap and the Appendix B 0.75 availability benchmark for competing systems, C8-P1-G3-M4-A3; fleet = the fewest vehicles whose model headway is at most the published one. A third anchor, **MIT daytime shuttles**, uses a known fleet instead of a headway: 5 shuttles [[15]](references.md#ref-15) of 14 seats (team; C6, 16 seats, is the closest Appendix C chassis), C6-P1-G3-M3-A3 by the same vehicle rule. Results: EZRide level = 2 buses, $191,200, MAU 0.834, meets the thresholds; MBTA level = 1 bus, $95,600, MAU 0.365, misses the 150 trips/h peak; MIT shuttles = 5 × C6, $373,250, MAU 0.954, meets the thresholds but is dominated (3 × C7 + 25 bikes match it for $323,950). Two findings for the group:
-> - **The old road grid started at 5 vehicles, so it had no 1–4 bus fleets.** The EZRide anchor (2 buses) meets every threshold for $191k, below the old grid's cheapest feasible fleet ($321k). **Fixed:** Q10 now uses progressive steps starting at 1 road vehicle and 5 bikes. The EZRide anchor is now on the fixed-battery front itself.
-> - **The EZRide anchor checks the wait model (Q12).** Its model headway is 6.9 min (headway / 2 = 3.5 min), but the reported wait is 10.1 min: the 1 / (1 − ρ) queue factor triples it, because two buses run at 76% of capacity at the peak. Real EZRide riders wait about 4–6 min (headway / 2). M/M/1 treats each bus as serving one rider at a time; a 30-seat bus boards everyone waiting, so the factor overstates the wait for large vehicles.
->
-> **Q16, decided (from OS3A):** OS3A already has anchors with citations: **EZRide 8–12 min headways** [[18]](references.md#ref-18), **MBTA buses 15–30 min** [[17]](references.md#ref-17), **5 daytime MIT shuttles**, **18 Bluebikes stations** in Kendall, **6,878 Red Line riders/day**, and **Red Line 89% on-time within 5 min** [[16]](references.md#ref-16). Reuse the OS3A references.
+**Discussion.** Appendix B's 0.75 load factor gives a 1-seat bike 0.75 riders per trip, which is impossible: an on-demand bike only moves with someone on it, and its empty return is already the deadhead. The 2-seat share is optimistic, since most trips carry one person.
 
-### Deliverable: 5-architecture table
-Pick 5 that span the space: (1) small road-only fleet of C2 cars, (2) large road shuttles (C6/C7), (3) bike-only, (4) mixed road + bike, (5) a high-autonomy (A5) or long-range variant. Columns: composition, N, component IDs, speed, range, throughput, wait, availability, vehicle cost, fleet cost, plus the MAU for free.
+### Fleet layer (`fleet.py`)
 
-> **❓ Q17 / A:** Which five architectures, components and N for the Task 2 table, and how to size them? **Austin will pick**, using the ~50 highlighted candidates in the results explorer (`outputs/site/`). The current five in `model.representative_architectures` are hand-picked placeholders (11–60% spare capacity). **Update 2026-11-01 (L):** the ceilings failed #1 (12 × C2, about 50 rides per car per day) and #4 (8 × C2 + 60 × B2). Since Q17 is open, they got the smallest change that passes, the same vehicles with more of them: **#1 is now 24 × C2** (24.9 rides per car per day, $1,435,200) and **#4 is 8 × C2 + 115 × B2** (24.6 rides per car, 10.4 riders per bike, $995,900).
-> **Answer:** _TBD (Austin)_
+Equations follow the *Fundamentals of Transportation* extracts in the appendix [[4]](references.md#ref-4), [[5]](references.md#ref-5).
 
-### Model export
-Use `python -m os4` to write `outputs/media/os4_model.xlsx` (with tabs for inputs, the SAU/MAU tables, the vehicle variants, the 5 architectures, and the hand-calc check) and make it the ZIP submission. The Excel file holds model data and formulas only; text responses go in the slide deck.
+- **Cycle time** = trip × (1 + deadhead) / speed + 60 s dwell. A road vehicle at 21 km/h: 2 × 1.75 km / 21 km/h = 10 min, plus 1 min dwell = 11 min.
+- **Capacity per vehicle** = (60 / cycle time) × seats × load factor (0.75 for road; [Q16](#q16) for bikes).
+- **Vehicles in service** = N × availability, since charging vehicles carry no one.
+- **Fleet capacity** = Σ vehicles in service × capacity per vehicle.
+- **Daily passenger volume** = Σ over the 2-hour demand bins of min(demand, capacity) × 2.
+- **Fleet cost** = Σ vehicle cost × N.
+
+#### <a id="q17"></a>Q17. What counts as peak throughput?
+
+**Answer (Decision):** **the demand served,** min(capacity, peak demand), so it caps at 150 trips/h (U = 0.90).
+
+**Discussion.** A fleet can't carry riders who aren't there, so capacity beyond demand earns no utility. Capacity alone is still used for the Table 1 thresholds.
+
+#### <a id="q18"></a>Q18. How is the average wait computed?
+
+**Answer (From OS3A; formula Decision):** an on-demand wait at the Kendall hub: wait = headway / 2 × 1 / (1 − ρ), where headway = 60 / departures per hour and ρ = demand / capacity, capped at 30 min and weighted by demand over the day. **Assumption:** every vehicle in service cycles all day, with no idle time or rebalancing.
+
+**Discussion.** OS3A's MOE 4 covers demand-responsive pickups. Bikes return to the hub after each trip and use the same model. The EZRide anchor ([Q23](#q23)) shows the queue factor overstates the wait for large vehicles.
+
+#### <a id="q19"></a>Q19. What does the availability attribute measure?
+
+**Answer (Decision):** **service availability:** the chance that the vehicles in service can carry each 2-hour bin's demand, averaged over the day by demand. The Appendix B vehicle availability is still reported as `vehicle_availability`.
+
+**Discussion.** Each vehicle is in service with its Appendix B availability a, independently, so capacity in service has mean Σ N·a·c and variance Σ N·a·(1−a)·c² (c = one vehicle's trips/h). The probability uses the normal approximation (Excel: `NORMSDIST`). Spare vehicles raise it, so a large pool of 42%-available bikes can still serve almost every rider.
+
+#### <a id="q20"></a>Q20. How is travel time computed?
+
+**Answer (Decision):** the average Kendall trip (1.75 km road, 1.6 km bike) ÷ speed, weighted by each part's share of trips.
+
+**Discussion.** A capped road fleet takes 5.0 min, inside Table 1's 7-minute requirement. It is reported, not weighted ([Q11](#q11)).
+
+#### <a id="q21"></a>Q21. What does cost include?
+
+**Answer (Assumption):** vehicle capital only. Operating cost (staff, A3 attendants, battery-swap labor) is not modeled.
+
+**Discussion.** MIT P&T's "not financially viable" concern and EZRide's funding from about 25 member firms are noted qualitatively.
+
+### Feasibility screens
+
+Architectures that fail a screen are dropped before scoring.
+
+- **Table 1 thresholds:** at least 1,500 trips/day, 150 trips/h at the peak, and 50 trips/h off-peak. The "desired" goals (5-min wait, 7-min travel, 0.75 availability benchmark) are reported as pass/fail flags, not screens.
+- **Utilization ceilings** ([Q22](#q22)).
+
+#### <a id="q22"></a>Q22. How many rides per day can one vehicle realistically give?
+
+**Answer (Decision, Austin, 2026-11-01):** **at most 15 riders per bike per day** and **at most 25 rides per car per day** (road chassis of 1–6 seats, C1–C3); no ceiling for shuttles and buses. The model reports riders per vehicle per day (`fleet.trips_per_vehicle_day`) and screens against the ceilings (`Scenario.max_bike_trips_per_day`, `Scenario.max_car_trips_per_day`).
+
+**Discussion.** The model lets every vehicle cycle all day, so cheap fleets can claim more rides per vehicle than any real system.
+- **Bikes:** Bluebikes run about 2.4–2.6 trips per bike per day (2024 [[28]](references.md#ref-28), [[29]](references.md#ref-29)), Citi Bike 3.3 (2024 [[25]](references.md#ref-25)) and 5.2 (2014 [[26]](references.md#ref-26)); 3–5 is typical. Citi Bike e-bikes ran about 15 a day in 2018 [[27]](references.md#ref-27), the busiest observed case.
+- **Cars:** set at Waymo's observed rate of about 24 (250,000 paid rides a week [[32]](references.md#ref-32) on over 1,500 vehicles [[33]](references.md#ref-33), spring 2025). NYC yellow taxis ran 14.0 and Uber/Lyft 11.2 in 2024 [[31]](references.md#ref-31).
+- **Shuttles and buses:** MBTA buses carry about 300–320 weekday riders per bus [[30]](references.md#ref-30), in line with the model.
+- **Not adopted:** a utilization factor X on every architecture's capacity (the load-management ratio in the appendix).
+
+### Anchors and architectures
+
+#### <a id="q23"></a>Q23. Which of today's services anchor the tradespace?
+
+**Answer (From OS3A; vehicle choice Decision):** EZRide, the MBTA bus and the MIT daytime shuttles, run through the same model and plotted on every tradespace (`data/anchors.csv`). Each uses the cheapest vehicle of the right size that reaches the speed cap and the 0.75 availability benchmark.
+
+**Discussion.**
+
+| Anchor | Basis | Model fleet | Cost | MAU | Meets thresholds |
+| --- | --- | --- | --- | --- | --- |
+| EZRide | Every 10 min, midpoint of 8–12 [[18]](references.md#ref-18) | 2 × C8-P1-G3-M4-A3 | $191,200 | 0.834 | Yes |
+| MBTA bus | Every 15 min, frequent end of 15–30 [[17]](references.md#ref-17) | 1 × C8-P1-G3-M4-A3 | $95,600 | 0.365 | No (misses the peak) |
+| MIT daytime shuttles | Known fleet of 5 [[15]](references.md#ref-15); 14 seats, so C6 (16 seats, **Assumption**) | 5 × C6-P1-G3-M3-A3 | $373,250 | 0.954 | Yes, but dominated |
+
+**Finding: the EZRide anchor checks the wait model.** Its model headway is 6.9 min (headway / 2 = 3.5 min), but the reported wait is 10.1 min, because the 1 / (1 − ρ) queue factor triples it with two buses at 76% of capacity at the peak. Real EZRide riders wait about 4–6 min. The factor treats each bus as serving one rider at a time; a 30-seat bus boards everyone waiting, so the model overstates the wait for large vehicles.
+
+#### <a id="q24"></a>Q24. Which five architectures go in the Task 2 table?
+
+**Answer (Decision, Austin, 2026-11-01):**
+
+| # | Fleet | Cost | MAU (Appendix A) |
+| --- | --- | --- | --- |
+| 1 | 24 × C2-P2-G3-M2-A3 (small cars) | $1,435,200 | 0.961 |
+| 2 | 4 × C6-P4-G3-M3-A3 (large shuttles) | $350,600 | 0.946 |
+| 3 | 150 × B2-E1-G2-K2 (bike-only) | $675,000 | 0.962 |
+| 4 | 8 × C2-P2-G3-M2-A3 + 115 × B2-E1-G2-K2 (mixed) | $995,900 | 0.962 |
+| 5 | 6 × C4-P5-G3-M2-A5 (A5, long range) | $784,800 | 0.893 |
+
+**Discussion.** Fleets 1 and 4 (originally 12 × C2, and 8 × C2 + 60 × B2) failed the utilization ceilings ([Q22](#q22)) and were sized up with the same vehicles.
+
+**Finding: large shuttles look cheapest** (4 × C6 for $351k vs. 24 × C2 for $1.44M), because Appendix B's 0.75 load factor fills a 16-seat shuttle with 12 riders per trip. For on-demand service at 150 trips/h that is optimistic, which is why Task 3 shows a load-factor sweep ([Q27](#q27)).
+
+### Verification
+
+- **Hand calculation:** one road and one bike variant worked by hand, matched by the code to 1e-9.
+- **Robustness sweep:** every feasible variant × fleet size gives no NaN, inf or negative values, and availability stays in (0, 1).
+- **Monotonicity:** throughput rises with N, wait falls with N, cost is linear in N, and N = 0 is handled.
+- **Constraints:** infeasible battery/chassis pairs are excluded.
+- **Vectorized model:** `tradespace.tradespace` matches `model.evaluate` on sampled architectures (`tests/test_tradespace.py`).
+
+#### <a id="q25"></a>Q25. What tools carry the model?
+
+**Answer (Decision):** **Python only,** with the Excel backup `outputs/media/os4_model.xlsx` (live formulas checked against Python) for the submission.
+
+**Discussion.** Text responses go in the slide deck.
 
 ---
 
-## Open items from the 2026-11-01 review
+## 4. Task 3: tradespace
 
-> **B, decided (alternate pathways):** keep both e-bike battery options, fixed (Appendix B) and removable (team proposal), and report both; the group chooses later.
+`tradespace.py` scores every architecture on the [Q14](#q14) grid: about 1.6 million with fixed batteries and 3.3 million with removable batteries. Dominated vehicle variants are pruned first (e.g. a bigger motor with no speed gain), so every road vehicle in the space is A3. Both battery cases are plotted with the Appendix A MAU and with `os3a_reweight`.
 
-> **C, decided:** keep Appendix B's 0.75 load factor as the baseline and show the Pareto front at 25 / 50 / 75 / 100% in one chart (`task3_load_factor_fronts.png`).
+| Case | Front (road / bike / mixed) | Cheapest feasible | First front point with MAU ≥ 0.94 |
+| --- | --- | --- | --- |
+| Fixed batteries | 3 / 23 / 633 | $182,200 | 2 × C8 + 20 × B1, 0.942 at $259,200 |
+| Removable batteries | 3 / 31 / 666 | $182,200 | 2 × C8 + 20 × B1, 0.942 at $259,200 |
 
-> **D, decided:** travel time is the average Kendall trip; the longest link (Lechmere–Central) is left for later.
+#### <a id="q26"></a>Q26. What is the Task 3 reference architecture?
 
-> **E, decided (assumption):** vehicle capital cost only (Q15).
+**Answer (Decision, Austin):** **6 × C4-P2-G3-M2-A3** small on-demand shuttles, $430,800, MAU 0.932 (`model.reference_architecture`), chosen from design reasoning before reading the tradespace, as Task 3 asks.
 
-> **❓ F:** Task 3 reference architecture (chosen before looking at the tradespace, as Task 3 asks). **Proposed (Austin), for the group to confirm:** **6 × C4-P2-G3-M2-A3** small on-demand shuttles, $430,800, MAU 0.932 (`model.reference_architecture`). Why, from design reasoning only: C4 (8 seats) is the "small on-demand EV shuttles from a central hub" MIT P&T asked for [[15]](references.md#ref-15) and avoids half-empty big shuttles; A3 is the minimum inside the boundary (D6); M2 is the smallest motor that reaches the 21 km/h cap (Q3); G3 is the fastest charger, for availability; P2 is the smallest pack that covers a service day (~18 h × 21 km/h ≈ 380 km). Fleet size from load management at the peak [[5]](references.md#ref-5): f ≥ 150 / (0.90 × 8 × 0.75) = 27.8 departures/h, N = 27.8 × 11 min / 60 / 0.904 = 5.6 → 6 (X = 0.90 is the textbook example's value). On the tradespace it is **dominated**: 5 × C6 reaches the same MAU for $350,750 (larger shuttles at the 0.75 load factor), and with removable batteries 25 × B3 bikes do for $205,000. That is the "why isn't the reference on the front" discussion Task 3 asks for.
-> **Answer:** _TBD_
+**Discussion.**
+- C4 (8 seats) is the "small on-demand EV shuttles from a central hub" MIT P&T asked for [[15]](references.md#ref-15), and avoids half-empty large shuttles.
+- A3 is the minimum inside the boundary ([Q7](#q7)); M2 is the smallest motor that reaches the speed cap ([Q4](#q4)); G3 is the fastest charger, for availability; P2 is the smallest pack that covers a service day (about 18 h × 21 km/h ≈ 380 km).
+- Fleet size from load management at the peak [[5]](references.md#ref-5): f ≥ 150 / (0.90 × 8 × 0.75) = 27.8 departures/h, so N = 27.8 × 11 min / 60 / 0.904 = 5.6 → 6. X = 0.90 is the textbook example's value.
 
-> **❓ G:** The three Pareto architectures for the Task 3 table. **Open**; review them in the results explorer.
-> **Answer:** _TBD_
+On the tradespace the reference is **dominated:** 3 × C7 + 5 × B1 reach the same MAU for $254,950. The model can't see why the reference chose 8 seats: every road vehicle runs at the fixed 0.75 load factor, so a larger vehicle is always more capacity per dollar.
 
-> **❓ H:** The proposed travel-time SAU curve (extended MAU). **Open**; shown for review on the explorer's Task 1 page. Bike share was removed from the weights; energy per passenger-km and fleet size are proposed in J.
-> **Answer:** _TBD_
+#### <a id="q27"></a>Q27. How sensitive is the front to the road load factor?
 
-> **❓ J:** Two more proposed attributes, weighted in a fourth set, `os3a_full` (proposed by Austin, for the group to confirm; `os3a_extended` is unchanged). **Weights:** the Appendix A four at 0.70 × `os3a_reweight` (volume 0.07 / peak 0.175 / wait 0.245 / availability 0.21), travel time 0.15, energy 0.075, fleet size 0.075. Both SAU curves are team assumptions (`data/sau_energy_per_pkm.csv`, `data/sau_fleet_size.csv`).
-> - **Energy per passenger-km** (`fleet.energy_per_pkm`). It follows the wait model (Q12): every vehicle in service leaves the hub on its cycle all day, so it drives trip × (1 + deadhead) km per cycle at its Appendix B Wh/km whether riders fill it or not. Daily Wh ÷ passenger-km served (1,790 trips at 1.75 km road / 1.6 km bike). Extra vehicles add empty running but no riders, so this is the operating side of the wait trade-off (Mohring's frequency rule in the CLAUDE.md appendix). **Alternative for the group:** dispatch on demand only, which makes it a property of the vehicle (Wh/km ÷ pax × load factor) and independent of fleet size; it then can't see empty shuttles, because the 0.75 load factor is fixed.
-> - **Fleet size** (`fleet.fleet_size`): vehicles to manage. It overlaps cost for road fleets, but bikes are cheap and many, so it is the one attribute that counts 700 bikes as harder to run than 7 buses. Open: count a road vehicle (charging bay, A3 attendant) as more than one bike, or a mixed fleet as more complex than a single type.
-> - **Results** (removable batteries): the Appendix A front runs to $27.8M and 1,050 vehicles; the `os3a_full` front has 57 points and stops at **$318,600 (4 × C7)**, because past the knee every extra vehicle lowers utility. Reference 0.895, EZRide 0.842, MBTA bus 0.514, **MIT shuttles 0.912, now on the front**. The Task 2 bike-only (150 × B2) and mixed (8 C2 + 60 B2) architectures drop from the top MAU to the bottom two (0.853, 0.864). Plots: `task3_tradespace_{fixed,removable}_full.png`.
-> **Answer:** _TBD_
+**Answer (Decision):** Appendix B's 0.75 stays the baseline, and one chart shows the Pareto front at 25 / 50 / 75 / 100% (`task3_load_factor_fronts.png`).
 
-> **K, decided (Austin, 2026-11-01): e-bike riders per trip.** Appendix B's 0.75 load factor gives a 1-seat bike 0.75 riders per trip, which is impossible: an on-demand bike only moves with someone on it, and its empty ride back is already the deadhead (Q13). The model now uses riders per trip by seats (`Scenario.bike_load_factors`): **1-seat bikes (B1, B2) carry 1 rider; 2-seat bikes (B3) carry 2 riders every 3 trips (4/3 riders, load factor 0.67)**, an optimistic share, since most trips carry one person. Road vehicles keep 0.75, and the Task 3 load-factor sweep varies road vehicles only. A justified Appendix B deviation (state it on the Task 2 slide).
-> - **Effect:** B1/B2 capacity rises by a third and B3 falls by a tenth (1.5 → 1.33 riders). With removable batteries the first front point with MAU ≥ 0.94 moves from 1 × C6 + 20 × B3 ($212,800) to **40 × B1 with 1.5 spares ($202,000)**; 30 × B3-E1-G2-K1-S2 drops from 195 to 173 trips/h and from 0.999 to 0.976 service availability. Road-only results, the reference and the anchors are unchanged.
+**Discussion.** 0.75 is optimistic for large on-demand vehicles ([Q24](#q24)). The sweep varies road vehicles only; bikes keep their riders per trip ([Q16](#q16)).
 
-> **L, decided for now (Austin, 2026-11-01): fleet utilization.** The model lets every vehicle cycle all day with no idle time or rebalancing (Q12), so cheap fleets can claim more rides per vehicle than any real system. The model now reports **riders per vehicle per day** (overall, road and bike; `fleet.trips_per_vehicle_day`) and checks it against real systems:
-> - **Bike share:** Bluebikes about 2.4–2.6 trips per bike per day in 2024 (4.73 million trips on about 5,000–5,500 bikes [[28]](references.md#ref-28), [[29]](references.md#ref-29)); Citi Bike 3.3 in 2024 [[25]](references.md#ref-25) and 5.2 in 2014 [[26]](references.md#ref-26). **Typical: 3–5.** Citi Bike e-bikes were borrowed about 15 times a day in 2018 [[27]](references.md#ref-27), the busiest observed case.
-> - **Decision: a feasibility gate of at most 15 riders per bike per day** (`Scenario.max_bike_trips_per_day`), screened out of the tradespace like the Table 1 thresholds (`model.meets_bike_ceiling`). It changes no utility or cost; it removes infeasible fleets. Effect: 503,580 of 3.9 million grid points fail it; both battery cases now have the same first front point with MAU ≥ 0.94, **2 × C8 + 20 × B1 at $259,200** (was 40 × B1 at $202,000 with removable batteries); the best MAU is unchanged. Typical bike share (3–5) is the context for the slide: gated bikes can still run up to 4–6 times busier than Bluebikes or Citi Bike.
-> - **Buses: no gate needed.** MBTA buses carry about 300–320 weekday riders per bus (about 335,300 riders on 1,040–1,115 buses [[30]](references.md#ref-30)); EZRide about 500,000 riders a year [[18]](references.md#ref-18). The reference (298 per vehicle) and MIT shuttles (358) are in range; the EZRide-level anchor (2 buses, 895 each) is high because the real route is longer than our 1.75 km trip.
-> - **Decision: small on-demand cars (C1–C3, 1–6 seats) at most 25 rides per car per day** (`Scenario.max_car_trips_per_day`, `model.meets_car_ceiling`), set at Waymo's observed rate: about 24 rides per vehicle per day (250,000 paid rides a week [[32]](references.md#ref-32) on over 1,500 vehicles [[33]](references.md#ref-33), spring 2025), the busiest case for automated cars; NYC yellow taxis ran 14.0 and Uber/Lyft 11.2 trips per vehicle per day in 2024 [[31]](references.md#ref-31). Rides are vehicle trips: riders per car ÷ (seats × load factor). Effect: 132,360 more grid points screened out; the first front point with MAU ≥ 0.94 is unchanged (2 × C8 + 20 × B1, $259,200). The Task 2 small-car fleet (12 × C2, about 50 rides per car per day) and the mixed fleet (8 × C2 at 36, plus 60 × B2 at 15.4 riders per bike) failed a ceiling and were resized (Q17): 24 × C2, and 8 × C2 + 115 × B2.
-> - Not adopted: a utilization factor X on capacity (the load-management ratio from the Fundamentals of Transportation extract); the group found it did not make sense here.
-> - All model assumptions are listed in the Task 2 report's Assumptions table (`plots.assumptions_table`).
+### Findings
 
-> **❓ I:** Extra sensitivity runs (32 km/h posted speed, 0.5 deadhead). Needed? The load-factor chart already covers the "what-if" the rubric asks about.
-> **Answer:** _TBD_
-
-## Questions raised by OS3A
-
-> **⏸ Q20 (on hold):** Task 4 scenario: (a) Red Line shutdown [[21]](references.md#ref-21), with trips leaving the boundary toward Boston (forces A4/A5), or (b) winter, when commuters switch from bikes to the Red Line. Held until Tasks 2–3 are settled. Other candidates, each a change to the `Scenario` with the same design vector: (c) no dedicated lanes (L3 not allowed, so A4 minimum, and a lower speed cap in mixed traffic); (d) a network service with demand at all three nodes, so less empty running (deadhead below 1.0) and the 3.3 km Lechmere–Central link; (e) an evening or event peak (different demand profile, e.g. Cambridge Crossing). Growth in demand is better kept for Task 6, since the rubric rejects "a simple variation" of the primary scenario.
-
-> **Q21, decided for the primary scenario:** no accessibility screen for now. OS3A notes no wheelchair-accessible AVs exist and e-bikes serve no one with a mobility disability; revisit for Task 5.
-
-> **❓ Q22:** OS3B was individual. Each member: add the operational objectives from your OS3B under Q7 so the Task 1 reflection can cite them.
-> **Answer:** _TBD (each member)_
-
-## Suggested split & order
-1. **Decisions:** D1–D6 and Q10–Q15 are settled (Q12's exact wait formula is the default in `fleet.py`). Open: Q17/A (Austin picks the five), the items under "Open items from the 2026-11-01 review" below, and Q22 (each member's OS3B).
-2. **Task 1:** `utility.py` and its tests, plus the slide (1 person, small).
-3. **Vehicle layer:** `vehicle.py`, its tests, and the hand-calc spreadsheet (1 person).
-4. **Fleet layer:** `fleet.py` and the scenario config, which carries the most modeling judgment (1–2 people).
-5. **Integrate:** `model.py`, the 5-architecture table, the xlsx export, and the Task 2 slides.
-
-Steps 2–4 can run in parallel once the vehicle-row DataFrame columns are agreed.
-
-> **Q19, decided:** Python only, with the Excel backup (`outputs/media/os4_model.xlsx`, live formulas) for the submission.
+- **The MAU levels off once demand is met.** Served throughput caps at 150 trips/h (U = 0.90) and volume at 1,790 trips/day (U = 0.916), and service availability is near 1 for almost every fleet that meets the thresholds. The Appendix A ceiling is 0.962 (0.967 with `os3a_reweight`). Past the knee, architectures differ only by seconds of wait, so the practical choice is the cheapest fleet that meets demand.
+- **Both fronts are mostly small mixed fleets:** 1–3 buses or shuttles plus bikes.
+- **MIT shuttles are dominated:** 3 × C7 + 20 × B1 match their MAU for $306,950, vs. $373,250.
 
 ---
 
-## Appendix: Fundamentals of Transportation extracts
+
+## Appendix: *Fundamentals of Transportation* extracts
 
 Transcribed from the extracts appended to the assignment (OS4 PDF pp. 10–11) [[1]](references.md#ref-1), which reproduce sections of the Wikibooks *Fundamentals of Transportation* pages [[4]](references.md#ref-4), [[5]](references.md#ref-5). Wikibooks text is licensed CC BY-SA 4.0.
 
@@ -509,8 +477,8 @@ As examples, a bus route with a frequency of 6 buses/hr and a maximum of 55 pers
 
 ### How the model uses these
 
-- **Capacity:** `fleet.vehicle_capacity_per_h` is C<sub>route</sub> = f · N<sub>car</sub> · C<sub>car</sub> per vehicle, with f = 60 / cycle time, N<sub>car</sub> = 1, and C<sub>car</sub> = pax × the Appendix B load factor (0.75).
-- **Cycle time:** `fleet.cycle_time_min` follows the sample problem: running time at the average speed plus dwell, with the empty return leg in place of the inbound trip (Q13 deadhead).
-- **Headway:** the wait model (Q12) starts from headway / 2, with headway = 60 / departures per hour at the Kendall hub.
-- **Fleet sizing (open question for the group):** load management gives a cited rule. Departures needed f ≥ P / (X · 1 · C<sub>car</sub>); vehicles needed N = f × cycle / 60 / availability. For the C2 car (4 pax × 0.75 = 3 riders per trip, 11-min cycle, availability 0.922) at P = 150 trips/h: X = 1 gives f ≥ 50/h and N = 10, the model's minimum fleet; X = 0.8 gives f ≥ 62.5/h and N = 13. X is the planner's choice (0.90 in the example), so choosing X is choosing how much headroom every architecture gets.
-- The *Network Design and Frequency* page also gives Mohring's cost-minimizing frequency, f = √(VOT · p / (2 · C · T)), which trades waiting time against operating cost. It is not in the assignment's extracts, and we don't model operating cost (Q15).
+- **Capacity:** `fleet.vehicle_capacity_per_h` is C<sub>route</sub> = f · N<sub>car</sub> · C<sub>car</sub> per vehicle, with f = 60 / cycle time, N<sub>car</sub> = 1, and C<sub>car</sub> = seats × the vehicle's load factor: Appendix B's 0.75 for road vehicles; for e-bikes, riders per trip by seats ([Q16](#q16)).
+- **Cycle time:** `fleet.cycle_time_min` follows the sample problem: running time at the average speed plus dwell, with the empty return leg in place of the inbound trip ([Q3](#q3)).
+- **Headway:** the wait model ([Q18](#q18)) starts from headway / 2, with headway = 60 / departures per hour at the Kendall hub.
+- **Fleet sizing:** load management gives departures needed f ≥ P / (X · 1 · C<sub>car</sub>) and vehicles needed N = f × cycle / 60 / availability. For the C2 car (4 seats × 0.75 = 3 riders per trip, 11-min cycle, availability 0.922) at P = 150 trips/h: X = 1 gives f ≥ 50/h and N = 10, the capacity-only minimum; X = 0.8 gives f ≥ 62.5/h and N = 13. The model uses X = 0.90 only to size the reference architecture ([Q26](#q26)); the utilization ceilings ([Q22](#q22)) screen out overworked fleets instead, so the smallest feasible C2 fleet is 24, not 10.
+- The *Network Design and Frequency* page also gives Mohring's cost-minimizing frequency, f = √(VOT · p / (2 · C · T)), which trades waiting time against operating cost. It is not in the assignment's extracts, and we don't model operating cost ([Q21](#q21)).

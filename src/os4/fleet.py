@@ -13,13 +13,10 @@ import pandas as pd
 
 from os4.scenario import Scenario
 
-# Energy intensity of a fleet that carries no one (the energy SAU's zero-utility end) [Wh/pkm].
-MAX_WH_PER_PKM = 1000.0
-
 
 @dataclass(frozen=True)
 class Fleet:
-    """One architecture's fleet: at most one road variant and one bike variant (Q10)."""
+    """One architecture's fleet: at most one road variant and one bike variant (Q14)."""
 
     road: pd.Series | None = None
     n_road: int = 0
@@ -40,7 +37,7 @@ def cycle_time_min(vehicle: pd.Series, scenario: Scenario) -> float:
 
 
 def vehicle_capacity_per_h(vehicle: pd.Series, scenario: Scenario) -> float:
-    """Passenger trips/h one vehicle can serve: (60 / cycle) * pax * its load factor (bikes by seats, PLAN.md K)."""
+    """Passenger trips/h one vehicle can serve: (60 / cycle) * pax * its load factor (bikes by seats, PLAN.md Q16)."""
     return 60.0 / cycle_time_min(vehicle, scenario) * vehicle["pax"] * vehicle["load_factor"]
 
 
@@ -57,7 +54,7 @@ def fleet_capacity_per_h(fleet: Fleet, scenario: Scenario) -> float:
 
 
 def peak_throughput(fleet: Fleet, scenario: Scenario) -> float:
-    """Peak-throughput MoP [trips/h]: capacity, or min(capacity, peak demand) (Q11)."""
+    """Peak-throughput MoP [trips/h]: capacity, or min(capacity, peak demand) (Q17)."""
     capacity = fleet_capacity_per_h(fleet, scenario)
     if scenario.throughput_measure == "served":
         return min(capacity, scenario.peak_demand_per_h)
@@ -72,12 +69,12 @@ def daily_passenger_volume(fleet: Fleet, scenario: Scenario) -> float:
 
 
 def road_wait_min(fleet: Fleet, scenario: Scenario) -> float:
-    """Road-vehicle wait at the design node: headway / 2 plus an overload penalty (Q12)."""
+    """Road-vehicle wait at the design node: headway / 2 plus an overload penalty (Q18)."""
     return _wait_min(_road_part(fleet), scenario)
 
 
 def bike_self_delivery_min(fleet: Fleet, scenario: Scenario) -> float:
-    """Time for the nearest idle bike to ride itself to the passenger (Q12).
+    """Time for the nearest idle bike to ride itself to the passenger (Q18).
 
     Default: bikes return to the Kendall hub after each trip (their L4 empty
     ride), so a waiting rider gets the next returning bike and the same
@@ -96,7 +93,7 @@ def average_wait_min(fleet: Fleet, scenario: Scenario) -> float:
 
 
 def vehicle_availability(fleet: Fleet, scenario: Scenario) -> float:
-    """Capacity-weighted average of the Appendix B vehicle availabilities (the pre-Q14 availability MoP)."""
+    """Capacity-weighted average of the Appendix B vehicle availabilities (the pre-Q19 availability MoP)."""
     parts = [(v["availability"], _part_capacity(v, n, scenario)) for v, n in fleet.members()]
     total = sum(c for _, c in parts)
     if total == 0:
@@ -105,7 +102,7 @@ def vehicle_availability(fleet: Fleet, scenario: Scenario) -> float:
 
 
 def fleet_availability(fleet: Fleet, scenario: Scenario) -> float:
-    """Availability MoP as *service* availability (Q14): can a rider get a vehicle when they ask?
+    """Availability MoP as *service* availability (Q19): can a rider get a vehicle when they ask?
 
     Each vehicle is in service (not charging) with probability equal to its
     Appendix B availability a, independently. In each demand bin the fleet
@@ -142,36 +139,13 @@ def normal_cdf(z):
     return 0.5 * (1.0 + np.where(np.asarray(z) >= 0, erf, -erf))
 
 
-def energy_per_pkm(fleet: Fleet, scenario: Scenario) -> float:
-    """Energy-intensity attribute [Wh per passenger-km] over the service day (team proposal, PLAN.md J).
-
-    Consistent with the wait model (Q12): every vehicle in service leaves the hub on its cycle all
-    day, so it drives trip x (1 + deadhead) km per cycle at its Appendix B consumption (Wh/km)
-    whether or not riders fill it. Passenger-km are the trips served (min(demand, capacity) per
-    bin, split between road and bike by capacity) times each part's trip length. Empty off-peak
-    running and the deadhead leg therefore count against the fleet. An empty fleet gets
-    ``MAX_WH_PER_PKM`` (the SAU's zero-utility end).
-    """
-    capacity = fleet_capacity_per_h(fleet, scenario)
-    if capacity <= 0:
-        return MAX_WH_PER_PKM
-    hours = len(scenario.demand) * scenario.demand_bin_h
-    wh = sum(
-        effective_fleet(n, v["availability"]) * 60.0 / cycle_time_min(v, scenario)
-        * _trip_km(v, scenario) * (1.0 + scenario.deadhead_fraction) * v["wh_per_km"]
-        for v, n in fleet.members()
-    ) * hours
-    km_per_trip = sum(_part_capacity(v, n, scenario) * _trip_km(v, scenario) for v, n in fleet.members()) / capacity
-    return wh / (daily_passenger_volume(fleet, scenario) * km_per_trip)
-
-
 def trips_per_vehicle_day(fleet: Fleet, scenario: Scenario) -> dict[str, float]:
     """Riders served per vehicle per day, overall and for the road and bike parts (0 for an absent part), and
     vehicle trips (rides) per car per day for a road part of at most ``scenario.car_max_seats`` seats.
 
-    A realism check (PLAN.md L), not a utility attribute: the model lets every vehicle cycle without
+    A realism check (PLAN.md Q22), not a utility attribute: the model lets every vehicle cycle without
     idle time, so these are upper bounds to compare with real systems (e.g. rides per Bluebike per
-    day). Each part serves the day's volume in proportion to its capacity, as in ``energy_per_pkm``.
+    day). Each part serves the day's volume in proportion to its capacity.
     """
     capacity = fleet_capacity_per_h(fleet, scenario)
     volume = daily_passenger_volume(fleet, scenario)
@@ -189,12 +163,12 @@ def trips_per_vehicle_day(fleet: Fleet, scenario: Scenario) -> dict[str, float]:
 
 
 def fleet_size(fleet: Fleet) -> int:
-    """Operational-complexity attribute: vehicles to manage, charge and dispatch (team proposal, PLAN.md J)."""
+    """Vehicles in the fleet, road and bike."""
     return int(sum(n for _, n in fleet.members()))
 
 
 def fleet_cost_usd(fleet: Fleet) -> float:
-    """Vehicle cost x count, summed over vehicle types (Q15: capital cost only)."""
+    """Vehicle cost x count, summed over vehicle types (Q21: capital cost only)."""
     return float(sum(v["cost_usd"] * n for v, n in fleet.members()))
 
 
@@ -219,7 +193,7 @@ def _bike_part(fleet: Fleet) -> Fleet:
 
 
 def _wait_min(fleet: Fleet, scenario: Scenario) -> float:
-    """Demand-weighted mean wait at the design node over the day's demand bins (Q12 default).
+    """Demand-weighted mean wait at the design node over the day's demand bins (Q18 default).
 
     In each bin, vehicles leave the hub ``departures`` times per hour, so a rider
     who arrives at random waits headway / 2 = 30 / departures minutes. As demand

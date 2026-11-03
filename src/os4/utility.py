@@ -5,10 +5,9 @@ table range. The MAU is additive: ``U = sum_i k_i * u_i(x_i)`` with the weights
 in ``mau_weights.csv`` (must sum to 1).
 
 Besides the Appendix A weights, ``mau_weights_proposed.csv`` holds the team's
-proposed weight sets traced to our OS3A MOEs (PLAN.md Q7/Q8): ``os3a_reweight``
-re-weights the four Appendix A attributes, and ``os3a_extended`` adds two
-proposed attributes (``PROPOSED_ATTRIBUTES``) whose SAUs are team assumptions. ``os3a_full`` also
-weights energy per passenger-km and fleet size (proposed, PLAN.md J).
+proposed weight set traced to our OS3A MOEs (PLAN.md Q9/Q10): ``os3a_reweight``
+re-weights the four Appendix A attributes. The ``PROPOSED_ATTRIBUTES`` have SAUs (team
+assumptions) but no weights: they are reported, not scored (PLAN.md Q11, Q13).
 """
 
 from collections.abc import Mapping
@@ -20,11 +19,10 @@ from os4.data import load
 
 ATTRIBUTES = ("passenger_volume", "peak_throughput", "wait_time", "availability")
 # In-boundary travel time (Table 1: 7 min; OS3A MOE 1) and e-bike share of served trips (OS3A MOE 2).
-# Bike share has an SAU but is not in any weight set (parked; PLAN.md H).
-# Energy per passenger-km (sustainability) and fleet size (operational complexity) are proposed for
-# the group in the ``os3a_full`` set (PLAN.md J).
-PROPOSED_ATTRIBUTES = ("travel_time", "bike_share", "energy_per_pkm", "fleet_size")
-WEIGHT_SETS = ("appendix_a", "os3a_reweight", "os3a_extended", "os3a_full")
+# Neither is in a weight set: travel time barely varies on Kendall trips and stays a pass/fail goal
+# (kept for a Task 4 scenario with longer trips); bike share is parked (PLAN.md Q11, Q13).
+PROPOSED_ATTRIBUTES = ("travel_time", "bike_share")
+WEIGHT_SETS = ("appendix_a", "os3a_reweight")
 
 
 def sau_table(attribute: str) -> pd.DataFrame:
@@ -91,7 +89,7 @@ def _check_weights(weights: Mapping[str, float], attributes: tuple[str, ...] = A
 
 
 def weighted_mau(values: Mapping[str, float | np.ndarray], weights: Mapping[str, float]) -> float | np.ndarray:
-    """Additive MAU over whichever attributes ``weights`` names, e.g. the ``os3a_extended`` set.
+    """Additive MAU over whichever attributes ``weights`` names, e.g. the ``os3a_reweight`` set.
 
     ``values`` maps each weighted attribute to its raw level (extra keys are ignored).
     """
@@ -134,11 +132,7 @@ def evaluate_cases(weights: Mapping[str, float] | None = None) -> pd.DataFrame:
 
 
 def compare_weight_sets() -> pd.DataFrame:
-    """MAU and rank of each case under every weight set that covers only the Appendix A attributes.
-
-    ``os3a_extended`` is left out: cases A-C give no travel time,
-    so it can only score the Task 2 model's architectures.
-    """
+    """MAU and rank of each case under every weight set that covers only the Appendix A attributes."""
     rows = evaluate_cases()[["case"]].copy()
     for name in WEIGHT_SETS:
         weights = load_weights(name)
@@ -165,7 +159,7 @@ def weight_sensitivity(
     """Sweep each weight by +/- ``delta`` (renormalizing the others) and re-rank the cases.
 
     Returns one row per (attribute, perturbation) with each case's MAU and the
-    resulting ranking, so the slide can show where the A/B/C order flips (Q8).
+    resulting ranking, so the slide can show where the A/B/C order flips (Q10).
     """
     weights = load_weights() if weights is None else weights
     _check_weights(weights)

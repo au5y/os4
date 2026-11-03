@@ -58,8 +58,6 @@ CASE_LABELS = {
 PROPOSED_LABELS = {
     "travel_time": ("In-boundary travel time, average Kendall trip", "minutes"),
     "bike_share": ("E-bike share of served trips", "fraction of trips"),
-    "energy_per_pkm": ("Energy per passenger-km, incl. empty running", "Wh per passenger-km"),
-    "fleet_size": ("Fleet size (operational complexity)", "vehicles"),
 }
 # Display names for known columns; anything else is shown under its own name.
 COLUMN_LABELS = {
@@ -79,15 +77,12 @@ COLUMN_LABELS = {
     "availability": "availability",
     "travel_time": "travel time, average Kendall trip (min)",
     "bike_share": "bike share",
-    "energy_per_pkm": "energy (Wh/passenger-km)",
-    "fleet_size": "fleet size (vehicles)",
     "trips_per_vehicle_day": "riders per vehicle per day",
     "road_trips_per_vehicle_day": "riders per road vehicle per day",
     "bike_trips_per_vehicle_day": "riders per bike per day",
     "fleet_cost_usd": "fleet cost",
     "mau": "MAU (Appendix A)",
-    "mau_os3a_extended": "MAU (OS3A extended, proposed)",
-    "mau_os3a_full": "MAU (OS3A full, proposed)",
+    "mau_os3a_reweight": "MAU (OS3A reweight, proposed)",
     "meets_thresholds": "meets thresholds",
     "meets_bike_ceiling": "bike ceiling (≤ 15 riders/bike/day)",
     "meets_car_ceiling": "car ceiling (≤ 25 rides/car/day)",
@@ -526,7 +521,7 @@ REPORT_PAGE = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OS4 · {title}</title>
 <link rel="stylesheet" href="assets/style.css">
-</head>
+{math}</head>
 <body>
 <main class="wrap report" id="main">
 {note}
@@ -572,7 +567,7 @@ def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
         _embed_report(out_dir, md_path.stem, md_path.name, body)
         page = out_dir / f"report_{md_path.stem}.html"
         page.write_text(REPORT_PAGE.format(title=html.escape(title), note=_report_note(md_path.name),
-                                           current="reports.html", body=_with_contents(body, 2)), encoding="utf-8")
+                                           current="reports.html", body=_with_contents(body, 2), math=""), encoding="utf-8")
         reports.append((page.name, title, md_path.name))
         paths.append(page)
     items = "\n".join(f'<li><a href="{href}">{html.escape(title)}</a> <span class="muted small">({source})</span></li>'
@@ -580,7 +575,7 @@ def write_reports(src_dir: Path, out_dir: Path) -> list[Path]:
     index = out_dir / "reports.html"
     index.write_text(REPORT_PAGE.format(
         title="Reports", note=_report_note("task*.md"), current="reports.html",
-        body=f"<h1>Reports</h1>\n<p>The Markdown reports the model writes next to its figures.</p>\n<ul>\n{items}\n</ul>"),
+        body=f"<h1>Reports</h1>\n<p>The Markdown reports the model writes next to its figures.</p>\n<ul>\n{items}\n</ul>", math=""),
         encoding="utf-8")
     return [index] + paths
 
@@ -596,20 +591,27 @@ DOC_PAGES = {"PLAN.md": "plan.html", "references.md": "references.html"}
 DOC_LINKS = {'href="references.md': 'href="references.html', 'href="PLAN.md': 'href="plan.html',
              'href="../outputs/': 'href="report_'}
 MATH_BLOCK = re.compile(r"^\$\$(.+?)\$\$$", re.M)
+# KaTeX renders display math (\[ ... \]) on pages that have it; only \[ \] delimiters, since the text uses $ for dollars.
+KATEX = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist"
+MATH_HEAD = f"""<link rel="stylesheet" href="{KATEX}/katex.min.css">
+<script defer src="{KATEX}/katex.min.js"></script>
+<script defer src="{KATEX}/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.getElementById('main'), {{delimiters: [{{left: '\\\\[', right: '\\\\]', display: true}}]}})"></script>
+"""
 
 
 def write_docs(docs_dir: Path, out_dir: Path) -> list[Path]:
     """Render the team's ``docs/PLAN.md`` and ``docs/references.md`` as read-only pages of the explorer.
 
     Links between them (and to the reports) are pointed at the rendered pages; display math is shown
-    as its TeX source, since the site has no math renderer.
+    with KaTeX (``MATH_HEAD``).
     """
     paths = []
     for name, page_name in DOC_PAGES.items():
         md_path = Path(docs_dir) / name
         if not md_path.exists():
             continue
-        text = MATH_BLOCK.sub(lambda m: f'<pre class="math">{html.escape(m[1])}</pre>',
+        text = MATH_BLOCK.sub(lambda m: f'<div class="math">\\[{html.escape(m[1])}\\]</div>',
                               md_path.read_text(encoding="utf-8"))
         body = markdown.markdown(text, extensions=["tables", "fenced_code", "toc"])
         body = body.replace("<table>", '<div class="table-wrap"><table>').replace("</table>", "</table></div>")
@@ -620,10 +622,60 @@ def write_docs(docs_dir: Path, out_dir: Path) -> list[Path]:
                 "built; edit the file in the repository and rerun <code>python -m os4</code> to update this page.</p>")
         title = next((line.lstrip("# ").strip() for line in text.splitlines() if line.startswith("# ")), name)
         page = out_dir / page_name
-        page.write_text(REPORT_PAGE.format(title=html.escape(title), note=note, current="plan.html",
-                                           body=_with_contents(body, 2)), encoding="utf-8")
+        math = MATH_HEAD if '<div class="math">' in body else ""
+        page.write_text(REPORT_PAGE.format(title=html.escape(title), note=note, current=page_name,
+                                           body=_with_contents(body, 2), math=math), encoding="utf-8")
         paths.append(page)
     return paths
+
+
+# Each PLAN.md question is a heading "#### <a id="q12"></a>Q12. <the question>?".
+QUESTION_DEF = re.compile(r'^#+ <a id="q(\d+)"></a>Q\d+\. (.+)$', re.M)
+QUESTION = re.compile(r"\bQ(\d+)\b")
+QUESTION_LINK = re.compile(r'<a (class="qref" )?href="((?:plan\.html)?#q(\d+))">')
+# Text inside these elements is left unlinked (headings feed the contents list, which is itself links).
+NO_LINK_TAGS = {"a", "code", "pre", "h1", "h2", "h3", "h4", "h5", "h6", "title", "script", "style"}
+
+
+def plan_questions(plan_path: Path) -> dict[str, str]:
+    """PLAN.md's questions by number (``{"12": "What counts as peak throughput?", ...}``); empty if it is missing."""
+    if not plan_path.exists():
+        return {}
+    text = plan_path.read_text(encoding="utf-8")
+    return {n: re.sub(r"[`*]", "", q).strip() for n, q in QUESTION_DEF.findall(text)}
+
+
+def link_questions(out_dir: Path, questions: dict[str, str]) -> None:
+    """Link every "Q<n>" in the site's pages to its question in plan.html, with the question as a tooltip.
+
+    PLAN.md carries its own anchors and links; this links the plain "Q<n>" in the reports and pages
+    (text in links, code and headings is left alone) and gives every question link a ``title``.
+    """
+    if not questions:
+        return
+    for page in Path(out_dir).glob("*.html"):
+        text = page.read_text(encoding="utf-8")
+        linked = _link_text(text, questions, "" if page.name == "plan.html" else "plan.html")
+        linked = QUESTION_LINK.sub(lambda m: m[0] if m[3] not in questions else
+                                   f'<a class="qref" href="{m[2]}" title="Q{m[3]}. {html.escape(questions[m[3]])}">',
+                                   linked)
+        if linked != text:
+            page.write_text(linked, encoding="utf-8")
+
+
+def _link_text(html_text: str, known: dict[str, str], base: str) -> str:
+    """Wrap "Q<n>" in text outside ``NO_LINK_TAGS`` in a link to ``{base}#q<n>``."""
+    out, depth = [], 0
+    for part in re.split(r"(<[^>]+>)", html_text):
+        if part.startswith("<"):
+            name = re.match(r"</?([a-zA-Z0-9]+)", part)
+            if name and name[1].lower() in NO_LINK_TAGS and not part.endswith("/>"):
+                depth += -1 if part.startswith("</") else 1
+        elif depth == 0 and part:
+            part = QUESTION.sub(lambda m: f'<a class="qref" href="{base}#q{m[1]}">{m[0]}</a>'
+                                if m[1] in known else m[0], part)
+        out.append(part)
+    return "".join(out)
 
 
 def _collapse_long_table(m: re.Match) -> str:
@@ -708,5 +760,6 @@ def write_site(scenario: Scenario, out_dir: Path = OUTPUT_DIR / "site", n_road=N
         write_reports(reports_dir, out_dir)
     if docs_dir is not None:
         write_docs(docs_dir, out_dir)
+        link_questions(out_dir, plan_questions(Path(docs_dir) / "PLAN.md"))
     pages = sorted(p for p in out_dir.rglob("*") if p.is_file() and p.parent != data_dir)
     return pages + paths

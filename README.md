@@ -17,9 +17,9 @@ The assignment asks for a tradespace exploration of an autonomous, battery-elect
 | Task | Weight | Topic | Status | Code |
 |------|--------|-------|--------|------|
 | 1 | 10% | Stakeholder utility (SAU → MAU, Cases A–C) | Done: hand calcs (Yonis) and code agree; Table 4 validation; proposed weights | `utility.py` |
-| 2 | 25% | Technical system model, 5 architecture instances | Model done; the five architectures are placeholders (Q17: Austin picks) | `scenario.py`, `vehicle.py`, `fleet.py`, `model.py` |
+| 2 | 25% | Technical system model, 5 architecture instances | Model done; five architectures picked (Q24) | `scenario.py`, `vehicle.py`, `fleet.py`, `model.py` |
 | 3 | 20% | Tradespace, Pareto frontier, reference architecture | Tradespace and fronts done; reference and three picks open (F, G) | `tradespace.py` |
-| 4 | 15% | Second operating scenario | On hold (Q20) | `scenario.task4_scenario` (stub) |
+| 4 | 15% | Second operating scenario | On hold | `scenario.task4_scenario` (stub) |
 | 5 | 20% | Concept recommendation | Not started | slides |
 | 6 | 10% | Life-cycle / extensibility memo | Not started | slides |
 
@@ -28,10 +28,10 @@ The assignment asks for a tradespace exploration of an autonomous, battery-elect
 Every modeling decision and open question is in [`docs/PLAN.md`](docs/PLAN.md) (questions are numbered **Q#**; code that depends on one is tagged with its number). The main ones so far:
 
 - **Scenario:** weekday on-demand last-mile service from a Kendall hub to Lechmere and Central; links 1.9 / 1.6 / 3.3 km measured on OpenStreetMap; road speed capped at 21 km/h (20 mph posted, signals); e-bikes a fixed 18 km/h assist.
-- **MoPs:** peak throughput is the demand actually served (Q11); availability is *service* availability, the chance the vehicles in service can carry each hour's demand (Q14); travel time is the average Kendall trip; cost is vehicle capital only (Q15).
+- **MoPs:** peak throughput is the demand actually served (Q17); availability is *service* availability, the chance the vehicles in service can carry each hour's demand (Q19); travel time is the average Kendall trip; cost is vehicle capital only (Q21).
 - **Design space:** every feasible Appendix C/D vehicle, road fleets 1–300 and bike fleets 5–750 with steps that widen as fleets grow (road step 1 up to 15; bikes step 5 up to 50), alone or mixed: ~3.9 million architectures. The reference architecture and anchors (EZRide, MBTA bus and MIT shuttle service levels, `data/anchors.csv`) are plotted on every tradespace. Table 1 thresholds (1,500 trips/day, 150/h peak, 50/h off-peak) screen architectures out before scoring.
 - **E-bike batteries:** fixed (Appendix B) and removable with spare packs (team proposal) are both kept as alternate pathways.
-- **Weights:** Appendix A for the official MAU; `os3a_reweight` (Task 1 reflection) and `os3a_extended` (adds travel time) as team proposals.
+- **Weights:** Appendix A for the official MAU; `os3a_reweight` (Task 1 reflection, also plotted on Task 3) as the team proposal. Travel time and bike share are reported but not weighted.
 
 ## Repository layout
 
@@ -42,9 +42,9 @@ os4/
 ├── docs/PLAN.md           Game plan, decisions (Q#), open questions, Wikibooks appendix
 ├── docs/references.md     Bibliography for the sources tagged in PLAN.md
 ├── data/                  Input tables from the assignment, as CSV
-│   ├── sau_*.csv            Appendix A SAU points (sau_travel_time: proposed; sau_bike_share: parked)
+│   ├── sau_*.csv            Appendix A SAU points (sau_travel_time, sau_bike_share: reported, not weighted)
 │   ├── mau_weights.csv      Appendix A stakeholder weights
-│   ├── mau_weights_proposed.csv  Team weight sets (os3a_reweight, os3a_extended; PLAN.md Q8)
+│   ├── mau_weights_proposed.csv  Team weight set (os3a_reweight; PLAN.md Q10)
 │   ├── mau_test_cases.csv   Task 1 Cases A, B, C
 │   ├── demand_mit_kendall.csv  Appendix B hourly demand at MIT/Kendall
 │   ├── road_*.csv           Appendix C road vehicle components
@@ -194,7 +194,7 @@ case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  
 | `task2_variants.csv`, `task2_architectures.csv` | Every feasible vehicle variant; the five architectures |
 | `task2_*.png` | MAU and cost of the five architectures; vehicle availability and speed vs. the cap |
 | `task3_tradespace.md` | Task 3 report: both battery cases, requirements table, load-factor sensitivity, Pareto fronts |
-| `task3_tradespace_*.png` | MAU vs. cost scatter with Pareto front and utopia point (Appendix A and extended MAU, each battery case) |
+| `task3_tradespace_*.png` | MAU vs. cost scatter with Pareto front and utopia point (Appendix A and os3a_reweight MAU, each battery case) |
 | `task3_fleet_size_*.png` | One panel per vehicle type, colored by fleet size, against the front |
 | `task3_load_factor_fronts.png` | Pareto front at 25 / 50 / 75 / 100% load factor |
 | `task3_pareto_front_*.csv` | The Pareto front of each battery case |
@@ -207,9 +207,9 @@ case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  
 
 **Locally:** run `uv run python -m os4`, then open `outputs/site/index.html` (double-click it; no server or network needed). Or download the `os4-outputs-<sha>` artifact from any CI run (Actions → model) and open `site/index.html` from it.
 
-- **Task 1:** interactive SAU curves (the four Appendix A ones plus the proposed ones, labeled for review) with Cases A–C, MAU under each weight set, weight sensitivity.
+- **Task 1:** interactive SAU curves (the four Appendix A attributes) with Cases A–C, MAU under each weight set, weight sensitivity.
 - **Task 2:** the five current architectures, ~50 highlighted candidates (cheapest per chassis/frame, Pareto knee, evenly spaced front points, best MAU per dollar) each with the reason it was picked, and a filterable table of every vehicle variant.
-- **Task 3:** utility-vs-cost scatter (log cost, zoom/pan, hover, click to pin), Pareto front and utopia point, fixed vs. removable batteries, Appendix A vs. extended MAU, color by fleet type or size, filters, and a linked table. Road-only, bike-only and front architectures are all included; mixed fleets are a seeded sample (the page says "showing X of Y").
+- **Task 3:** utility-vs-cost scatter (log cost, zoom/pan, hover, click to pin), Pareto front and utopia point, fixed vs. removable batteries, Appendix A vs. os3a_reweight MAU, color by fleet type or size, filters, and a linked table. Road-only, bike-only and front architectures are all included; mixed fleets are a seeded sample (the page says "showing X of Y").
 - **Components:** the Appendix C/D tables and how to read a variant id (`C5-P1-G3-M2-A3` = chassis C5, battery P1, charger G3, motor M2, autonomy A3). Hovering any variant id in a table decodes it.
 - **Selecting:** click ☆ on any architecture; the selection is kept in your browser and can be exported as CSV from the ★ Selected page.
 

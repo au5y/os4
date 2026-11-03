@@ -366,6 +366,7 @@
     ["components.html", "Components"],
     ["reports.html", "Reports"],
     ["plan.html", "Plan"],
+    ["references.html", "References"],
   ];
   U.header = function (current) {
     const nav = U.el("nav", { "aria-label": "Pages" }, [U.el("a", { class: "brand", href: "index.html", text: "OS4 explorer" })]);
