@@ -401,60 +401,82 @@
 
   function chartBlock(series, scatter, markers) {
     const wrap = U.el("div", { class: "lab-chart" });
-    const canvas = U.el("canvas", { role: "img", "aria-label": "Tradespace: MAU against fleet cost" });
-    const zoom = U.el("label", { class: "small" }, [U.el("input", { type: "checkbox", checked: state.zoom, onchange: (e) => { state.zoom = e.target.checked; draw(); } }), " zoom to fleets under $1.5M"]);
+    const canvas = U.el("canvas", { role: "img", "aria-label": "Tradespace: MAU against fleet cost. Drag to pan, scroll to zoom, double-click to reset." });
+    const zoom = U.el("label", { class: "small" }, [U.el("input", { type: "checkbox", checked: state.zoom, onchange: (e) => { state.zoom = e.target.checked; view = null; draw(); } }), " start zoomed to fleets under $1.5M"]);
+    const reset = U.el("button", { type: "button", text: "Reset view", onclick: () => { view = null; draw(); } });
     const legend = U.el("div", { class: "lab-legend" });
-    wrap.append(U.el("div", { class: "lab-row" }, [zoom]), canvas, legend);
+    wrap.append(U.el("div", { class: "lab-row" }, [zoom, reset, U.el("span", { class: "muted small", text: "Drag to pan · scroll to zoom · double-click to reset" })]), canvas, legend);
     const pts = scatter ? { x: col(scatter, "fleet_cost_usd"), y: col(scatter, "mau"), t: col(scatter, "fleet_type"), rv: col(scatter, "road_variant"), nr: col(scatter, "n_road"), bv: col(scatter, "bike_variant"), nb: col(scatter, "n_bike") } : null;
-    let geom = null;
+    // Everything hoverable: sampled points, front points of each series, reference and anchors.
+    const hover = [];
+    if (pts) pts.x.forEach((x, i) => hover.push({ x, y: pts.y[i], text: U.archId({ n_road: pts.nr[i], road_variant: pts.rv[i], n_bike: pts.nb[i], bike_variant: pts.bv[i] }) }));
+    for (const s of series) for (const p of s.front) hover.push({ x: p.fleet_cost_usd, y: p.mau, text: (series.length > 1 ? s.label + ": " : "front: ") + U.archId(p) });
+    for (const m of markers || []) hover.push({ x: m.fleet_cost_usd, y: m.mau, text: m.architecture + (m.fleet ? " · " + m.fleet : "") });
+
+    const M = { l: 48, r: 14, t: 22, b: 40 };
+    let W = 800, H = 440, view = null;
+    function defaultView() {
+      let x0 = Infinity, x1 = -Infinity;
+      for (const h of hover) (x0 = Math.min(x0, h.x)), (x1 = Math.max(x1, h.x));
+      if (!hover.length) return { x0: Math.log(1e5), x1: Math.log(1e7), y0: 0, y1: 1 };
+      x0 *= 0.9;
+      x1 = state.zoom ? Math.min(1.5e6, x1 * 1.05) : x1 * 1.1;
+      let y0 = Infinity, y1 = -Infinity;
+      for (const h of hover) if (h.x <= x1) (y0 = Math.min(y0, h.y)), (y1 = Math.max(y1, h.y));
+      const py = (y1 - y0) * 0.05 || 0.02;
+      return { x0: Math.log(x0), x1: Math.log(Math.max(x1, x0 * 1.5)), y0: Math.max(0, y0 - py), y1: Math.min(1.02, y1 + py) };
+    }
+    const V = () => view || (view = defaultView());
+    const sx = (cost) => M.l + ((Math.log(cost) - V().x0) / (V().x1 - V().x0)) * (W - M.l - M.r);
+    const sy = (u) => M.t + ((V().y1 - u) / (V().y1 - V().y0)) * (H - M.t - M.b);
+    const invX = (px) => V().x0 + ((px - M.l) / (W - M.l - M.r)) * (V().x1 - V().x0);
+    const invY = (py) => V().y1 - ((py - M.t) / (H - M.t - M.b)) * (V().y1 - V().y0);
+
     function draw() {
       const dpr = window.devicePixelRatio || 1;
-      const W = canvas.clientWidth || 800, H = canvas.clientHeight || 440;
+      W = canvas.clientWidth || 800;
+      H = canvas.clientHeight || 440;
       canvas.width = W * dpr;
       canvas.height = H * dpr;
       const ctx = canvas.getContext("2d");
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
-      const xs = [], ys = [];
-      for (const s of series) for (const p of s.front) xs.push(p.fleet_cost_usd), ys.push(p.mau);
-      if (pts) pts.x.forEach((v, i) => (xs.push(v), ys.push(pts.y[i])));
-      for (const m of markers || []) xs.push(m.fleet_cost_usd), ys.push(m.mau);
-      if (!xs.length) return;
-      const x0 = Math.min(...xs) * 0.9, x1 = state.zoom ? Math.min(1.5e6, Math.max(...xs)) : Math.max(...xs) * 1.1;
-      const visY = ys.filter((_, i) => xs[i] <= x1);
-      const y0 = Math.max(0, Math.min(...visY) - 0.02), y1 = Math.min(1, Math.max(...visY) + 0.02);
-      const L = 48, R = 14, T = 22, B = 40;
-      const sx = (v) => L + ((Math.log(v) - Math.log(x0)) / (Math.log(x1) - Math.log(x0))) * (W - L - R);
-      const sy = (v) => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
-      geom = { sx, sy, x1 };
+      const v = V();
+      const c0 = Math.exp(v.x0), c1 = Math.exp(v.x1);
       ctx.strokeStyle = U.css("--grid");
       ctx.fillStyle = U.css("--ink-2");
       ctx.font = "11px " + U.css("--font");
       ctx.lineWidth = 1;
-      for (let e = Math.floor(Math.log10(x0)); e <= Math.ceil(Math.log10(x1)); e++) {
-        for (const m of [1, 2, 5]) {
-          const v = m * 10 ** e;
-          if (v < x0 || v > x1) continue;
-          const X = sx(v);
-          ctx.beginPath(); ctx.moveTo(X, T); ctx.lineTo(X, H - B); ctx.stroke();
-          ctx.fillText(U.moneyShort(v), X - 14, H - B + 14);
-        }
+      // Cost gridlines at 1-2-5 steps; thin out when zoomed far out.
+      const steps = Math.log10(c1 / c0) > 3 ? [1] : [1, 2, 5];
+      let ticks = [];
+      for (let e = Math.floor(Math.log10(c0)); e <= Math.ceil(Math.log10(c1)); e++)
+        for (const m of steps) if (m * 10 ** e >= c0 && m * 10 ** e <= c1) ticks.push(m * 10 ** e);
+      if (ticks.length < 3) { // zoomed in past the 1-2-5 marks: evenly spaced, rounded to 2 significant figures
+        ticks = [];
+        for (let k = 1; k <= 5; k++) ticks.push(+Math.exp(v.x0 + ((v.x1 - v.x0) * k) / 6).toPrecision(2));
       }
+      for (const c of ticks) {
+        const X = sx(c);
+        ctx.beginPath(); ctx.moveTo(X, M.t); ctx.lineTo(X, H - M.b); ctx.stroke();
+        ctx.fillText(U.moneyShort(c), X - 14, H - M.b + 14);
+      }
+      const span = v.y1 - v.y0, dec = span < 0.02 ? 4 : span < 0.2 ? 3 : 2;
       for (let k = 0; k <= 5; k++) {
-        const v = y0 + ((y1 - y0) * k) / 5, Y = sy(v);
-        ctx.beginPath(); ctx.moveTo(L, Y); ctx.lineTo(W - R, Y); ctx.stroke();
-        ctx.fillText(v.toFixed(2), 8, Y + 4);
+        const u = v.y0 + (span * k) / 5, Y = sy(u);
+        ctx.beginPath(); ctx.moveTo(M.l, Y); ctx.lineTo(W - M.r, Y); ctx.stroke();
+        ctx.fillText(u.toFixed(dec), 4, Y + 4);
       }
       ctx.fillText("fleet cost (log scale)", W / 2 - 40, H - 8);
       ctx.fillText("MAU", 8, 12);
       ctx.save();
-      ctx.beginPath(); ctx.rect(L, T, W - L - R, H - T - B); ctx.clip();
+      ctx.beginPath(); ctx.rect(M.l, M.t, W - M.l - M.r, H - M.t - M.b); ctx.clip();
       if (pts) {
         ctx.globalAlpha = 0.35;
-        pts.x.forEach((v, i) => {
-          if (v > x1) return;
+        pts.x.forEach((c, i) => {
+          if (c < c0 || c > c1) return;
           ctx.fillStyle = U.typeColor(pts.t[i]);
-          ctx.fillRect(sx(v) - 1.5, sy(pts.y[i]) - 1.5, 3, 3);
+          ctx.fillRect(sx(c) - 1.5, sy(pts.y[i]) - 1.5, 3, 3);
         });
         ctx.globalAlpha = 1;
       }
@@ -480,27 +502,64 @@
       }
       ctx.restore();
     }
+
     legend.append(...series.map((s) => U.el("span", null, [U.el("span", { class: "sw", style: "background:" + s.color }), s.label + " front (" + s.front.length + ")"])));
     if (pts) legend.append(...U.TYPES.map((t) => U.el("span", null, [U.el("span", { class: "sw", style: "opacity:.5;background:" + U.typeColor(t) }), t + " (sample)"])));
     if (markers && markers.length) legend.append(U.el("span", { text: "◆ reference (red) and anchors" }));
-    canvas.addEventListener("pointermove", (e) => {
-      if (!geom || !pts) return;
-      const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-      let best = -1, bd = 64;
-      pts.x.forEach((v, i) => {
-        if (v > geom.x1) return;
-        const d = (geom.sx(v) - mx) ** 2 + (geom.sy(pts.y[i]) - my) ** 2;
-        if (d < bd) (bd = d), (best = i);
-      });
-      const tip = $("tip");
-      if (best < 0) return (tip.hidden = true);
+
+    const tip = $("tip");
+    const local = (e) => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    function showTip(e, x, y) {
+      const c0 = Math.exp(V().x0), c1 = Math.exp(V().x1);
+      let best = null, bd = 100;
+      for (const h of hover) {
+        if (h.x < c0 || h.x > c1 || h.y < V().y0 || h.y > V().y1) continue;
+        const d = (sx(h.x) - x) ** 2 + (sy(h.y) - y) ** 2;
+        if (d < bd) (bd = d), (best = h);
+      }
+      if (!best) return (tip.hidden = true);
       tip.hidden = false;
-      tip.textContent = U.archId({ n_road: pts.nr[best], road_variant: pts.rv[best], n_bike: pts.nb[best], bike_variant: pts.bv[best] }) + " · " + U.money(pts.x[best]) + " · MAU " + pts.y[best].toFixed(3);
+      tip.textContent = best.text + " · " + U.money(best.x) + " · MAU " + best.y.toFixed(3);
       tip.style.left = e.pageX + 12 + "px";
       tip.style.top = e.pageY + 12 + "px";
+    }
+    let drag = null;
+    canvas.addEventListener("pointerdown", (e) => {
+      const [x, y] = local(e);
+      drag = { x, y, v: Object.assign({}, V()), moved: false };
+      canvas.setPointerCapture(e.pointerId);
     });
-    canvas.addEventListener("pointerleave", () => ($("tip").hidden = true));
+    canvas.addEventListener("pointermove", (e) => {
+      const [x, y] = local(e);
+      if (drag) {
+        const dx = x - drag.x, dy = y - drag.y;
+        if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+        if (drag.moved) {
+          canvas.classList.add("dragging");
+          const v = drag.v;
+          const kx = (v.x1 - v.x0) / (W - M.l - M.r), ky = (v.y1 - v.y0) / (H - M.t - M.b);
+          view = { x0: v.x0 - dx * kx, x1: v.x1 - dx * kx, y0: v.y0 + dy * ky, y1: v.y1 + dy * ky };
+          tip.hidden = true;
+          draw();
+          return;
+        }
+      }
+      showTip(e, x, y);
+    });
+    const endDrag = () => { canvas.classList.remove("dragging"); drag = null; };
+    canvas.addEventListener("pointerup", endDrag);
+    canvas.addEventListener("pointercancel", endDrag);
+    canvas.addEventListener("pointerleave", () => (tip.hidden = true));
+    canvas.addEventListener("dblclick", () => { view = null; draw(); });
+    canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const [x, y] = local(e);
+      const k = Math.exp(Math.max(-0.5, Math.min(0.5, e.deltaY * 0.0015)));
+      const v = V(), cx = invX(x), cy = invY(y);
+      view = { x0: cx - (cx - v.x0) * k, x1: cx + (v.x1 - cx) * k, y0: cy - (cy - v.y0) * k, y1: cy + (v.y1 - cy) * k };
+      tip.hidden = true;
+      draw();
+    }, { passive: false });
     requestAnimationFrame(draw);
     new ResizeObserver(() => draw()).observe(canvas);
     return wrap;
