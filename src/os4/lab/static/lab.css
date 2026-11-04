@@ -57,3 +57,20 @@
   border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
 .lab-list .item .grow { flex: 1; min-width: 12em; }
 .lab-diff td.changed { font-weight: 600; }
+
+/* filters: big toggle buttons (empty selection = all) */
+.lab-filters { margin: 0 0 8px; }
+.lab-filters .f { min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 5px 13px; border-radius: 17px;
+  font-size: 13.5px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); cursor: pointer;
+}
+.chip:hover { border-color: var(--ink-2); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip[aria-pressed="true"] svg * { stroke: #fff; }
+.chip.primary { background: var(--star); border-color: var(--star); color: #fff; }
+.lab-filters input[type="number"] { min-height: 32px; }
+.lab-details { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 2px 0; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.lab-details .grow { flex: 1; min-width: 16em; }

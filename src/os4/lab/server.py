@@ -7,7 +7,7 @@ Routes:
     GET  /api/presets          preset configs
     GET  /api/schema           editable fields, weight sets, the baseline config
     GET  /api/meta             column labels and components, for the explorer's helpers
-    POST /api/jobs             start a run for the posted config -> {"job_id"}
+    POST /api/jobs             start a run: {"config", "tags": [{"id", "label"}]} (or a bare config) -> {"job_id"}
     GET  /api/jobs/<id>        {"status", "progress", "result" | "error"}
 
 Runs go through one worker thread (a full tradespace uses up to about 1 GB), and results are cached on disk.
@@ -24,7 +24,7 @@ from pathlib import Path
 
 from os4.lab.config import FIELDS, from_scenario, validate
 from os4.lab.presets import presets
-from os4.lab.run import calculate, config_key
+from os4.lab.run import calculate, config_key, evaluate_tags
 from os4.scenario import primary_scenario
 from os4.site import COLUMN_LABELS, components_payload
 from os4.utility import ATTRIBUTES, WEIGHT_SETS, load_weights
@@ -52,8 +52,9 @@ class Lab:
             "baseline": from_scenario(primary_scenario()),
         }
 
-    def submit(self, config: dict) -> str:
+    def submit(self, config: dict, tags: list | None = None) -> str:
         cfg = validate(config)
+        tags = [t for t in (tags or []) if isinstance(t, dict) and t.get("id")][:50]
         job_id = uuid.uuid4().hex[:12]
         job = {"status": "queued", "progress": 0.0, "key": config_key(cfg)}
         with self.lock:
@@ -65,7 +66,9 @@ class Lab:
         def work():
             job["status"] = "running"
             try:
-                job["result"] = calculate(cfg, progress, self.cache_dir)
+                result = calculate(cfg, progress, self.cache_dir)
+                result["tags"] = evaluate_tags(cfg, tags, result.get("front", []))
+                job["result"] = result
                 job["progress"], job["status"] = 1.0, "done"
             except Exception as e:  # report to the page instead of killing the worker
                 job["status"], job["error"] = "error", f"{type(e).__name__}: {e}"
@@ -139,8 +142,10 @@ def make_handler(lab: Lab):
             if length <= 0 or length > MAX_BODY:
                 return self._json({"error": "bad request body"}, 400)
             try:
-                config = json.loads(self.rfile.read(length))
-                return self._json({"job_id": lab.submit(config)}, 202)
+                body = json.loads(self.rfile.read(length))
+                # {"config": ..., "tags": [{"id", "label"}]}, or a bare config
+                config, tags = (body["config"], body.get("tags")) if "config" in body else (body, None)
+                return self._json({"job_id": lab.submit(config, tags)}, 202)
             except (ValueError, TypeError, KeyError) as e:
                 return self._json({"error": str(e)}, 400)
 

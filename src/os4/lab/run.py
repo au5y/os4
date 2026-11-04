@@ -7,17 +7,20 @@ five Task 2 architectures, all under the config's scenario and weights.
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from os4.lab.config import to_scenario, validate
-from os4.model import architecture_table, reference_and_anchor_table
+from os4.fleet import Fleet
+from os4.model import architecture_table, evaluate_many, reference_and_anchor_table, requirement_flags
 from os4.site import _clean, columnar, records, sample_rows
 from os4.tradespace import (FLEET_TYPES, _describe, front_comparison, pareto_front, progressive_grid,
                             tradespace)
 from os4.utility import ATTRIBUTES, sau
+from os4.vehicle import all_variants
 
 SCATTER_CAP = 6000
 KNEE_MAU = 0.94
@@ -122,7 +125,8 @@ def _calculate(cfg: dict, progress) -> dict:
 
     sample = df.loc[sample_rows(df, SCATTER_CAP)]
     keep = [c for c in ["fleet_type", "road_variant", "n_road", "bike_variant", "n_bike", "fleet_cost_usd", "mau",
-                        *ATTRIBUTES, "travel_time"] if c in sample]
+                        *ATTRIBUTES, "travel_time", "meets_wait_goal", "meets_travel_goal",
+                        "meets_availability_benchmark"] if c in sample]
     out["scatter"] = columnar(sample[keep].sort_values("fleet_cost_usd"))
 
     if markers is not None:
@@ -136,6 +140,65 @@ def _calculate(cfg: dict, progress) -> dict:
     else:
         out["markers"] = []
     out["architectures"] = [] if archs is None else records(archs[[c for c in MARKER_COLUMNS if c in archs]])
+    return out
+
+
+PART = re.compile(r"^\s*(\d+)\s*[×x*]\s*([A-Z][\w.-]*)\s*$")
+
+
+def parse_arch(arch_id: str) -> list[tuple[int, str]]:
+    """``"2×C8-P1-G3-M4-A3 + 20×B1-E1-G2-K1"`` -> ``[(2, "C8-P1-G3-M4-A3"), (20, "B1-E1-G2-K1")]``."""
+    parts = []
+    for chunk in arch_id.split("+"):
+        m = PART.match(chunk)
+        if not m:
+            raise ValueError(f"cannot read {chunk.strip()!r}: use e.g. 2×C8-P1-G3-M4-A3 + 20×B1-E1-G2-K1")
+        parts.append((int(m[1]), m[2]))
+    return parts
+
+
+def evaluate_tags(config: dict, tags: list[dict], front: list[dict]) -> list[dict]:
+    """Score each tagged architecture (``{"id", "label"}``) under ``config``: its MoPs, MAU with the config's
+    weights, requirement flags, and whether the run's Pareto front dominates it. A tag whose vehicle doesn't
+    exist in this scenario (e.g. A3 where only A4/A5 are allowed) comes back with a ``status`` instead."""
+    if not tags:
+        return []
+    cfg = validate(config)
+    scenario = to_scenario(cfg)
+    variants = all_variants(scenario).set_index("variant_id", drop=False)
+    front_pts = [(p["fleet_cost_usd"], p["mau"]) for p in front]
+    out = []
+    for tag in tags:
+        row = {"id": tag.get("id", ""), "label": tag.get("label") or tag.get("id", "")}
+        try:
+            parts = parse_arch(row["id"])
+            missing = [v for _, v in parts if v not in variants.index]
+            if missing:
+                raise KeyError(f"not available in this scenario: {', '.join(missing)}")
+            road = [(n, variants.loc[v]) for n, v in parts if variants.at[v, "kind"] == "road"]
+            bike = [(n, variants.loc[v]) for n, v in parts if variants.at[v, "kind"] == "bike"]
+            if len(road) > 1 or len(bike) > 1:
+                raise ValueError("an architecture has at most one road and one bike variant")
+            fleet = Fleet(road=road[0][1] if road else None, n_road=road[0][0] if road else 0,
+                          bike=bike[0][1] if bike else None, n_bike=bike[0][0] if bike else 0)
+            df = _rescore(evaluate_many([fleet], scenario), cfg["weights"])
+            flags = requirement_flags(df, scenario)
+            df = df.assign(**{c: flags[c] for c in flags.columns if c not in df.columns})
+            r = df.iloc[0]
+            cost, mau = float(r["fleet_cost_usd"]), float(r["mau"])
+            feasible = bool(r["meets_thresholds"] and r["meets_bike_ceiling"] and r["meets_car_ceiling"])
+            # The front's MAU is rounded to 4 decimals for the page, so compare with that tolerance.
+            tol = 1e-4
+            dominated = any(c <= cost and u >= mau - tol and (c < cost - 0.5 or u > mau + tol) for c, u in front_pts)
+            row.update({k: _clean(r[k]) for k in ("fleet_cost_usd", "mau", "passenger_volume", "peak_throughput",
+                                                   "wait_time", "availability", "travel_time")},
+                       n_road=fleet.n_road, road_variant=road[0][1]["variant_id"] if road else None,
+                       n_bike=fleet.n_bike, bike_variant=bike[0][1]["variant_id"] if bike else None,
+                       feasible=feasible, dominated=dominated,
+                       status="ok" if feasible else "fails a Table 1 threshold or a riders-per-day ceiling")
+        except (KeyError, ValueError) as e:
+            row["status"] = str(e).strip("'\"")
+        out.append(row)
     return out
 
 

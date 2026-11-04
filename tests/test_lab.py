@@ -128,3 +128,17 @@ def test_speed_choice_sets_the_road_cap_and_bike_speed():
     # A config saved before the choice existed (only speed_limit_kmh) still loads, as an achieved cap.
     legacy = {**cfg, "scenario": {"speed_limit_kmh": 25.0, "bike_assisted_speed_kmh": None}}
     assert to_scenario(legacy).speed_limit_kmh == 25.0 and to_scenario(legacy).bike_assisted_speed_kmh is None
+
+
+def test_tags_are_scored_and_checked_against_the_front():
+    from os4.lab.run import evaluate_tags
+    cfg = next(p for p in presets() if p["id"] == "report")["config"]
+    result = calculate(cfg)
+    knee = result["summary"]["knee"]["fleet"].replace(" × ", "×")
+    tags = evaluate_tags(cfg, [{"id": knee, "label": "knee"}, {"id": "6 x C4-P2-G3-M2-A3", "label": "ref"},
+                               {"id": "nonsense"}], result["front"])
+    assert tags[0]["status"] == "ok" and not tags[0]["dominated"] and tags[0]["fleet_cost_usd"] == 259_200
+    assert tags[1]["dominated"] and tags[1]["fleet_cost_usd"] == 430_800
+    assert "cannot read" in tags[2]["status"]
+    red_line = next(p for p in presets() if p["id"] == "red_line")["config"]
+    assert "not available" in evaluate_tags(red_line, [{"id": "6×C4-P2-G3-M2-A3"}], [])[0]["status"]

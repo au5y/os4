@@ -308,7 +308,7 @@
     const secs = () => ((performance.now() - t0) / 1000).toFixed(1) + " s";
     showProgress(0, "Starting…", true);
     try {
-      const { job_id } = await api("/api/jobs", state.config);
+      const { job_id } = await api("/api/jobs", { config: state.config, tags: state.tags });
       for (;;) {
         await new Promise((r) => setTimeout(r, 200));
         if (running !== token) return; // a newer run replaced this one
@@ -359,7 +359,9 @@
       card("Front meeting goals", Math.round(s.front_travel_ok * 100) + "% travel", Math.round(s.front_wait_ok * 100) + "% wait goal"),
     ]));
     if (r.notes.length) out.append(U.el("ul", { class: "lab-notes" }, r.notes.map((n) => U.el("li", { text: n }))));
-    out.append(chartBlock([{ label: r.name, front: r.front, color: U.css("--accent") }], r.scatter, r.markers));
+    const chart = chartBlock([{ label: r.name, front: r.front, color: U.css("--accent") }], r.scatter, r.markers, { filters: true, tags: r.tags || [] });
+    out.append(chart);
+    out.append(U.el("h2", { text: "Tagged architectures" }), tagsSection(r.tags || []));
     out.append(U.el("h2", { text: "Cheapest fleet of each type" }));
     tableOf(out, Object.entries(s.cheapest_by_type).map(([t, p]) => ({ fleet_type: t, ...p })),
       [["fleet_type", "type"], ["fleet", "fleet"], ["cost", "cost", U.money], ["mau", "MAU"], ["wait_time", "wait (min)"], ["travel_time", "travel (min)"], ["availability", "availability"]]);
@@ -372,7 +374,8 @@
       tableOf(out, r.architectures, [["architecture", "architecture"], ["fleet_cost_usd", "cost"], ["mau", "MAU"], ["peak_throughput", "throughput"], ["wait_time", "wait (min)"], ["availability", "availability"], ["travel_time", "travel (min)"], ["meets_thresholds", "meets thresholds"]]);
     }
     out.append(U.el("h2", { text: "Pareto front" }));
-    tableOf(out, r.front, [["fleet_type", "type"], ["road_variant", "road vehicle"], ["n_road", "road N"], ["bike_variant", "bike"], ["n_bike", "bike N"], ["fleet_cost_usd", "cost"], ["mau", "MAU"], ["wait_time", "wait (min)"], ["availability", "availability"], ["travel_time", "travel (min)"], ["trips_per_vehicle_day", "riders/vehicle/day"], ["meets_travel_goal", "travel goal"]], 25);
+    tableOf(out, r.front, [["fleet_type", "type"], ["road_variant", "road vehicle"], ["n_road", "road N"], ["bike_variant", "bike"], ["n_bike", "bike N"], ["fleet_cost_usd", "cost"], ["mau", "MAU"], ["wait_time", "wait (min)"], ["availability", "availability"], ["travel_time", "travel (min)"], ["trips_per_vehicle_day", "riders/vehicle/day"], ["meets_travel_goal", "travel goal"]], 25,
+      (row) => { chart.select(archOf(row)); chart.scrollIntoView({ behavior: "smooth", block: "center" }); });
     out.append(failures(r));
   }
 
@@ -382,16 +385,15 @@
     return U.el("p", { class: "muted small", text: "Screened out (an architecture can fail several): " + Object.entries(f).map(([k, v]) => (names[k] || k) + " " + v.toLocaleString()).join(" · ") });
   }
 
-  function tableOf(container, rows, cols, pageSize) {
+  function tableOf(container, rows, cols, pageSize, onRowClick) {
     const box = U.el("div");
     container.append(box);
     U.Table(box, {
-      rows: () => rows, pageSize: pageSize || 50,
+      rows: () => rows, pageSize: pageSize || 50, onRowClick,
       columns: cols.map(([key, label, fmt]) => ({ key, label, num: typeof rows.find((x) => x[key] !== null && x[key] !== undefined)?.[key] === "number", fmt: fmt ? (v) => fmt(v) : null })),
     });
   }
 
-  // ---------- chart: sampled tradespace, fronts, markers ----------
   function col(scatter, name) {
     const c = scatter.columns.find((x) => x.name === name);
     if (!c) return null;
@@ -399,30 +401,125 @@
     return c.kind === "cat" ? v.map((i) => (i < 0 ? null : scatter.dicts[name][i])) : v;
   }
 
-  function chartBlock(series, scatter, markers) {
+  // ---------- chart: sampled tradespace, fronts, markers, tags; filters; drag to pan, scroll to zoom ----------
+  const emptyFilters = () => ({ types: new Set(U.TYPES), road_chassis: new Set(), autonomy: new Set(), bike_frame: new Set(), battery: new Set(), spares: new Set(), n_road: [null, null], n_bike: [null, null], cost: [null, null], minU: null, flags: new Set() });
+  state.filters = emptyFilters();
+  const FLAG_LABELS = { meets_wait_goal: "wait goal", meets_travel_goal: "travel-time goal", meets_availability_benchmark: "0.75 availability" };
+  const archOf = (r) => ({ n_road: r.n_road || 0, road_variant: r.road_variant, n_bike: r.n_bike || 0, bike_variant: r.bike_variant });
+  const sameArch = (a, b) => U.archId(a) === U.archId(b);
+
+  function chartBlock(series, scatter, markers, opts) {
+    opts = opts || {};
     const wrap = U.el("div", { class: "lab-chart" });
-    const canvas = U.el("canvas", { role: "img", "aria-label": "Tradespace: MAU against fleet cost. Drag to pan, scroll to zoom, double-click to reset." });
+    const canvas = U.el("canvas", { role: "img", "aria-label": "Tradespace: MAU against fleet cost. Drag to pan, scroll to zoom, double-click to reset, click a point to select it." });
     const zoom = U.el("label", { class: "small" }, [U.el("input", { type: "checkbox", checked: state.zoom, onchange: (e) => { state.zoom = e.target.checked; view = null; draw(); } }), " start zoomed to fleets under $1.5M"]);
     const reset = U.el("button", { type: "button", text: "Reset view", onclick: () => { view = null; draw(); } });
     const legend = U.el("div", { class: "lab-legend" });
-    wrap.append(U.el("div", { class: "lab-row" }, [zoom, reset, U.el("span", { class: "muted small", text: "Drag to pan · scroll to zoom · double-click to reset" })]), canvas, legend);
-    const pts = scatter ? { x: col(scatter, "fleet_cost_usd"), y: col(scatter, "mau"), t: col(scatter, "fleet_type"), rv: col(scatter, "road_variant"), nr: col(scatter, "n_road"), bv: col(scatter, "bike_variant"), nb: col(scatter, "n_bike") } : null;
-    // Everything hoverable: sampled points, front points of each series, reference and anchors.
-    const hover = [];
-    if (pts) pts.x.forEach((x, i) => hover.push({ x, y: pts.y[i], text: U.archId({ n_road: pts.nr[i], road_variant: pts.rv[i], n_bike: pts.nb[i], bike_variant: pts.bv[i] }) }));
-    for (const s of series) for (const p of s.front) hover.push({ x: p.fleet_cost_usd, y: p.mau, text: (series.length > 1 ? s.label + ": " : "front: ") + U.archId(p) });
-    for (const m of markers || []) hover.push({ x: m.fleet_cost_usd, y: m.mau, text: m.architecture + (m.fleet ? " · " + m.fleet : "") });
+    const countLine = U.el("p", { class: "muted small", style: "margin:4px 2px" });
+    const details = U.el("div", { class: "lab-details", hidden: true });
+    const pts = scatter ? { x: col(scatter, "fleet_cost_usd"), y: col(scatter, "mau"), t: col(scatter, "fleet_type"), rv: col(scatter, "road_variant"), nr: col(scatter, "n_road"), bv: col(scatter, "bike_variant"), nb: col(scatter, "n_bike"),
+      wait: col(scatter, "wait_time"), avail: col(scatter, "availability"), travel: col(scatter, "travel_time") } : null;
+    // Per-point categories for the filters, decoded from the variant ids (C6-P1-G3-M3-A3, B1-E1-G2-K1-S1.5).
+    if (pts) {
+      pts.chassis = pts.rv.map((v) => (v ? v.split("-")[0] : null));
+      pts.autonomy = pts.rv.map((v) => (v ? v.split("-")[4] : null));
+      pts.frame = pts.bv.map((v) => (v ? v.split("-")[0] : null));
+      pts.battery = pts.bv.map((v) => (v ? v.split("-")[1] : null));
+      pts.spares = pts.bv.map((v) => (v ? (v.split("-")[4] || "fixed") : null));
+      for (const k of Object.keys(FLAG_LABELS)) pts[k] = col(scatter, k);
+    }
+    const tags = opts.tags || [];
+    let visible = pts ? pts.x.map(() => true) : null;
+    let filteredFront = null;
+    const f = state.filters;
+
+    function filtersActive() {
+      return f.types.size < 3 || [f.road_chassis, f.autonomy, f.bike_frame, f.battery, f.spares, f.flags].some((s) => s.size) || f.minU !== null || [f.n_road, f.n_bike, f.cost].some((r) => r[0] !== null || r[1] !== null);
+    }
+    function applyFilters() {
+      if (!pts) return;
+      const inR = (v, r) => (r[0] === null || v >= r[0]) && (r[1] === null || v <= r[1]);
+      const inS = (v, s) => !s.size || (v !== null && s.has(v));
+      visible = pts.x.map((c, i) =>
+        f.types.has(pts.t[i]) && inS(pts.chassis[i], f.road_chassis) && inS(pts.autonomy[i], f.autonomy) && inS(pts.frame[i], f.bike_frame) &&
+        inS(pts.battery[i], f.battery) && inS(pts.spares[i], f.spares) && inR(pts.nr[i] || 0, f.n_road) && inR(pts.nb[i] || 0, f.n_bike) &&
+        inR(c, [f.cost[0] === null ? null : f.cost[0] * 1e6, f.cost[1] === null ? null : f.cost[1] * 1e6]) && (f.minU === null || pts.y[i] >= f.minU) &&
+        [...f.flags].every((k) => !pts[k] || pts[k][i] === 1));
+      filteredFront = null;
+      if (filtersActive()) {
+        const idx = pts.x.map((_, i) => i).filter((i) => visible[i]).sort((a, b) => pts.x[a] - pts.x[b] || pts.y[b] - pts.y[a]);
+        let best = -Infinity;
+        filteredFront = [];
+        for (const i of idx) if (pts.y[i] > best) (best = pts.y[i]), filteredFront.push(i);
+      }
+      const n = visible.filter(Boolean).length;
+      countLine.textContent = "Showing " + n.toLocaleString() + " of " + pts.x.length.toLocaleString() + " plotted architectures (every road-only, bike-only and front point, plus a sample of mixed fleets)" +
+        (filteredFront ? "; the dashed line is the front of the filtered points." : ".");
+      draw();
+    }
+
+    // Big toggle buttons: empty selection = all.
+    function chips(title, values, set, labelFor) {
+      const row = U.el("div", { class: "chips", role: "group", "aria-label": title });
+      for (const v of values) {
+        const b = U.el("button", { type: "button", class: "chip", "aria-pressed": set.has(v) ? "true" : "false" }, labelFor ? labelFor(v) : v);
+        b.addEventListener("click", () => { set.has(v) ? set.delete(v) : set.add(v); b.setAttribute("aria-pressed", set.has(v) ? "true" : "false"); applyFilters(); });
+        row.append(b);
+      }
+      return U.el("div", { class: "f" }, [U.el("span", { text: title }), row]);
+    }
+    function rangeInputs(title, key, step) {
+      const mk = (j, ph) => {
+        const i = U.el("input", { type: "number", placeholder: ph, step, min: 0, value: f[key][j] ?? "", "aria-label": title + " " + ph });
+        i.addEventListener("input", () => { f[key][j] = i.value === "" ? null : +i.value; applyFilters(); });
+        return i;
+      };
+      return U.el("div", { class: "f" }, [U.el("span", { text: title }), U.el("div", { class: "range" }, [mk(0, "min"), "–", mk(1, "max")])]);
+    }
+    function filterPanel() {
+      const uniq = (a) => Array.from(new Set(a.filter((v) => v !== null))).sort((x, y) => x.localeCompare(y, undefined, { numeric: true }));
+      const box = U.el("div", { class: "filters lab-filters", "aria-label": "Filters" });
+      const types = U.el("div", { class: "chips", role: "group", "aria-label": "fleet type" }, U.TYPES.map((t) => {
+        const b = U.el("button", { type: "button", class: "chip", "aria-pressed": f.types.has(t) ? "true" : "false" }, [U.shapeSvg(U.typeShape(t), U.typeColor(t), 12), " " + t]);
+        b.addEventListener("click", () => { f.types.has(t) ? f.types.delete(t) : f.types.add(t); b.setAttribute("aria-pressed", f.types.has(t) ? "true" : "false"); applyFilters(); });
+        return b;
+      }));
+      box.append(U.el("div", { class: "f" }, [U.el("span", { text: "fleet type" }), types]));
+      box.append(chips("road chassis", uniq(pts.chassis), f.road_chassis));
+      box.append(chips("autonomy", uniq(pts.autonomy), f.autonomy));
+      box.append(chips("bike frame", uniq(pts.frame), f.bike_frame));
+      box.append(chips("bike battery", uniq(pts.battery), f.battery));
+      if (uniq(pts.spares).length > 1) box.append(chips("spare packs", uniq(pts.spares), f.spares, (v) => (v === "fixed" ? "fixed" : v.slice(1) + " spare")));
+      box.append(rangeInputs("N road", "n_road", 1), rangeInputs("N bike", "n_bike", 5), rangeInputs("cost ($M)", "cost", 0.1));
+      const minU = U.el("input", { type: "number", placeholder: "e.g. 0.9", step: 0.01, min: 0, max: 1, value: f.minU ?? "", "aria-label": "minimum MAU" });
+      minU.addEventListener("input", () => { f.minU = minU.value === "" ? null : +minU.value; applyFilters(); });
+      box.append(U.el("div", { class: "f" }, [U.el("span", { text: "min MAU" }), minU]));
+      box.append(chips("only architectures meeting", Object.keys(FLAG_LABELS).filter((k) => pts[k]), f.flags, (k) => FLAG_LABELS[k]));
+      box.append(U.el("div", { class: "f" }, [U.el("span", { text: " " }), U.el("button", { type: "button", class: "chip", text: "Reset filters", onclick: () => { state.filters = emptyFilters(); renderResults(); } })]));
+      return box;
+    }
+
+    // Everything hoverable/selectable: sampled points (visible only), front points, reference and anchors, tags.
+    function hoverItems() {
+      const items = [];
+      if (pts) pts.x.forEach((x, i) => visible[i] && items.push({ x, y: pts.y[i], arch: { n_road: pts.nr[i], road_variant: pts.rv[i], n_bike: pts.nb[i], bike_variant: pts.bv[i] }, wait: pts.wait[i], avail: pts.avail[i], travel: pts.travel[i] }));
+      for (const s of series) for (const p of s.front) items.push({ x: p.fleet_cost_usd, y: p.mau, arch: archOf(p), where: series.length > 1 ? s.label : "front", wait: p.wait_time, avail: p.availability, travel: p.travel_time });
+      for (const m of markers || []) items.push({ x: m.fleet_cost_usd, y: m.mau, arch: archOf(m), where: m.architecture, wait: m.wait_time, avail: m.availability, travel: m.travel_time });
+      for (const t of tags) if (t.mau !== undefined) items.push({ x: t.fleet_cost_usd, y: t.mau, arch: archOf(t), where: "★ " + t.label, wait: t.wait_time, avail: t.availability, travel: t.travel_time });
+      return items;
+    }
 
     const M = { l: 48, r: 14, t: 22, b: 40 };
     let W = 800, H = 440, view = null;
     function defaultView() {
+      const items = hoverItems();
+      if (!items.length) return { x0: Math.log(1e5), x1: Math.log(1e7), y0: 0, y1: 1 };
       let x0 = Infinity, x1 = -Infinity;
-      for (const h of hover) (x0 = Math.min(x0, h.x)), (x1 = Math.max(x1, h.x));
-      if (!hover.length) return { x0: Math.log(1e5), x1: Math.log(1e7), y0: 0, y1: 1 };
+      for (const h of items) (x0 = Math.min(x0, h.x)), (x1 = Math.max(x1, h.x));
       x0 *= 0.9;
       x1 = state.zoom ? Math.min(1.5e6, x1 * 1.05) : x1 * 1.1;
       let y0 = Infinity, y1 = -Infinity;
-      for (const h of hover) if (h.x <= x1) (y0 = Math.min(y0, h.y)), (y1 = Math.max(y1, h.y));
+      for (const h of items) if (h.x <= x1) (y0 = Math.min(y0, h.y)), (y1 = Math.max(y1, h.y));
       const py = (y1 - y0) * 0.05 || 0.02;
       return { x0: Math.log(x0), x1: Math.log(Math.max(x1, x0 * 1.5)), y0: Math.max(0, y0 - py), y1: Math.min(1.02, y1 + py) };
     }
@@ -431,7 +528,18 @@
     const sy = (u) => M.t + ((V().y1 - u) / (V().y1 - V().y0)) * (H - M.t - M.b);
     const invX = (px) => V().x0 + ((px - M.l) / (W - M.l - M.r)) * (V().x1 - V().x0);
     const invY = (py) => V().y1 - ((py - M.t) / (H - M.t - M.b)) * (V().y1 - V().y0);
+    let picked = null;
 
+    function stepLine(ctx, xs, ys) {
+      ctx.beginPath();
+      xs.forEach((c, i) => { const X = sx(c), Y = sy(ys[i]); if (i === 0) ctx.moveTo(X, Y); else { ctx.lineTo(X, sy(ys[i - 1])); ctx.lineTo(X, Y); } });
+      ctx.stroke();
+    }
+    function star(ctx, X, Y, r) {
+      ctx.beginPath();
+      for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + (k * Math.PI) / 5, rr = k % 2 ? r * 0.45 : r; ctx.lineTo(X + rr * Math.cos(a), Y + rr * Math.sin(a)); }
+      ctx.closePath();
+    }
     function draw() {
       const dpr = window.devicePixelRatio || 1;
       W = canvas.clientWidth || 800;
@@ -441,40 +549,27 @@
       const ctx = canvas.getContext("2d");
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
-      const v = V();
-      const c0 = Math.exp(v.x0), c1 = Math.exp(v.x1);
+      const v = V(), c0 = Math.exp(v.x0), c1 = Math.exp(v.x1);
       ctx.strokeStyle = U.css("--grid");
       ctx.fillStyle = U.css("--ink-2");
       ctx.font = "11px " + U.css("--font");
       ctx.lineWidth = 1;
-      // Cost gridlines at 1-2-5 steps; thin out when zoomed far out.
       const steps = Math.log10(c1 / c0) > 3 ? [1] : [1, 2, 5];
       let ticks = [];
       for (let e = Math.floor(Math.log10(c0)); e <= Math.ceil(Math.log10(c1)); e++)
         for (const m of steps) if (m * 10 ** e >= c0 && m * 10 ** e <= c1) ticks.push(m * 10 ** e);
-      if (ticks.length < 3) { // zoomed in past the 1-2-5 marks: evenly spaced, rounded to 2 significant figures
-        ticks = [];
-        for (let k = 1; k <= 5; k++) ticks.push(+Math.exp(v.x0 + ((v.x1 - v.x0) * k) / 6).toPrecision(2));
-      }
-      for (const c of ticks) {
-        const X = sx(c);
-        ctx.beginPath(); ctx.moveTo(X, M.t); ctx.lineTo(X, H - M.b); ctx.stroke();
-        ctx.fillText(U.moneyShort(c), X - 14, H - M.b + 14);
-      }
+      if (ticks.length < 3) { ticks = []; for (let k = 1; k <= 5; k++) ticks.push(+Math.exp(v.x0 + ((v.x1 - v.x0) * k) / 6).toPrecision(2)); }
+      for (const c of ticks) { const X = sx(c); ctx.beginPath(); ctx.moveTo(X, M.t); ctx.lineTo(X, H - M.b); ctx.stroke(); ctx.fillText(U.moneyShort(c), X - 14, H - M.b + 14); }
       const span = v.y1 - v.y0, dec = span < 0.02 ? 4 : span < 0.2 ? 3 : 2;
-      for (let k = 0; k <= 5; k++) {
-        const u = v.y0 + (span * k) / 5, Y = sy(u);
-        ctx.beginPath(); ctx.moveTo(M.l, Y); ctx.lineTo(W - M.r, Y); ctx.stroke();
-        ctx.fillText(u.toFixed(dec), 4, Y + 4);
-      }
+      for (let k = 0; k <= 5; k++) { const u = v.y0 + (span * k) / 5, Y = sy(u); ctx.beginPath(); ctx.moveTo(M.l, Y); ctx.lineTo(W - M.r, Y); ctx.stroke(); ctx.fillText(u.toFixed(dec), 4, Y + 4); }
       ctx.fillText("fleet cost (log scale)", W / 2 - 40, H - 8);
       ctx.fillText("MAU", 8, 12);
       ctx.save();
       ctx.beginPath(); ctx.rect(M.l, M.t, W - M.l - M.r, H - M.t - M.b); ctx.clip();
       if (pts) {
-        ctx.globalAlpha = 0.35;
+        ctx.globalAlpha = filteredFront ? 0.6 : 0.35;
         pts.x.forEach((c, i) => {
-          if (c < c0 || c > c1) return;
+          if (!visible[i] || c < c0 || c > c1) return;
           ctx.fillStyle = U.typeColor(pts.t[i]);
           ctx.fillRect(sx(c) - 1.5, sy(pts.y[i]) - 1.5, 3, 3);
         });
@@ -482,15 +577,18 @@
       }
       for (const s of series) {
         ctx.strokeStyle = s.color;
+        ctx.globalAlpha = filteredFront ? 0.35 : 1;
         ctx.lineWidth = 2;
         ctx.setLineDash(s.dash || []);
-        ctx.beginPath();
-        s.front.forEach((p, i) => {
-          const X = sx(p.fleet_cost_usd), Y = sy(p.mau);
-          if (i === 0) ctx.moveTo(X, Y);
-          else { ctx.lineTo(X, sy(s.front[i - 1].mau)); ctx.lineTo(X, Y); }
-        });
-        ctx.stroke();
+        stepLine(ctx, s.front.map((p) => p.fleet_cost_usd), s.front.map((p) => p.mau));
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+      }
+      if (filteredFront) {
+        ctx.strokeStyle = U.css("--ink");
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        stepLine(ctx, filteredFront.map((i) => pts.x[i]), filteredFront.map((i) => pts.y[i]));
         ctx.setLineDash([]);
       }
       for (const m of markers || []) {
@@ -500,35 +598,62 @@
         ctx.fillStyle = U.css("--ink-2");
         ctx.fillText(m.role === "reference" ? "reference" : m.architecture.split(" (")[0], X + 8, Y - 6);
       }
+      for (const t of tags) {
+        if (t.mau === undefined) continue;
+        const X = sx(t.fleet_cost_usd), Y = sy(t.mau);
+        ctx.fillStyle = U.css("--star");
+        ctx.strokeStyle = U.css("--surface");
+        ctx.lineWidth = 1.5;
+        star(ctx, X, Y, 8); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = U.css("--ink");
+        ctx.font = "600 11px " + U.css("--font");
+        ctx.fillText(t.label, X + 10, Y + 4);
+        ctx.font = "11px " + U.css("--font");
+      }
+      if (picked) {
+        ctx.strokeStyle = U.css("--ink");
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(sx(picked.x), sy(picked.y), 7, 0, 2 * Math.PI); ctx.stroke();
+      }
       ctx.restore();
+    }
+
+    function showDetails(item) {
+      picked = item;
+      draw();
+      details.textContent = "";
+      if (!item) return (details.hidden = true);
+      details.hidden = false;
+      const id = U.archId(item.arch);
+      const tagged = state.tags.find((t) => t.id === id);
+      const fmt = (v, d) => (v === null || v === undefined ? "–" : (+v).toFixed(d));
+      details.append(
+        U.el("div", { class: "grow" }, [U.el("b", { text: id }), U.el("div", { class: "muted small", text: (item.where ? item.where + " · " : "") + U.money(item.x) + " · MAU " + item.y.toFixed(3) + " · wait " + fmt(item.wait, 1) + " min · availability " + fmt(item.avail, 3) + " · travel " + fmt(item.travel, 1) + " min" })]),
+        tagged ? U.el("button", { type: "button", class: "chip", text: "★ Untag “" + tagged.label + "”", onclick: () => removeTag(id) })
+          : U.el("button", { type: "button", class: "chip primary", text: "☆ Tag this architecture", onclick: () => addTag(id) }),
+        U.el("button", { type: "button", class: "chip", text: "Close", onclick: () => showDetails(null) }),
+      );
     }
 
     legend.append(...series.map((s) => U.el("span", null, [U.el("span", { class: "sw", style: "background:" + s.color }), s.label + " front (" + s.front.length + ")"])));
     if (pts) legend.append(...U.TYPES.map((t) => U.el("span", null, [U.el("span", { class: "sw", style: "opacity:.5;background:" + U.typeColor(t) }), t + " (sample)"])));
     if (markers && markers.length) legend.append(U.el("span", { text: "◆ reference (red) and anchors" }));
+    if (tags.some((t) => t.mau !== undefined)) legend.append(U.el("span", { text: "★ tagged" }));
 
     const tip = $("tip");
     const local = (e) => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
-    function showTip(e, x, y) {
+    function nearest(x, y) {
       const c0 = Math.exp(V().x0), c1 = Math.exp(V().x1);
       let best = null, bd = 100;
-      for (const h of hover) {
+      for (const h of hoverItems()) {
         if (h.x < c0 || h.x > c1 || h.y < V().y0 || h.y > V().y1) continue;
         const d = (sx(h.x) - x) ** 2 + (sy(h.y) - y) ** 2;
         if (d < bd) (bd = d), (best = h);
       }
-      if (!best) return (tip.hidden = true);
-      tip.hidden = false;
-      tip.textContent = best.text + " · " + U.money(best.x) + " · MAU " + best.y.toFixed(3);
-      tip.style.left = e.pageX + 12 + "px";
-      tip.style.top = e.pageY + 12 + "px";
+      return best;
     }
     let drag = null;
-    canvas.addEventListener("pointerdown", (e) => {
-      const [x, y] = local(e);
-      drag = { x, y, v: Object.assign({}, V()), moved: false };
-      canvas.setPointerCapture(e.pointerId);
-    });
+    canvas.addEventListener("pointerdown", (e) => { const [x, y] = local(e); drag = { x, y, v: Object.assign({}, V()), moved: false }; canvas.setPointerCapture(e.pointerId); });
     canvas.addEventListener("pointermove", (e) => {
       const [x, y] = local(e);
       if (drag) {
@@ -536,19 +661,26 @@
         if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
         if (drag.moved) {
           canvas.classList.add("dragging");
-          const v = drag.v;
-          const kx = (v.x1 - v.x0) / (W - M.l - M.r), ky = (v.y1 - v.y0) / (H - M.t - M.b);
+          const v = drag.v, kx = (v.x1 - v.x0) / (W - M.l - M.r), ky = (v.y1 - v.y0) / (H - M.t - M.b);
           view = { x0: v.x0 - dx * kx, x1: v.x1 - dx * kx, y0: v.y0 + dy * ky, y1: v.y1 + dy * ky };
           tip.hidden = true;
           draw();
           return;
         }
       }
-      showTip(e, x, y);
+      const h = nearest(x, y);
+      if (!h) return (tip.hidden = true);
+      tip.hidden = false;
+      tip.textContent = (h.where ? h.where + ": " : "") + U.archId(h.arch) + " · " + U.money(h.x) + " · MAU " + h.y.toFixed(3) + " (click to select)";
+      tip.style.left = e.pageX + 12 + "px";
+      tip.style.top = e.pageY + 12 + "px";
     });
-    const endDrag = () => { canvas.classList.remove("dragging"); drag = null; };
-    canvas.addEventListener("pointerup", endDrag);
-    canvas.addEventListener("pointercancel", endDrag);
+    canvas.addEventListener("pointerup", (e) => {
+      canvas.classList.remove("dragging");
+      if (drag && !drag.moved) { const [x, y] = local(e); showDetails(nearest(x, y)); }
+      drag = null;
+    });
+    canvas.addEventListener("pointercancel", () => { canvas.classList.remove("dragging"); drag = null; });
     canvas.addEventListener("pointerleave", () => (tip.hidden = true));
     canvas.addEventListener("dblclick", () => { view = null; draw(); });
     canvas.addEventListener("wheel", (e) => {
@@ -560,9 +692,54 @@
       tip.hidden = true;
       draw();
     }, { passive: false });
-    requestAnimationFrame(draw);
+
+    if (opts.filters && pts) wrap.append(filterPanel());
+    wrap.append(U.el("div", { class: "lab-row" }, [zoom, reset, U.el("span", { class: "muted small", text: "Drag to pan · scroll to zoom · double-click to reset · click a point to select or tag it" })]), canvas, legend);
+    if (pts) wrap.append(countLine);
+    wrap.append(details);
+    requestAnimationFrame(() => (pts ? applyFilters() : draw()));
     new ResizeObserver(() => draw()).observe(canvas);
+    wrap.select = (arch) => { const h = hoverItems().find((x) => sameArch(x.arch, arch)); if (h) showDetails(h); };
     return wrap;
+  }
+
+  // ---------- tags: architectures to highlight in every run ----------
+  state.tags = load("os4lab.tags", []);
+  function saveTags() {
+    store("os4lab.tags", state.tags);
+    if (state.result) calculate(); // re-score the tags under the current inputs (the run itself comes from the cache)
+  }
+  function addTag(id, label) {
+    if (!id || state.tags.some((t) => t.id === id)) return;
+    label = label || prompt("Label for this architecture:", "tag " + (state.tags.length + 1));
+    if (label === null) return;
+    state.tags.push({ id, label: label || id });
+    saveTags();
+  }
+  function removeTag(id) {
+    state.tags = state.tags.filter((t) => t.id !== id);
+    saveTags();
+  }
+  function tagsSection(rows) {
+    const box = U.el("div");
+    const idIn = U.el("input", { type: "text", placeholder: "e.g. 2×C8-P1-G3-M4-A3 + 20×B1-E1-G2-K1", style: "width:24em", "aria-label": "architecture id" });
+    const labelIn = U.el("input", { type: "text", placeholder: "label", style: "width:9em", "aria-label": "tag label" });
+    box.append(U.el("p", { class: "muted small", text: "Tagged architectures are kept in this browser and scored in every run, under that run's inputs, whether or not they are on the chart. Click a point or a table row to tag it, or type its id." }),
+      U.el("div", { class: "lab-row" }, [idIn, labelIn, U.el("button", { type: "button", class: "chip", text: "Add tag", onclick: () => { const id = idIn.value.trim().replace(/\s*[x*]\s*/g, "×"); if (id) addTag(id, labelIn.value.trim() || id); } })]));
+    if (!rows.length) return box.append(U.el("p", { class: "muted", text: "No tags yet." })), box;
+    const t = U.el("div");
+    box.append(t);
+    U.Table(t, {
+      rows: () => rows,
+      columns: [
+        { key: "label", label: "tag" }, { key: "id", label: "architecture" },
+        { key: "fleet_cost_usd", label: "cost", num: true }, { key: "mau", label: "MAU", num: true }, { key: "wait_time", label: "wait (min)", num: true },
+        { key: "availability", label: "availability", num: true }, { key: "travel_time", label: "travel (min)", num: true },
+        { key: "dominated", label: "dominated by the front" }, { key: "status", label: "status" },
+        { key: "remove", label: "", render: (_, r) => U.el("button", { type: "button", class: "chip", text: "Remove", onclick: (e) => { e.stopPropagation(); removeTag(r.id); } }) },
+      ],
+    });
+    return box;
   }
 
   // ---------- saving ----------
@@ -574,7 +751,7 @@
     store(STORE.configs, list) ? renderSaved() : alert("Could not save: browser storage is unavailable or full. Export to a file instead.");
   }
   function runRecord(r) {
-    return { id: r.key + "-" + Date.now().toString(36), name: r.name, savedAt: new Date().toISOString(), config: r.config, summary: r.summary, front: r.front, notes: r.notes };
+    return { id: r.key + "-" + Date.now().toString(36), name: r.name, savedAt: new Date().toISOString(), config: r.config, summary: r.summary, front: r.front, notes: r.notes, tags: r.tags || [] };
   }
   function saveRun() {
     if (!state.result) return;
@@ -656,6 +833,17 @@
     out.textContent = "";
     if (runs.length < 1) return;
     out.append(chartBlock(runs.map((r, i) => ({ label: r.name, front: r.front, color: U.css(COMPARE_COLORS[i]), dash: i % 2 ? [6, 3] : [] })), null, null));
+    const tagIds = Array.from(new Set(runs.flatMap((r) => (r.tags || []).map((t) => t.id))));
+    if (tagIds.length) {
+      const cell = (r, id) => {
+        const t = (r.tags || []).find((x) => x.id === id);
+        if (!t) return "not tagged when saved";
+        if (t.mau === undefined) return t.status;
+        return "MAU " + t.mau.toFixed(3) + " · " + U.money(t.fleet_cost_usd) + (t.dominated ? " · dominated" : "") + (t.status !== "ok" ? " · " + t.status : "");
+      };
+      const label = (id) => { for (const r of runs) { const t = (r.tags || []).find((x) => x.id === id); if (t) return t.label + " (" + id + ")"; } return id; };
+      out.append(U.el("h2", { text: "Tagged architectures across runs" }), simpleTable(["tag", ...runs.map((r) => r.name)], tagIds.map((id) => [label(id), ...runs.map((r) => cell(r, id))])));
+    }
     const rows = [
       ["Feasible architectures", (s) => (s.feasible || 0).toLocaleString()],
       ["Cheapest feasible", (s) => (s.cheapest ? U.money(s.cheapest.cost) + " · " + s.cheapest.fleet : "–")],
