@@ -58,9 +58,9 @@ def progressive_grid(segments: Iterable[tuple[int, int, int]]) -> tuple[int, ...
 
 # Q14: steps widen as fleets grow. Small fleets (a few buses, a few bikes next to them) decide where the
 # front starts, so they get step 1 (road) or 5 (bikes); past the knee cost rises linearly with N while
-# utility is flat, so coarse steps lose nothing. Bikes stop at 250: every front is flat by then.
-ROAD_SEGMENTS = ((1, 15, 1), (20, 50, 5), (60, 100, 10), (125, 300, 25))
-BIKE_SEGMENTS = ((5, 50, 5), (75, 250, 25))
+# utility is flat, so coarse steps lose nothing. Road fleets stop at 200 and bikes at 300.
+ROAD_SEGMENTS = ((1, 15, 1), (20, 50, 5), (60, 100, 10), (125, 200, 25))
+BIKE_SEGMENTS = ((5, 50, 5), (60, 100, 10), (125, 200, 25), (250, 300, 50))
 N_ROAD = progressive_grid(ROAD_SEGMENTS)
 N_BIKE = progressive_grid(BIKE_SEGMENTS)
 FLEET_TYPES = ("road-only", "bike-only", "mixed")

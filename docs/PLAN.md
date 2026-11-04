@@ -257,15 +257,15 @@ Case MAUs become A 0.628 / B 0.619 / C 0.676, so the ranking changes from C > B 
 | Motor | M1–M4 | K1–K3 |
 | Autonomy | A3 / A4 / A5 | L4, built into the frame |
 | Spare battery packs | — | none, or 0.5–3 per bike ([Q15](#q15)) |
-| Fleet size | 1–300 | 5–250 |
+| Fleet size | 1–200 | 5–300 |
 
 After the battery-weight constraint, 1,548 road variants (43 chassis/battery pairs × 3 chargers × 4 motors × 3 autonomy levels) and 30 bike variants (5 frame/battery pairs × 2 chargers × 3 motors) are feasible.
 
 #### <a id="q14"></a>Q14. Which architectures and fleet sizes are enumerated?
 
-**Answer (Decision, team, revised 2026-11-01; bikes capped at 250, Austin, 2026-11-03):** each architecture has at most one road variant and one bike variant. Fleet sizes use steps that widen as fleets grow: **road 1–15 step 1, 20–50 step 5, 60–100 step 10, 125–300 step 25; bikes 5–50 step 5, 75–250 step 25.**
+**Answer (Decision, team, revised 2026-11-01; ranges revised by Austin, 2026-11-03):** each architecture has at most one road variant and one bike variant. Fleet sizes use steps that widen as fleets grow: **road 1–15 step 1, 20–50 step 5, 60–100 step 10, 125–200 step 25; bikes 5–50 step 5, 60–100 step 10, 125–200 step 25, 250–300 step 50.**
 
-**Discussion.** The grid was revised from road 5–300 step 5 and bikes 25–750 step 25 because the EZRide anchor ([Q23](#q23)) showed that 1–4 bus fleets meet the thresholds below the old grid's cheapest point. Past the knee, cost rises linearly with N while utility is flat, so coarse steps there lose nothing. Bike fleets above 250 (the grid used to run to 750) only extended the flat tail of the front, so they were cut to shorten the run.
+**Discussion.** The grid was revised from road 5–300 step 5 and bikes 25–750 step 25 because the EZRide anchor ([Q23](#q23)) showed that 1–4 bus fleets meet the thresholds below the old grid's cheapest point. Past the knee, cost rises linearly with N while utility is flat, so coarse steps there lose nothing. Road fleets above 200 and bike fleets above 300 (the bike grid used to run to 750) only extended the flat tail of the front, so they were cut to shorten the run.
 
 ### Vehicle layer (`vehicle.py`)
 
@@ -398,8 +398,8 @@ Architectures that fail a screen are dropped before scoring.
 
 | Case | Front (road / bike / mixed) | Cheapest feasible | First front point with MAU ≥ 0.94 |
 | --- | --- | --- | --- |
-| Fixed batteries | 3 / 12 / 411 | $182,200 | 2 × C8 + 20 × B1, 0.942 at $259,200 |
-| Removable batteries | 3 / 19 / 417 | $182,200 | 2 × C8 + 20 × B1, 0.942 at $259,200 |
+| Fixed batteries | 3 / 12 / 388 | $182,200 | 2 × C8 + 20 × B1, 0.942 at $259,200 |
+| Removable batteries | 3 / 20 / 429 | $182,200 | 2 × C8 + 20 × B1, 0.942 at $259,200 |
 
 #### <a id="q26"></a>Q26. What is the Task 3 reference architecture?
 
