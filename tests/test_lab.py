@@ -49,8 +49,12 @@ def test_validate_rejects_bad_configs(bad):
 
 def test_every_preset_builds_and_scores():
     ps = presets()
-    assert ps[0]["id"] == "standard" and ps[0]["config"] == from_scenario(primary_scenario(), ps[0]["name"])
-    assert {"red_line", "network", "winter", "rush"} <= {p["id"] for p in ps}
+    by_id = {p["id"]: p for p in ps}
+    assert ps[0]["id"] == "standard" and {"report", "red_line", "network", "winter", "rush"} <= set(by_id)
+    # The lab defaults to the posted limit and the Appendix B e-bike formula; "report" is the Task 3 run.
+    standard = by_id["standard"]["config"]["scenario"]
+    assert standard["road_speed_basis"] == "posted" and standard["bike_speed_basis"] == "formula"
+    assert by_id["report"]["config"] == from_scenario(primary_scenario(), "Task 3 report settings")
     for p in ps:
         result = calculate(_small(p["config"]))
         assert result["summary"]["feasible"] > 0, p["id"]
@@ -76,7 +80,7 @@ def test_range_factor_scales_range_and_lowers_availability():
 
 
 def test_baseline_run_matches_task3():
-    s = calculate(presets()[0]["config"])["summary"]
+    s = calculate(next(p for p in presets() if p["id"] == "report")["config"])["summary"]
     assert s["cheapest"]["cost"] == 182_200
     assert s["knee"]["cost"] == 259_200
     assert s["max_mau"] == pytest.approx(0.962, abs=5e-4)

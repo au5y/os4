@@ -9,7 +9,7 @@ from dataclasses import replace
 
 import pandas as pd
 
-from os4.lab.config import from_scenario
+from os4.lab.config import POSTED_LIMIT_KMH, from_scenario
 from os4.scenario import primary_scenario
 from os4.speed_sensitivity import variations
 
@@ -23,15 +23,28 @@ def _demand(base: pd.DataFrame, scale_hours=(), factor: float = 1.0, keep_hours=
 
 
 def presets() -> list[dict]:
-    """Every preset: ``{id, name, group, description, assumptions, config}``."""
-    base = primary_scenario()
+    """Every preset: ``{id, name, group, description, assumptions, config}``.
+
+    The lab's default speeds are the posted 20 mph limit for road vehicles and the Appendix B formula for
+    e-bikes; "Task 3 report settings" keeps the model's own choices (21 km/h achieved cap, 18 km/h assist).
+    """
+    report = primary_scenario()
+    base = replace(report, speed_limit_kmh=POSTED_LIMIT_KMH, bike_assisted_speed_kmh=None)
     out = [{
-        "id": "standard", "group": "Task 3 baseline", "name": "Standard weekday demand",
+        "id": "standard", "group": "Baseline", "name": "Standard weekday demand",
         "description": "The primary scenario: on-demand last-mile service from Kendall, scored over Appendix B's "
-                       "full weekday and sized for the 8:00–14:00 peak (PLAN.md Q1).",
-        "assumptions": ["Appendix B demand as given (1,790 trips/day)", "Road cap 21 km/h, bikes 18 km/h",
-                        "Riders-per-day ceilings on (Q22)"],
+                       "full weekday and sized for the 8:00–14:00 peak (PLAN.md Q1), with the lab's default speeds.",
+        "assumptions": ["Appendix B demand as given (1,790 trips/day)",
+                        "Road vehicles capped at the posted 20 mph limit (32.2 km/h)",
+                        "E-bikes at the Appendix B formula speed (700·P/W)", "Riders-per-day ceilings on (Q22)"],
         "scenario": base,
+    }, {
+        "id": "report", "group": "Baseline", "name": "Task 3 report settings",
+        "description": "Exactly what the Task 3 report runs: the standard weekday scenario with the model's own "
+                       "speed choices.",
+        "assumptions": ["Road vehicles capped at the 21 km/h achieved speed (Q4)",
+                        "E-bikes at a fixed 18 km/h assist (Q6)", "Riders-per-day ceilings on (Q22)"],
+        "scenario": replace(report, name="Task 3 report settings"),
     }]
 
     peak = (8, 10, 12)
@@ -49,7 +62,8 @@ def presets() -> list[dict]:
                         "PLACEHOLDER: peak demand ×1.5 (8:00–14:00)",
                         "PLACEHOLDER: road cap 25 km/h (mix of city streets and arterials)",
                         "Outside the boundary Table 1 requires L4/L5: A4 and A5 only",
-                        "Table 1 outside-boundary wait goal: 20 min; travel-time goal 20 min (placeholder)"],
+                        "Table 1 outside-boundary wait goal: 20 min; travel-time goal 20 min (placeholder)",
+                        "E-bikes at the Appendix B formula speed (lab default)"],
         "scenario": red_line,
     })
 
@@ -65,7 +79,8 @@ def presets() -> list[dict]:
                        "on the way back.",
         "assumptions": [f"Average road trip {network.avg_trip_km:g} km: mean of the three links, including "
                         "Lechmere–Central (3.3 km)", f"Average bike trip {network.bike_trip_km:g} km",
-                        "PLACEHOLDER: empty return 0.33 of a trip (was 1.0)", "Appendix B demand as given"],
+                        "PLACEHOLDER: empty return 0.33 of a trip (was 1.0)", "Appendix B demand as given",
+                        "Lab default speeds: posted 20 mph limit, Appendix B e-bike formula"],
         "scenario": network,
     })
 
@@ -92,16 +107,17 @@ def presets() -> list[dict]:
         "assumptions": ["Appendix B demand for 6:00–12:00 only (700 trips)",
                         f"Volume threshold scaled to that window: {rush.min_daily_volume:g} trips",
                         "No off-peak minimum; riders-per-day ceilings off (they are daily measures)",
-                        "The volume utility is still on Appendix A's trips/day scale, so the MAU ceiling is lower"],
+                        "The volume utility is still on Appendix A's trips/day scale, so the MAU ceiling is lower",
+                        "Lab default speeds: posted 20 mph limit, Appendix B e-bike formula"],
         "scenario": rush,
     })
 
-    for key, (label, scenario) in variations(base).items():
+    for key, (label, scenario) in variations(report).items():
         if key == "baseline":
             continue
         out.append({"id": f"sens_{key}", "group": "Task 3 sensitivity", "name": label,
-                    "description": "From the Task 3 speed and ceiling sensitivity "
-                                   "(outputs/task3_speed_sensitivity.md).",
+                    "description": "From the Task 3 speed and ceiling sensitivity, relative to the Task 3 "
+                                   "report settings (outputs/task3_speed_sensitivity.md).",
                     "assumptions": [label], "scenario": replace(scenario, name=label)})
 
     return [{**{k: v for k, v in p.items() if k != "scenario"}, "config": from_scenario(p["scenario"], p["name"])}
