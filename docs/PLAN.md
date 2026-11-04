@@ -33,7 +33,7 @@ How the team's model works, and every decision and assumption behind it. Sources
 
 ## 1. Operating scenario
 
-The primary scenario is a **weekday on-demand last-mile service from a hub at Kendall T to Lechmere and Central**, using small road EVs and/or e-bikes. It lives in `scenario.primary_scenario()`, separate from the design vector, so later tasks can rerun the same architectures under a different scenario.
+The primary scenario, **standard weekday demand**, is a weekday on-demand last-mile service from a hub at Kendall T to Lechmere and Central, using small road EVs and/or e-bikes. It lives in `scenario.primary_scenario()`, separate from the design vector, so later tasks can rerun the same architectures under a different scenario.
 
 | Input | Value | Question |
 | --- | --- | --- |
@@ -50,9 +50,9 @@ The primary scenario is a **weekday on-demand last-mile service from a hub at Ke
 
 #### <a id="q1"></a>Q1. What service does the system provide, and when?
 
-**Answer (From OS3A):** a.m.-peak, on-demand last-mile service from a hub at Kendall T.
+**Answer (Decision, Austin, 2026-11-03; service type From OS3A):** **standard weekday demand**: on-demand last-mile service from a hub at Kendall T, scored over Appendix B's full weekday (twelve 2-hour bins, 1,790 trips/day) and sized for its 8:00–14:00 peak of 150 trips/h.
 
-**Discussion.** OS3A's MOE 1 sets the a.m. peak as its measurement condition, and MOE 4 covers demand-responsive pickups. MIT Parking & Transportation [[15]](references.md#ref-15) asked for *"small on-demand EV shuttles from a central hub"* and warned that empty shuttles are not financially viable.
+**Discussion.** OS3A's MOE 1 sets the a.m. peak as its measurement condition, and MOE 4 covers demand-responsive pickups. MIT Parking & Transportation [[15]](references.md#ref-15) asked for *"small on-demand EV shuttles from a central hub"* and warned that empty shuttles are not financially viable. The scenario was first framed as the a.m. peak only, but Table 1's thresholds (1,500 trips/day, 50 trips/h off-peak) and the Appendix A volume SAU (trips/day) can only be checked over the whole day. The peak still sizes the fleet: it carries 900 of the 1,790 daily trips, and capacity that covers 150 trips/h covers every other bin.
 
 #### <a id="q2"></a>Q2. Where is the system boundary, and how far apart are its nodes?
 

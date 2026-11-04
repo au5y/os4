@@ -87,14 +87,15 @@ class Scenario:
 
 
 def primary_scenario() -> Scenario:
-    """Weekday a.m.-peak last-mile service from Kendall (Q1).
+    """Standard weekday demand (Q1): on-demand last-mile service from Kendall, scored over
+    Appendix B's full weekday and sized for its 8:00-14:00 peak.
 
     On-demand trips start at the Kendall hub and go to Lechmere or Central;
     vehicles return to the hub empty, because Appendix B only gives
     Kendall-origin demand.
     """
     return Scenario(
-        name="primary: weekday on-demand last-mile from Kendall",
+        name="Standard weekday demand",
         # Q4: 20 mph posted, but signals/congestion hold achieved speed near 13 mph.
         speed_limit_kmh=21.0,
         # Q2: OSRM driving distances, mean of both directions.
