@@ -17,6 +17,15 @@
   <a class="nav" href="https://au5y.github.io/os4/" target="_blank" rel="noopener">Results explorer ↗</a>
 </nav></header>
 <main class="wrap" id="main">
+  <section id="login" class="lab-login" hidden>
+    <h1>OS4 Model Lab</h1>
+    <p class="muted">EM.411 OS4, H2 Team 13. Enter the password to use the lab.</p>
+    <form id="login-form" class="lab-row">
+      <input type="password" id="login-password" autocomplete="current-password" aria-label="password" placeholder="password" required>
+      <button type="submit" class="primary">Enter</button>
+      <span class="small" id="login-error" role="alert"></span>
+    </form>
+  </section>
   <section id="tab-run" class="lab-tab">
     <div class="lab-layout">
       <aside class="lab-form" id="form" aria-label="Model inputs"></aside>
@@ -24,10 +33,12 @@
         <div class="lab-run-bar">
           <button type="button" class="primary" id="calc">Calculate</button>
           <label class="small"><input type="checkbox" id="auto"> auto-calculate on change</label>
+          <label class="small" title="Trims the largest fleet sizes (the flat tail of the front) so a run stays under this many architectures. Kept across presets and scenarios."><input type="checkbox" id="limit" checked> <span id="limit-label">limit runs to 1.5 million architectures</span></label>
           <button type="button" id="save-run" disabled>Save run</button>
           <button type="button" id="export-run" disabled>Export run</button>
           <span class="muted small" id="run-note"></span>
         </div>
+        <p class="muted small lab-estimate" id="estimate"></p>
         <div class="lab-progress" id="progress" hidden>
           <div class="lab-progress-track"><div class="lab-progress-fill" id="progress-fill"></div></div>
           <span class="small" id="progress-text"></span>

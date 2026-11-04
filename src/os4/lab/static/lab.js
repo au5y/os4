@@ -43,8 +43,52 @@
   async function api(path, body) {
     const res = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
     const data = await res.json();
+    if (res.status === 401 && data.auth) showLogin();
     if (!res.ok) throw new Error(data.error || res.statusText);
     return data;
+  }
+
+  // ---------- password ----------
+  function showLogin() {
+    $("login").hidden = false;
+    for (const t of ["run", "compare", "saved"]) $("tab-" + t).hidden = true;
+    document.querySelector(".topbar nav").style.visibility = "hidden";
+    $("login-password").focus();
+  }
+  $("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("login-error").textContent = "";
+    try {
+      await api("/api/login", { password: $("login-password").value });
+      $("login").hidden = true;
+      document.querySelector(".topbar nav").style.visibility = "";
+      init();
+    } catch (err) {
+      $("login-error").textContent = err.message === "wrong password" ? "Wrong password." : err.message;
+    }
+  });
+
+  // ---------- run-size limit (kept across presets and scenarios) ----------
+  state.limit = load("os4lab.limit", true);
+  let estimateTimer = null;
+  function scheduleEstimate() {
+    clearTimeout(estimateTimer);
+    estimateTimer = setTimeout(updateEstimate, 300);
+  }
+  const millions = (n) => (n >= 1e6 ? (n / 1e6).toFixed(2) + " M" : n.toLocaleString());
+  async function updateEstimate() {
+    const box = $("estimate");
+    try {
+      const e = await api("/api/estimate", { config: state.config, limit: state.limit });
+      box.classList.remove("over");
+      box.textContent = e.limited
+        ? "Full grid: " + millions(e.limited.from) + " architectures. With the limit this run scores " + millions(e.limited.to) +
+          " (road fleets up to " + e.limited.road_max + ", bikes up to " + e.limited.bike_max + ")."
+        : "This run scores " + millions(e.architectures) + " architectures.";
+    } catch (err) {
+      box.classList.add("over");
+      box.textContent = err.message;
+    }
   }
 
   // ---------- form ----------
@@ -53,6 +97,7 @@
 
   function setDirty() {
     store(STORE.current, { config: state.config, presetId: state.presetId });
+    scheduleEstimate();
     renderForm();
     if ($("auto").checked) scheduleCalc();
   }
@@ -308,12 +353,12 @@
     const secs = () => ((performance.now() - t0) / 1000).toFixed(1) + " s";
     showProgress(0, "Starting…", true);
     try {
-      const { job_id } = await api("/api/jobs", { config: state.config, tags: state.tags });
+      const { job_id } = await api("/api/jobs", { config: state.config, tags: state.tags, limit: state.limit });
       for (;;) {
         await new Promise((r) => setTimeout(r, 200));
         if (running !== token) return; // a newer run replaced this one
         const job = await api("/api/jobs/" + job_id);
-        if (job.status === "queued") showProgress(0, "Waiting for the worker… " + secs(), true);
+        if (job.status === "queued") showProgress(0, (job.position > 1 ? "Queued: " + (job.position - 1) + " run" + (job.position > 2 ? "s" : "") + " ahead of yours" : "Next in line") + " · " + secs(), true);
         else if (job.status === "running") showProgress(job.progress, (job.progress < 1 ? "Scoring architectures " + Math.round(job.progress * 100) + "%" : "Summarizing front, anchors and architectures") + " · " + secs(), job.progress >= 1);
         else if (job.status === "error") throw new Error(job.error);
         else if (job.status === "done") {
@@ -358,6 +403,8 @@
       card("Pareto front", (fc["road-only"] + fc["bike-only"] + fc.mixed).toLocaleString() + " points", fc["road-only"] + " road / " + fc["bike-only"] + " bike / " + fc.mixed + " mixed"),
       card("Front meeting goals", Math.round(s.front_travel_ok * 100) + "% travel", Math.round(s.front_wait_ok * 100) + "% wait goal"),
     ]));
+    if (r.limited) out.append(U.el("div", { class: "banner lab-limited", text: "Limited to " + millions(r.limited.limit) + " architectures: the full grid was " + millions(r.limited.from) +
+      ", so this run kept road fleets up to " + r.limited.road_max + " and bike fleets up to " + r.limited.bike_max + " (" + millions(r.limited.to) + " scored). Untick the limit next to Calculate to run the full grid." }));
     if (r.notes.length) out.append(U.el("ul", { class: "lab-notes" }, r.notes.map((n) => U.el("li", { text: n }))));
     const chart = chartBlock([{ label: r.name, front: r.front, color: U.css("--accent") }], r.scatter, r.markers, { filters: true, tags: r.tags || [] });
     out.append(chart);
@@ -535,6 +582,12 @@
       xs.forEach((c, i) => { const X = sx(c), Y = sy(ys[i]); if (i === 0) ctx.moveTo(X, Y); else { ctx.lineTo(X, sy(ys[i - 1])); ctx.lineTo(X, Y); } });
       ctx.stroke();
     }
+    // Same shapes as the explorer: circle = road-only, triangle = bike-only, square = mixed.
+    function shape(ctx, type, x, y, r) {
+      if (type === "road-only") { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); }
+      else if (type === "bike-only") { const h = r * 1.25; ctx.moveTo(x, y - h); ctx.lineTo(x + h, y + h * 0.8); ctx.lineTo(x - h, y + h * 0.8); ctx.closePath(); }
+      else { const h = r * 0.9; ctx.rect(x - h, y - h, 2 * h, 2 * h); }
+    }
     function star(ctx, X, Y, r) {
       ctx.beginPath();
       for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + (k * Math.PI) / 5, rr = k % 2 ? r * 0.45 : r; ctx.lineTo(X + rr * Math.cos(a), Y + rr * Math.sin(a)); }
@@ -567,12 +620,18 @@
       ctx.save();
       ctx.beginPath(); ctx.rect(M.l, M.t, W - M.l - M.r, H - M.t - M.b); ctx.clip();
       if (pts) {
-        ctx.globalAlpha = filteredFront ? 0.6 : 0.35;
-        pts.x.forEach((c, i) => {
-          if (!visible[i] || c < c0 || c > c1) return;
-          ctx.fillStyle = U.typeColor(pts.t[i]);
-          ctx.fillRect(sx(c) - 1.5, sy(pts.y[i]) - 1.5, 3, 3);
-        });
+        // mixed first (smaller, fainter), then road-only and bike-only on top, as on the explorer
+        for (const t of ["mixed", "road-only", "bike-only"]) {
+          const r = t === "mixed" ? 3 : 4;
+          ctx.globalAlpha = t === "mixed" ? 0.45 : 0.85;
+          ctx.fillStyle = U.typeColor(t);
+          ctx.beginPath();
+          pts.x.forEach((c, i) => {
+            if (!visible[i] || pts.t[i] !== t || c < c0 || c > c1) return;
+            shape(ctx, t, sx(c), sy(pts.y[i]), r);
+          });
+          ctx.fill();
+        }
         ctx.globalAlpha = 1;
       }
       for (const s of series) {
@@ -582,6 +641,17 @@
         ctx.setLineDash(s.dash || []);
         stepLine(ctx, s.front.map((p) => p.fleet_cost_usd), s.front.map((p) => p.mau));
         ctx.setLineDash([]);
+        // The front's own points, larger and outlined so they stand out from the cloud.
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = U.css("--surface");
+        for (const p of s.front) {
+          if (p.fleet_cost_usd < c0 || p.fleet_cost_usd > c1) continue;
+          ctx.fillStyle = series.length > 1 ? s.color : U.typeColor(p.fleet_type);
+          ctx.beginPath();
+          shape(ctx, p.fleet_type, sx(p.fleet_cost_usd), sy(p.mau), 5.5);
+          ctx.fill();
+          ctx.stroke();
+        }
         ctx.globalAlpha = 1;
       }
       if (filteredFront) {
@@ -594,9 +664,13 @@
       for (const m of markers || []) {
         const X = sx(m.fleet_cost_usd), Y = sy(m.mau);
         ctx.fillStyle = m.role === "reference" ? U.css("--bad") : U.css("--ink");
-        ctx.beginPath(); ctx.moveTo(X, Y - 6); ctx.lineTo(X + 6, Y); ctx.lineTo(X, Y + 6); ctx.lineTo(X - 6, Y); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = U.css("--ink-2");
-        ctx.fillText(m.role === "reference" ? "reference" : m.architecture.split(" (")[0], X + 8, Y - 6);
+        ctx.strokeStyle = U.css("--surface");
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(X, Y - 9); ctx.lineTo(X + 9, Y); ctx.lineTo(X, Y + 9); ctx.lineTo(X - 9, Y); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = U.css("--ink");
+        ctx.font = "600 11.5px " + U.css("--font");
+        ctx.fillText(m.role === "reference" ? "reference" : m.architecture.split(" (")[0], X + 12, Y - 8);
+        ctx.font = "11px " + U.css("--font");
       }
       for (const t of tags) {
         if (t.mau === undefined) continue;
@@ -604,16 +678,16 @@
         ctx.fillStyle = U.css("--star");
         ctx.strokeStyle = U.css("--surface");
         ctx.lineWidth = 1.5;
-        star(ctx, X, Y, 8); ctx.fill(); ctx.stroke();
+        star(ctx, X, Y, 12); ctx.fill(); ctx.stroke();
         ctx.fillStyle = U.css("--ink");
-        ctx.font = "600 11px " + U.css("--font");
-        ctx.fillText(t.label, X + 10, Y + 4);
+        ctx.font = "600 12px " + U.css("--font");
+        ctx.fillText(t.label, X + 14, Y + 4);
         ctx.font = "11px " + U.css("--font");
       }
       if (picked) {
         ctx.strokeStyle = U.css("--ink");
         ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(sx(picked.x), sy(picked.y), 7, 0, 2 * Math.PI); ctx.stroke();
+        ctx.beginPath(); ctx.arc(sx(picked.x), sy(picked.y), 10, 0, 2 * Math.PI); ctx.stroke();
       }
       ctx.restore();
     }
@@ -636,7 +710,7 @@
     }
 
     legend.append(...series.map((s) => U.el("span", null, [U.el("span", { class: "sw", style: "background:" + s.color }), s.label + " front (" + s.front.length + ")"])));
-    if (pts) legend.append(...U.TYPES.map((t) => U.el("span", null, [U.el("span", { class: "sw", style: "opacity:.5;background:" + U.typeColor(t) }), t + " (sample)"])));
+    if (pts) legend.append(...U.TYPES.map((t) => U.el("span", null, [U.shapeSvg(U.typeShape(t), U.typeColor(t), 12), " " + t])), U.el("span", { class: "muted", text: "(large outlined = on the Pareto front)" }));
     if (markers && markers.length) legend.append(U.el("span", { text: "◆ reference (red) and anchors" }));
     if (tags.some((t) => t.mau !== undefined)) legend.append(U.el("span", { text: "★ tagged" }));
 
@@ -883,8 +957,11 @@
     if (name === "saved") renderSaved();
   }
 
+  let started = false;
   async function init() {
     try {
+      const session = await api("/api/session");
+      if (session.auth_required && !session.ok) return showLogin();
       const [meta, schema, presets] = await Promise.all([api("/api/meta"), api("/api/schema"), api("/api/presets")]);
       OS4.meta = meta;
       state.schema = schema;
@@ -906,6 +983,12 @@
       state.config = clone(state.presets[0].config);
     }
     renderForm();
+    $("limit").checked = state.limit;
+    $("limit-label").textContent = "limit runs to " + millions(state.schema.limits.default) + " architectures";
+    scheduleEstimate();
+    if (started) return;
+    started = true;
+    $("limit").addEventListener("change", (e) => { state.limit = e.target.checked; store("os4lab.limit", state.limit); scheduleEstimate(); if ($("auto").checked) scheduleCalc(); });
     $("calc").addEventListener("click", calculate);
     $("save-run").addEventListener("click", saveRun);
     $("export-run").addEventListener("click", () => state.result && download(slug(state.result.name) + ".run.json", { kind: "os4-lab-run", run: runRecord(state.result) }));

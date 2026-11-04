@@ -18,11 +18,14 @@ from os4.fleet import Fleet
 from os4.model import architecture_table, evaluate_many, reference_and_anchor_table, requirement_flags
 from os4.site import _clean, columnar, records, sample_rows
 from os4.tradespace import (FLEET_TYPES, _describe, front_comparison, pareto_front, progressive_grid,
-                            tradespace)
+                            prune_variants, tradespace)
 from os4.utility import ATTRIBUTES, sau
 from os4.vehicle import all_variants
 
 SCATTER_CAP = 6000
+DEFAULT_LIMIT = 1_500_000   # the page's "limit runs" box (on by default) trims the grid to this many architectures
+HARD_LIMIT = 6_000_000      # never score more than this in one run
+CORE_SIZES = {"road": 15, "bike": 10}  # trimming never drops the smallest fleets (road 1-15, bikes 5-50)
 KNEE_MAU = 0.94
 SRC = Path(__file__).resolve().parents[1]
 FRONT_COLUMNS = ["fleet_type", "road_variant", "n_road", "bike_variant", "n_bike", "fleet_cost_usd", "mau",
@@ -52,6 +55,7 @@ def calculate(config: dict, progress=None, cache_dir: Path | None = None) -> dic
     key = config_key(cfg)
     path = cache_dir / f"{key}.json" if cache_dir else None
     if path and path.exists():
+        path.touch()  # mark as recently used, for the cache's size cap
         result = json.loads(path.read_text(encoding="utf-8"))
         result["cached"] = True
         return result
@@ -62,6 +66,44 @@ def calculate(config: dict, progress=None, cache_dir: Path | None = None) -> dic
         path.write_text(json.dumps(result, separators=(",", ":"), allow_nan=False), encoding="utf-8")
     result["cached"] = False
     return result
+
+
+def _sizes(segments) -> list[int]:
+    return [n for n in progressive_grid([tuple(s) for s in segments]) if n > 0]
+
+
+def estimate(config: dict) -> dict:
+    """How many architectures ``config`` would score: road-only + bike-only + mixed over its fleet grid,
+    after the same variant pruning ``tradespace`` does."""
+    cfg = validate(config)
+    variants = prune_variants(all_variants(to_scenario(cfg)))
+    r, b = int((variants["kind"] == "road").sum()), int((variants["kind"] == "bike").sum())
+    nr, nb = len(_sizes(cfg["grid"]["road"])), len(_sizes(cfg["grid"]["bike"]))
+    return {"road_variants": r, "bike_variants": b, "road_sizes": nr, "bike_sizes": nb,
+            "architectures": r * nr + b * nb + r * nr * b * nb}
+
+
+def limit_grid(config: dict, limit: int = DEFAULT_LIMIT) -> tuple[dict, dict | None]:
+    """Trim ``config``'s fleet grid to at most ``limit`` architectures by dropping the largest fleet sizes (the
+    flat tail of the front), alternating between road and bikes; returns the config and a note, or the config
+    unchanged and ``None`` if it already fits. Raises ``ValueError`` if even the core sizes don't fit."""
+    cfg = validate(config)
+    est = estimate(cfg)
+    if est["architectures"] <= limit:
+        return cfg, None
+    r, b = est["road_variants"], est["bike_variants"]
+    road, bike = _sizes(cfg["grid"]["road"]), _sizes(cfg["grid"]["bike"])
+    total = lambda: r * len(road) + b * len(bike) + r * len(road) * b * len(bike)  # noqa: E731
+    while total() > limit:
+        spare_road, spare_bike = len(road) - CORE_SIZES["road"], len(bike) - CORE_SIZES["bike"]
+        if spare_road <= 0 and spare_bike <= 0:
+            raise ValueError(f"even the smallest fleets give {total():,} architectures, over {limit:,}")
+        # Drop from the list with more sizes beyond its core, so both tails shrink together.
+        (road if spare_road * len(bike) >= spare_bike * len(road) and spare_road > 0 else bike).pop()
+    clip = lambda segs, top: [[a, min(e, top), s] for a, e, s in segs if a <= top]  # noqa: E731
+    trimmed = {**cfg, "grid": {"road": clip(cfg["grid"]["road"], road[-1]), "bike": clip(cfg["grid"]["bike"], bike[-1])}}
+    return trimmed, {"from": est["architectures"], "to": total(), "road_max": road[-1], "bike_max": bike[-1],
+                     "limit": limit}
 
 
 def _rescore(df: pd.DataFrame, weights: dict) -> pd.DataFrame:

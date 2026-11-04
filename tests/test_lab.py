@@ -142,3 +142,61 @@ def test_tags_are_scored_and_checked_against_the_front():
     assert "cannot read" in tags[2]["status"]
     red_line = next(p for p in presets() if p["id"] == "red_line")["config"]
     assert "not available" in evaluate_tags(red_line, [{"id": "6×C4-P2-G3-M2-A3"}], [])[0]["status"]
+
+
+def test_limit_grid_trims_the_tail_to_the_limit():
+    from os4.lab.run import DEFAULT_LIMIT, estimate, limit_grid
+    cfg = next(p for p in presets() if p["id"] == "standard")["config"]
+    assert estimate(cfg)["architectures"] > DEFAULT_LIMIT
+    trimmed, note = limit_grid(cfg)
+    assert note["to"] <= DEFAULT_LIMIT and estimate(trimmed)["architectures"] == note["to"]
+    assert trimmed["grid"]["road"][0] == cfg["grid"]["road"][0]  # the small fleets stay
+    small = {**cfg, "grid": SMALL}
+    assert limit_grid(small)[1] is None
+
+
+def test_validate_caps_the_grid():
+    cfg = from_scenario(primary_scenario())
+    with pytest.raises(ValueError):
+        validate({**cfg, "grid": {"road": [[1, 1000, 1]], "bike": [[5, 50, 5]]}})
+
+
+def _post(url, payload, cookie=None):
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(),
+                                 headers={"Content-Type": "application/json", **({"Cookie": cookie} if cookie else {})})
+    return urllib.request.urlopen(req)
+
+
+def test_server_password_queue_and_cache_cap(tmp_path):
+    from os4.lab.server import Busy, Lab
+    server = serve(port=0, cache_dir=tmp_path, password="secret")
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        assert json.load(urllib.request.urlopen(url + "/api/session")) == {"auth_required": True, "ok": False}
+        with pytest.raises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen(url + "/api/presets")
+        assert e.value.code == 401
+        with pytest.raises(urllib.error.HTTPError) as e:
+            _post(url + "/api/login", {"password": "nope"})
+        assert e.value.code == 403
+        res = _post(url + "/api/login", {"password": "secret"})
+        cookie = res.headers["Set-Cookie"].split(";")[0]
+        req = urllib.request.Request(url + "/api/presets", headers={"Cookie": cookie})
+        assert urllib.request.urlopen(req).status == 200
+        est = json.load(_post(url + "/api/estimate", {"config": presets()[0]["config"], "limit": True}, cookie))
+        assert est["architectures"] <= 1_500_000 and est["limited"]
+    finally:
+        server.shutdown()
+        server.server_close()
+    # queue: a full queue refuses new runs
+    lab = Lab(None, max_queue=0)
+    with pytest.raises(Busy):
+        lab.submit(_small(presets()[1]["config"]))
+    # cache cap: least recently used files go first
+    lab = Lab(tmp_path, cache_max_mb=0.001)
+    for i in range(3):
+        (tmp_path / f"r{i}.json").write_text("x" * 600)
+        time.sleep(0.01)
+    lab._trim_cache()
+    assert [p.name for p in tmp_path.glob("*.json")] == ["r2.json"]

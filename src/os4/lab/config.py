@@ -83,6 +83,9 @@ FIELDS = [
 SCENARIO_KEYS = tuple(f["key"] for f in FIELDS)
 # 20 mph, the posted limit in Kendall and Central (PLAN.md Q4); the model's default is the achieved cap.
 POSTED_LIMIT_KMH = 20 * 1.609344
+# Hard limits on the fleet grid a config may ask for (the lab is shared; a run's memory grows with its grid).
+GRID_MAX = {"road": 300, "bike": 500}
+GRID_MAX_SIZES = 60
 ACHIEVED_CAP_KMH = 21.0
 ASSISTED_KMH = 18.0
 
@@ -153,8 +156,11 @@ def validate(config: dict) -> dict:
     out["weights"] = weights
     for kind in ("road", "bike"):
         segs = out["grid"].get(kind) or []
-        if not all(len(s) == 3 and 0 < s[0] <= s[1] and s[2] > 0 for s in segs):
+        if not segs or not all(len(s) == 3 and 0 < s[0] <= s[1] and s[2] > 0 for s in segs):
             raise ValueError(f"grid.{kind} must be [start, stop, step] segments with 0 < start <= stop, step > 0")
+        sizes = {n for a, b, step in segs for n in range(int(a), int(b) + 1, int(step))}
+        if max(sizes) > GRID_MAX[kind] or len(sizes) > GRID_MAX_SIZES:
+            raise ValueError(f"grid.{kind}: at most {GRID_MAX_SIZES} fleet sizes, none above {GRID_MAX[kind]}")
     demand = out["scenario"]["demand"]
     hours = [h for h, _ in demand]
     if len(demand) < 1 or any(t < 0 for _, t in demand) or len(set(hours)) != len(hours):

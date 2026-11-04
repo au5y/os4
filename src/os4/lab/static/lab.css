@@ -42,6 +42,12 @@
 @keyframes lab-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
 @media (prefers-reduced-motion: reduce) { .lab-progress.indeterminate .lab-progress-fill { animation: none; width: 100%; opacity: 0.4; } }
 .lab-error { border-color: var(--bad); color: var(--bad); }
+.lab-estimate { margin: 0 0 6px; }
+.lab-estimate.over { color: var(--bad); font-weight: 600; }
+.lab-limited { border-color: var(--star); }
+.lab-login { max-width: 32rem; margin: 12vh auto; }
+.lab-login input[type=password] { min-height: 34px; width: 16em; }
+#login-error { color: var(--bad); }
 .lab-results .cards { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); margin: 8px 0 12px; }
 .lab-results .card .stat { font-size: 1.15rem; }
 .lab-results .card .muted { font-size: 12.5px; }
