@@ -7,6 +7,8 @@ vectorized over architectures (``test_tradespace.py`` checks it matches
 ``write_task3`` writes the report to ``outputs/`` and its figures and CSVs to ``outputs/media/``.
 """
 
+import sys
+import time
 from collections.abc import Iterable
 from dataclasses import replace
 from pathlib import Path
@@ -56,12 +58,14 @@ def progressive_grid(segments: Iterable[tuple[int, int, int]]) -> tuple[int, ...
 
 # Q14: steps widen as fleets grow. Small fleets (a few buses, a few bikes next to them) decide where the
 # front starts, so they get step 1 (road) or 5 (bikes); past the knee cost rises linearly with N while
-# utility is flat, so coarse steps lose nothing.
+# utility is flat, so coarse steps lose nothing. Bikes stop at 250: every front is flat by then.
 ROAD_SEGMENTS = ((1, 15, 1), (20, 50, 5), (60, 100, 10), (125, 300, 25))
-BIKE_SEGMENTS = ((5, 50, 5), (75, 200, 25), (250, 750, 50))
+BIKE_SEGMENTS = ((5, 50, 5), (75, 250, 25))
 N_ROAD = progressive_grid(ROAD_SEGMENTS)
 N_BIKE = progressive_grid(BIKE_SEGMENTS)
 FLEET_TYPES = ("road-only", "bike-only", "mixed")
+# Progress bar on stderr while scoring (``python -m os4 --no-progress`` turns it off); only drawn on a terminal.
+SHOW_PROGRESS = True
 # Same validated categorical slots as Task 1; shapes are the secondary encoding.
 TYPE_STYLE = {
     "road-only": (SERIES[0], "o"),
@@ -145,6 +149,7 @@ def tradespace(
     n_bike: Iterable[int] = N_BIKE,
     variants: pd.DataFrame | None = None,
     screen: bool = True,
+    label: str = "tradespace",
 ) -> pd.DataFrame:
     """Score every road-only, bike-only and mixed architecture on the fleet-size grids.
 
@@ -154,7 +159,8 @@ def tradespace(
     (``model.meets_thresholds``) or a utilization ceiling (``model.meets_bike_ceiling``,
     ``model.meets_car_ceiling``, PLAN.md Q22) are dropped right after capacity and volume are known, before the
     wait and utility calculations. ``df.attrs`` records
-    ``screened_out`` and ``threshold_failures`` (counts over the whole grid).
+    ``screened_out`` and ``threshold_failures`` (counts over the whole grid). ``label`` names the run
+    on the progress bar.
     """
     variants = prune_variants(all_variants(scenario)) if variants is None else variants
     road = variants[variants["kind"] == "road"].reset_index(drop=True)
@@ -178,8 +184,13 @@ def tradespace(
 
     failures = {"daily_volume": 0, "peak_throughput": 0, "offpeak_throughput": 0, "bike_ceiling": 0,
                 "car_ceiling": 0}
-    chunks = [_score_chunk(grid[:, i:i + CHUNK_ROWS], road, bike, scenario, screen, failures)
-              for i in range(0, grid.shape[1], CHUNK_ROWS)]
+    starts = range(0, grid.shape[1], CHUNK_ROWS)
+    bar = _Progress(label, grid.shape[1])
+    chunks = []
+    for i in starts:
+        chunks.append(_score_chunk(grid[:, i:i + CHUNK_ROWS], road, bike, scenario, screen, failures))
+        bar.update(min(i + CHUNK_ROWS, grid.shape[1]))
+    bar.close()
     df = pd.concat(chunks, ignore_index=True)
     for col in ("fleet_type", "road_variant", "bike_variant"):
         df[col] = df[col].astype("category")
@@ -187,6 +198,29 @@ def tradespace(
     df.attrs["grid_size"] = int(grid.shape[1])
     df.attrs["threshold_failures"] = failures
     return df
+
+
+class _Progress:
+    """A one-line progress bar on stderr: label, bar, architectures scored, elapsed time."""
+
+    WIDTH = 30
+
+    def __init__(self, label: str, total: int):
+        self.label, self.total, self.start = label, total, time.monotonic()
+        self.on = SHOW_PROGRESS and sys.stderr.isatty() and total > 0
+
+    def update(self, done: int) -> None:
+        if not self.on:
+            return
+        filled = int(self.WIDTH * done / self.total)
+        sys.stderr.write(f"\r  {self.label:<34} [{'#' * filled}{'.' * (self.WIDTH - filled)}] "
+                         f"{done:>10,}/{self.total:,} {time.monotonic() - self.start:5.1f}s")
+        sys.stderr.flush()
+
+    def close(self) -> None:
+        if self.on:
+            sys.stderr.write("\n")
+            sys.stderr.flush()
 
 
 def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scenario: Scenario, screen: bool,
@@ -549,7 +583,7 @@ def load_factor_fronts(scenario: Scenario, load_factors=LOAD_FACTORS) -> dict[fl
     """
     fronts = {}
     for lf in load_factors:
-        df = tradespace(replace(scenario, load_factor=lf))
+        df = tradespace(replace(scenario, load_factor=lf), label=f"load factor {lf:.0%}")
         front = pareto_front(df).copy()
         front.attrs = {"architectures": len(df), "screened_out": df.attrs["screened_out"]}
         fronts[lf] = front
@@ -698,7 +732,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
     }
     paths, sections, summary, frames = [], [], [], {}
     for key, (title, case) in cases.items():
-        df = tradespace(case)
+        df = tradespace(case, label=f"task 3, {key} batteries")
         frames[key] = df
         front = pareto_front(df)
         front_rw = pareto_front(df, "mau_os3a_reweight")

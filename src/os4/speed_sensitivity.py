@@ -61,7 +61,7 @@ def run(scenario: Scenario) -> dict[tuple[str, str], dict]:
     for battery in BATTERY_CASES:
         for key, (_, case) in variations(scenario).items():
             case = _battery(case, battery)
-            df = tradespace(case)
+            df = tradespace(case, label=f"sensitivity: {key}, {battery}")
             front = pareto_front(df)
             bikes = df[df["fleet_type"] == "bike-only"]
             markers = reference_and_anchor_table(case)

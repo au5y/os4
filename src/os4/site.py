@@ -151,7 +151,7 @@ def case_frames(scenario: Scenario, n_road=None, n_bike=None) -> dict[str, pd.Da
 def case_frame(case: Scenario, n_road=None, n_bike=None) -> pd.DataFrame:
     """``tradespace(case)`` (default grids unless given) plus the derived filter columns."""
     grid = {k: v for k, v in (("n_road", n_road), ("n_bike", n_bike)) if v is not None}
-    df = tradespace(case, **grid)
+    df = tradespace(case, label="explorer", **grid)
     screened = df.attrs.get("screened_out", 0)
     df = add_derived(df, case)
     df.attrs["screened_out"] = screened

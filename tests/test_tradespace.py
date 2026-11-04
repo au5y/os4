@@ -136,4 +136,4 @@ def test_fleet_grids_widen_with_size():
     for grid in (N_ROAD, N_BIKE):
         steps = np.diff(grid)
         assert (np.diff(steps) >= 0).all()
-    assert max(N_ROAD) == 300 and max(N_BIKE) == 750
+    assert max(N_ROAD) == 300 and max(N_BIKE) == 250
