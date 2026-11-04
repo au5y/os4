@@ -80,7 +80,7 @@ Google Maps was not checked (no API key). Lechmere–Central would break the 7-m
 
 **Answer (Decision):** **the model caps road-vehicle average speed at 21 km/h (13 mph).**
 
-**Discussion.** The posted limit inside the boundary is **20 mph (32 km/h)**. Kendall and Central are two of the five squares the City dropped from 25 to 20 mph in 2018 [[6]](references.md#ref-6), and Residential Safety Zones (2019–21) put about 80% of city streets at 20 mph [[7]](references.md#ref-7), [[9]](references.md#ref-9). Arterials keep the 25 mph citywide default unless posted lower [[7]](references.md#ref-7), [[8]](references.md#ref-8). Signals and congestion hold achieved speed well below posted, and no Kendall-specific measurement exists. The closest proxies: INRIX puts the average downtown Boston trip at 13 mph [[10]](references.md#ref-10), TomTom puts Boston's rush-hour average at 22.4 km/h [[11]](references.md#ref-11), and the MBTA #1 bus averages about 6 mph with its stops [[12]](references.md#ref-12). The cap binds for 55% of road variants, so bigger motors on small chassis rarely buy speed.
+**Discussion.** The posted limit inside the boundary is **20 mph (32 km/h)**. Kendall and Central are two of the five squares the City dropped from 25 to 20 mph in 2018 [[6]](references.md#ref-6), and Residential Safety Zones (2019–21) put about 80% of city streets at 20 mph [[7]](references.md#ref-7), [[9]](references.md#ref-9). Arterials keep the 25 mph citywide default unless posted lower [[7]](references.md#ref-7), [[8]](references.md#ref-8). Signals and congestion hold achieved speed well below posted, and no Kendall-specific measurement exists. The closest proxies: INRIX puts the average downtown Boston trip at 13 mph [[10]](references.md#ref-10), TomTom puts Boston's rush-hour average at 22.4 km/h [[11]](references.md#ref-11), and the MBTA #1 bus averages about 6 mph with its stops [[12]](references.md#ref-12). The cap binds for 55% of road variants, so bigger motors on small chassis rarely buy speed. **Sensitivity:** `outputs/task3_speed_sensitivity.md` reruns the model with the cap at the 20 mph posted limit (32.2 km/h).
 
 #### <a id="q5"></a>Q5. What demand does the system serve?
 
@@ -92,7 +92,7 @@ Google Maps was not checked (no API key). Lechmere–Central would break the 7-m
 
 **Answer (From OS3A; Deviation from Appendix B):** a **fixed assisted speed of 18 km/h**. The Appendix B formula's value is reported alongside it.
 
-**Discussion.** Appendix B's `700·P/W` gives 5–8 km/h for a bike with a rider, which is unrealistic. 18 km/h is the low end of 18–20 km/h and under the 20 mph class 1/2 assist cap. The validation anchor is the OS3A interview [[14]](references.md#ref-14): South Station to Draper (2–2.5 mi) in a reliable 13–15 min, about 15–18 km/h door to door. An e-bike saves only about 3 min, because of traffic and red lights.
+**Discussion.** Appendix B's `700·P/W` gives 5–8 km/h for a bike with a rider, which is unrealistic. 18 km/h is the low end of 18–20 km/h and under the 20 mph class 1/2 assist cap. The validation anchor is the OS3A interview [[14]](references.md#ref-14): South Station to Draper (2–2.5 mi) in a reliable 13–15 min, about 15–18 km/h door to door. An e-bike saves only about 3 min, because of traffic and red lights. **Sensitivity:** `outputs/task3_speed_sensitivity.md` reruns the model with the formula speed: availability rises (a slow bike drains its battery more slowly), but trips take 12–101 min.
 
 #### <a id="q7"></a>Q7. What autonomy level is allowed?
 

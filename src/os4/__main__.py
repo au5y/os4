@@ -6,6 +6,7 @@ from os4.model import architecture_table
 from os4.plots import case_table, write_task1, write_task2
 from os4.scenario import primary_scenario
 from os4.site import write_site
+from os4.speed_sensitivity import write_speed_sensitivity
 from os4.tradespace import write_task3
 from os4.utility import ATTRIBUTES
 
@@ -31,6 +32,10 @@ def main() -> None:
 
     print("\nTask 3 (tradespace):")
     for path in write_task3(scenario):
+        print(f"  wrote {path}")
+
+    print("\nTask 3 speed sensitivity (Appendix B e-bike speed; road cap at the posted limit):")
+    for path in write_speed_sensitivity(scenario):
         print(f"  wrote {path}")
 
     print("\nResults explorer (open outputs/site/index.html):")
