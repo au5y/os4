@@ -342,6 +342,7 @@ Architectures that fail a screen are dropped before scoring.
 - **Cars:** set at Waymo's observed rate of about 24 (250,000 paid rides a week [[32]](references.md#ref-32) on over 1,500 vehicles [[33]](references.md#ref-33), spring 2025). NYC yellow taxis ran 14.0 and Uber/Lyft 11.2 in 2024 [[31]](references.md#ref-31).
 - **Shuttles and buses:** MBTA buses carry about 300–320 weekday riders per bus [[30]](references.md#ref-30), in line with the model.
 - **Not adopted:** a utilization factor X on every architecture's capacity (the load-management ratio in the appendix).
+- **Sensitivity:** `outputs/task3_speed_sensitivity.md` reruns the model with both ceilings off. Bike-only and small-car fleets shrink (75 bikes at 24 riders a day; 7 cars at 57 rides a day), and with removable batteries 40 bikes reach MAU 0.960 for $202,000 at 45 riders per bike per day.
 
 ### Anchors and architectures
 

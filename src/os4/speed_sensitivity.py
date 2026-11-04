@@ -1,11 +1,14 @@
-"""Task 3 sensitivity: vehicle speed assumptions (PLAN.md Q4 road cap, Q6 e-bike assist).
+"""Task 3 sensitivity: vehicle speed assumptions (PLAN.md Q4 road cap, Q6 e-bike assist) and the
+riders-per-day ceilings (Q22).
 
-Two changes from the model baseline, one at a time, each run with fixed and with removable e-bike batteries:
+Changes from the model baseline, each run with fixed and with removable e-bike batteries:
 
 - **Appendix B e-bike speed:** bikes use the formula 700 * motor kW / total kg (1-8 km/h with a rider)
   instead of the fixed ``Scenario.bike_assisted_speed_kmh`` (18 km/h).
 - **Road speed at the posted limit:** road vehicles are capped at 20 mph (32.2 km/h), the posted limit
   in Kendall and Central, instead of the 21 km/h achieved-speed cap.
+- **No riders-per-day ceiling:** the Q22 utilization ceilings (bikes and small cars) are switched off,
+  alone and together with the posted-limit road cap.
 
 ``write_speed_sensitivity`` writes ``outputs/task3_speed_sensitivity.md`` with its figures in ``outputs/media/``.
 """
@@ -26,7 +29,8 @@ MPH_TO_KMH = 1.609344
 POSTED_LIMIT_KMH = 20 * MPH_TO_KMH
 BATTERY_CASES = {"fixed": "Fixed batteries", "removable": "Removable batteries"}
 FRONT_ZOOM_USD = 1.5e6
-COLORS = {"baseline": SERIES[0], "bike_formula": SERIES[1], "road_posted": SERIES[2]}
+COLORS = {"baseline": SERIES[0], "bike_formula": SERIES[1], "road_posted": SERIES[2], "no_ceiling": SERIES[3],
+          "road_posted_no_ceiling": SERIES[2]}
 
 
 def variations(scenario: Scenario) -> dict[str, tuple[str, Scenario]]:
@@ -37,7 +41,14 @@ def variations(scenario: Scenario) -> dict[str, tuple[str, Scenario]]:
         "bike_formula": ("Appendix B e-bike speed (700·P/W)", replace(scenario, bike_assisted_speed_kmh=None)),
         "road_posted": (f"Road cap at the 20 mph posted limit ({POSTED_LIMIT_KMH:.1f} km/h)",
                         replace(scenario, speed_limit_kmh=POSTED_LIMIT_KMH)),
+        "no_ceiling": ("No riders-per-day ceiling", _no_ceiling(scenario)),
+        "road_posted_no_ceiling": ("20 mph road cap and no riders-per-day ceiling",
+                                   _no_ceiling(replace(scenario, speed_limit_kmh=POSTED_LIMIT_KMH))),
     }
+
+
+def _no_ceiling(scenario: Scenario) -> Scenario:
+    return replace(scenario, max_bike_trips_per_day=None, max_car_trips_per_day=None)
 
 
 def _battery(scenario: Scenario, battery: str) -> Scenario:
@@ -61,12 +72,20 @@ def run(scenario: Scenario) -> dict[tuple[str, str], dict]:
                 "architectures": len(df),
                 "bike_only": len(bikes),
                 "bike_only_cheapest": bikes.loc[bikes["fleet_cost_usd"].idxmin()] if len(bikes) else None,
+                "car_only_cheapest": _cheapest_cars(df, case),
                 "cheapest": df.loc[df["fleet_cost_usd"].idxmin()],
                 "knee": front[front["mau"] >= 0.94].iloc[0],
                 "max_mau": float(df["mau"].max()),
             }
             del df
     return out
+
+
+def _cheapest_cars(df: pd.DataFrame, scenario: Scenario) -> pd.Series | None:
+    """Cheapest road-only fleet of small cars (the chassis the car ceiling applies to)."""
+    seats = road_variants(scenario).set_index("variant_id")["pax"]
+    cars = df[(df["fleet_type"] == "road-only") & (df["road_variant"].map(seats) <= scenario.car_max_seats)]
+    return cars.loc[cars["fleet_cost_usd"].idxmin()] if len(cars) else None
 
 
 def summary_table(results: dict, scenario: Scenario) -> pd.DataFrame:
@@ -80,6 +99,8 @@ def summary_table(results: dict, scenario: Scenario) -> pd.DataFrame:
             "feasible": f"{r['architectures']:,}",
             "cheapest feasible": f"{_describe(cheap)}, ${cheap['fleet_cost_usd']:,.0f}",
             "cheapest bike-only": "-" if bike is None else f"{_describe(bike)}, ${bike['fleet_cost_usd']:,.0f}",
+            "cheapest small-car fleet": "-" if r["car_only_cheapest"] is None else
+            f"{_describe(r['car_only_cheapest'])}, ${r['car_only_cheapest']['fleet_cost_usd']:,.0f}",
             "front (road / bike / mixed)": " / ".join(str(counts.get(t, 0)) for t in FLEET_TYPES),
             "front meeting 7-min travel": f"{front['meets_travel_goal'].mean():.0%}",
             "first front point with MAU ≥ 0.94": f"{_describe(knee)}, {knee['mau']:.3f} at ${knee['fleet_cost_usd']:,.0f}",
@@ -182,17 +203,19 @@ def _marker_rows(results: dict, battery: str, key: str) -> pd.DataFrame:
 
 # ---------- shared ----------
 
-def plot_fronts(results: dict, key: str, path: Path, scenario: Scenario) -> Path:
+def plot_fronts(results: dict, keys: tuple[str, ...], path: Path, scenario: Scenario) -> Path:
     """Pareto fronts, baseline vs. one variation, one panel per battery case; hollow points miss the 7-min goal."""
     labels = {k: label for k, (label, _) in variations(scenario).items()}
     fig, axes = plt.subplots(1, 2, figsize=(13, 5.6), facecolor=SURFACE, sharey=True)
     # Zoom to where the fronts rise: past FRONT_ZOOM_USD they are flat at the MAU ceiling.
-    lo = min(results[b, k]["front"]["fleet_cost_usd"].min() for b in BATTERY_CASES for k in ("baseline", key))
+    shown = ("baseline", *keys)
+    lo = min(results[b, k]["front"]["fleet_cost_usd"].min() for b in BATTERY_CASES for k in shown)
     for ax, battery in zip(axes, BATTERY_CASES):
         _style(ax)
-        for k in ("baseline", key):
+        for k in shown:
             front, color = results[battery, k]["front"], COLORS[k]
             ax.step(front["fleet_cost_usd"] / 1e6, front["mau"], where="post", color=color, linewidth=1.8, zorder=2,
+                    linestyle="--" if k.endswith("_no_ceiling") and k != "no_ceiling" else "-",
                     label=f"{labels[k]}: {len(front)} on front")
             for fleet_type in FLEET_TYPES:
                 part = front[front["fleet_type"] == fleet_type]
@@ -211,7 +234,8 @@ def plot_fronts(results: dict, key: str, path: Path, scenario: Scenario) -> Path
                               label="misses 7-min travel goal"))
     legend = axes[1].legend(handles=handles, loc="lower right", frameon=True, fontsize=8)
     legend.get_frame().set_edgecolor(GRID)
-    fig.suptitle(f"Pareto front up to ${FRONT_ZOOM_USD / 1e6:g}M: model baseline vs. {labels[key]}", x=0.01, ha="left", fontsize=13, color=INK,
+    fig.suptitle(f"Pareto front up to ${FRONT_ZOOM_USD / 1e6:g}M: model baseline vs. "
+                 f"{'; '.join(labels[k] for k in keys)}", x=0.01, ha="left", fontsize=13, color=INK,
                  fontweight="bold")
     fig.tight_layout()
     fig.savefig(path, dpi=200)
@@ -230,23 +254,30 @@ def write_speed_sensitivity(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> l
     bikes = bike_comparison(scenario)
     roads = road_comparison(scenario)
     bike_png = plot_bike_availability(bikes, media / "task3_speed_bike_availability.png", scenario)
-    bike_fronts = plot_fronts(results, "bike_formula", media / "task3_speed_bike_fronts.png", scenario)
-    road_fronts = plot_fronts(results, "road_posted", media / "task3_speed_road_fronts.png", scenario)
+    bike_fronts = plot_fronts(results, ("bike_formula",), media / "task3_speed_bike_fronts.png", scenario)
+    road_fronts = plot_fronts(results, ("road_posted",), media / "task3_speed_road_fronts.png", scenario)
+    ceiling_fronts = plot_fronts(results, ("no_ceiling", "road_posted_no_ceiling"),
+                                 media / "task3_speed_ceiling_fronts.png", scenario)
 
-    base, bf, rp = (results["fixed", k] for k in ("baseline", "bike_formula", "road_posted"))
+    base, bf, rp, nc, rpc = (results["fixed", k] for k in
+                             ("baseline", "bike_formula", "road_posted", "no_ceiling", "road_posted_no_ceiling"))
+    nc_check = nc["marker_check"].iloc[0]
+    rem_base, rem_nc = results["removable", "baseline"], results["removable", "no_ceiling"]
     ref_check = rp["marker_check"].iloc[0]
     ref_status = (f"still dominated (same utility for less: {ref_check['same utility, cheapest']})"
                   if ref_check["dominated"] else "no longer dominated")
     md_path = out_dir / "task3_speed_sensitivity.md"
     md_path.write_text(
-        "# Task 3 sensitivity: vehicle speed\n\n"
-        "The model makes two speed assumptions: road vehicles are capped at the achieved urban speed "
-        f"(**{scenario.speed_limit_kmh:g} km/h**, PLAN.md Q4) and e-bikes ride at a fixed assisted "
-        f"**{scenario.bike_assisted_speed_kmh:g} km/h** (Q6). This page reruns the model with each one replaced, "
-        "one at a time, every other input unchanged:\n\n"
+        "# Task 3 sensitivity: vehicle speed and utilization ceilings\n\n"
+        "The model caps road vehicles at the achieved urban speed "
+        f"(**{scenario.speed_limit_kmh:g} km/h**, PLAN.md Q4), rides e-bikes at a fixed assisted "
+        f"**{scenario.bike_assisted_speed_kmh:g} km/h** (Q6), and screens out fleets whose vehicles carry more riders "
+        "per day than real systems do (Q22). This page reruns the model with these changed, every other input "
+        "unchanged:\n\n"
         "- **Appendix B e-bike speed:** bikes use the formula 700 × motor kW / total kg.\n"
         f"- **Road cap at the posted limit:** road vehicles are capped at 20 mph ({POSTED_LIMIT_KMH:.1f} km/h), the "
-        "posted limit in Kendall and Central, with no allowance for signals or congestion.\n\n"
+        "posted limit in Kendall and Central, with no allowance for signals or congestion.\n"
+        "- **No riders-per-day ceiling:** the Q22 utilization ceilings are off, alone and with the 20 mph road cap.\n\n"
         f"{_md_table(summary_table(results, scenario))}\n"
         "## Appendix B e-bike speed\n\n"
         "With a 100 kg rider, the formula gives bikes "
@@ -295,10 +326,42 @@ def write_speed_sensitivity(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> l
         "uses the achieved speed (Q4).\n\n"
         f"![Pareto fronts, road speed]({media_link(road_fronts)})\n\n"
         "Reference and anchors, fixed batteries (model baseline → posted limit):\n\n"
-        f"{_md_table(_marker_rows(results, 'fixed', 'road_posted'))}",
+        f"{_md_table(_marker_rows(results, 'fixed', 'road_posted'))}\n"
+        "## Without the riders-per-day ceiling\n\n"
+        f"The Q22 ceilings screen out fleets whose vehicles would carry more than "
+        f"{scenario.max_bike_trips_per_day:g} riders per bike or {scenario.max_car_trips_per_day:g} rides per small "
+        f"car (1–{scenario.car_max_seats} seats) per day. They count each vehicle's riders over the whole service "
+        "day: the model's daily volume, summed over every demand bin, divided by the fleet. The peak hour drives "
+        "throughput and wait, not this count. Shuttles and buses were never capped. Here both ceilings are off, "
+        "alone and with the 20 mph road cap.\n\n"
+        f"![Pareto fronts, no ceiling]({media_link(ceiling_fronts)})\n\n"
+        "With fixed batteries:\n\n"
+        f"- **Bike-only fleets get smaller:** the cheapest goes from {_money(base['bike_only_cheapest'])} to "
+        f"{_money(nc['bike_only_cheapest'])}, at {nc['bike_only_cheapest']['bike_trips_per_vehicle_day']:.0f} riders "
+        f"per bike per day (MAU {base['bike_only_cheapest']['mau']:.3f} → {nc['bike_only_cheapest']['mau']:.3f}). "
+        "Bluebikes run about 2.5 and Citi Bike e-bikes about 15.\n"
+        f"- **Small-car fleets get much smaller:** the cheapest goes from {_money(base['car_only_cheapest'])} to "
+        f"{_money(nc['car_only_cheapest'])}, at {nc['car_only_cheapest']['car_trips_per_vehicle_day']:.0f} rides per "
+        "car per day, against Waymo's observed 24.\n"
+        f"- **The knee doesn't move** ({_money(nc['knee'])}): it is built on buses, which were never capped. The front "
+        f"goes from {len(base['front'])} to {len(nc['front'])} points, mostly mixed fleets with fewer, busier bikes.\n"
+        f"- **The reference** is still dominated; the cheapest front fleet at its utility is now "
+        f"{nc_check['same utility, cheapest']}.\n"
+        f"- **With the 20 mph road cap too,** the cheapest feasible fleet is {_money(rpc['cheapest'])}, the knee "
+        f"{_money(rpc['knee'])}, and the cheapest small-car fleet {_money(rpc['car_only_cheapest'])} at "
+        f"{rpc['car_only_cheapest']['car_trips_per_vehicle_day']:.0f} rides per car per day.\n"
+        "\nWith removable batteries the change is much larger:\n\n"
+        f"- **The ceiling is what keeps cheap bike fleets off the front.** Swappable packs make bikes about 0.9 "
+        f"available, so without the ceiling the cheapest bike-only fleet is {_money(rem_nc['bike_only_cheapest'])} "
+        f"and the first front point with MAU ≥ 0.94 is {_money(rem_nc['knee'])}, MAU {rem_nc['knee']['mau']:.3f}, "
+        f"down from {_money(rem_base['knee'])}. That fleet needs "
+        f"{rem_nc['knee']['bike_trips_per_vehicle_day']:.0f} riders per bike per day.\n"
+        f"- The cheapest feasible fleet becomes mixed: {_money(rem_nc['cheapest'])}.\n"
+        "- Without the ceiling, the cheapest bike and car fleets rely on each vehicle cycling all day with no idle "
+        "time (Q18), which is the overstatement the ceiling was added to catch.\n",
         encoding="utf-8",
     )
-    return [bike_png, bike_fronts, road_fronts, md_path]
+    return [bike_png, bike_fronts, road_fronts, ceiling_fronts, md_path]
 
 
 def _bike_md(bikes: pd.DataFrame) -> str:

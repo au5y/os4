@@ -27,3 +27,11 @@ def test_posted_limit_caps_road_speed_at_20_mph():
     fastest = r["fastest (km/h)"].str.split(" → ").str[1].astype(float)
     assert fastest.max() == pytest.approx(POSTED_LIMIT_KMH, abs=0.05)
     assert fastest["C8"] < POSTED_LIMIT_KMH  # heavy buses stay motor-limited
+
+
+def test_no_ceiling_variations_switch_off_both_ceilings():
+    v = {k: s for k, (_, s) in variations(primary_scenario()).items()}
+    for key in ("no_ceiling", "road_posted_no_ceiling"):
+        assert v[key].max_bike_trips_per_day is None and v[key].max_car_trips_per_day is None
+    assert v["road_posted_no_ceiling"].speed_limit_kmh == v["road_posted"].speed_limit_kmh
+    assert v["no_ceiling"].speed_limit_kmh == v["baseline"].speed_limit_kmh

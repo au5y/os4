@@ -197,7 +197,7 @@ case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  
 | `task3_tradespace_*.png` | MAU vs. cost scatter with Pareto front and utopia point (Appendix A and os3a_reweight MAU, each battery case) |
 | `task3_fleet_size_*.png` | One panel per vehicle type, colored by fleet size, against the front |
 | `task3_load_factor_fronts.png` | Pareto front at 25 / 50 / 75 / 100% load factor |
-| `task3_speed_sensitivity.md` | Task 3 sensitivity: Appendix B e-bike speed, and the road cap at the 20 mph posted limit |
+| `task3_speed_sensitivity.md` | Task 3 sensitivity: Appendix B e-bike speed, the road cap at the 20 mph posted limit, and no riders-per-day ceiling |
 | `task3_speed_*.png` | E-bike availability at both speeds; Pareto fronts, baseline vs. each speed change |
 | `task3_pareto_front_*.csv` | The Pareto front of each battery case |
 | `site/` | The results explorer (see below) |
