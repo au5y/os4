@@ -73,6 +73,8 @@ class Scenario:
     # Appendix B constants. ``load_factor`` applies to road vehicles; bikes use ``bike_load_factors``.
     dwell_s: float = 60.0
     load_factor: float = 0.75
+    # Multiplier on every vehicle's battery range (e.g. 0.75 for winter cold); 1.0 is Appendix B as given.
+    range_factor: float = 1.0
     notes: list[str] = field(default_factory=list)
 
     @property

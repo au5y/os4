@@ -176,7 +176,7 @@ uv run python -m os4      # or: uv run os4   (without uv: python -m os4 inside t
 uv run pytest             # tests (~20 s; without uv: pytest)
 ```
 
-`python -m os4` runs Tasks 1–3, the results explorer and the Excel backup, and writes everything to `outputs/`. It takes about 1–2 minutes and a few GB of memory, because the full tradespace has ~3.9 million architectures. It prints the key tables as it goes, for example:
+`python -m os4` runs Tasks 1–3, the results explorer and the Excel backup, and writes everything to `outputs/`. It takes about 1.5 minutes and a couple of GB of memory, because each battery case scores 1–2.6 million architectures (with a progress bar per run). Options: `--only` / `--skip` steps (`task1 task2 task3 sensitivity site excel`), `--out DIR`, `--no-progress`; see `python -m os4 --help`. It prints the key tables as it goes, for example:
 
 ```
 Task 1 (MAU):
@@ -214,6 +214,19 @@ case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  
 - **Task 3:** utility-vs-cost scatter (log cost, zoom/pan, hover, click to pin), Pareto front and utopia point, fixed vs. removable batteries, Appendix A vs. os3a_reweight MAU, color by fleet type or size, filters, and a linked table. Road-only, bike-only and front architectures are all included; mixed fleets are a seeded sample (the page says "showing X of Y").
 - **Components:** the Appendix C/D tables and how to read a variant id (`C5-P1-G3-M2-A3` = chassis C5, battery P1, charger G3, motor M2, autonomy A3). Hovering any variant id in a table decodes it.
 - **Selecting:** click ☆ on any architecture; the selection is kept in your browser and can be exported as CSV from the ★ Selected page.
+
+## Model Lab (local, optional)
+
+An interactive version of the model for trying scenarios: pick a preset (the standard weekday scenario, the Task 4 candidates (Red Line disruption, point-to-point network, winter, a.m. rush only) and the Task 3 sensitivity cases), change any input (demand bins, speeds, trip lengths, autonomy, thresholds, ceilings, batteries, utility weights, fleet grid), press **Calculate** and watch the progress bar while the server scores the tradespace (a few seconds). Results show the summary, the tradespace with its Pareto front, the reference and anchors, and the five Task 2 architectures under your inputs.
+
+```bash
+uv run python -m os4.lab          # or: uv run os4-lab; then open http://127.0.0.1:8411
+```
+
+- **Save and compare:** save configs and runs in the browser (localStorage), compare up to four saved runs (overlaid fronts, summary, and only the inputs that differ), and export/import them as JSON files.
+- **Cache:** results are cached on disk in `~/.cache/os4-lab` (`--cache-dir`, `--no-cache`), keyed by the config and the model's code, so re-opening a run is instant.
+- **Self-hosting:** `--host 0.0.0.0 --port 8411`. There is no login; keep it behind a VPN or a reverse proxy with auth. One run at a time uses up to about 1 GB of memory.
+- The lab lives in `src/os4/lab/` and is not part of `outputs/site` or the GitHub Pages explorer.
 
 ## Continuous integration
 

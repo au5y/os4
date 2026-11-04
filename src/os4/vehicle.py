@@ -170,7 +170,7 @@ def road_variants(scenario: Scenario) -> pd.DataFrame:
     df = df[battery_fits(df["battery_weight_kg"], df["chassis_weight_kg"], "road")]
     df = df[df["autonomy_id"].isin(scenario.allowed_autonomy)]
     speed = road_speed_kmh(df["motor_power_kw"], _weight(df), scenario.speed_limit_kmh)
-    return _finish(df, "road", speed, scenario.speed_limit_kmh, scenario.load_factor)
+    return _finish(df, "road", speed, scenario.speed_limit_kmh, scenario.load_factor, scenario.range_factor)
 
 
 def bike_variants(scenario: Scenario) -> pd.DataFrame:
@@ -191,7 +191,8 @@ def bike_variants(scenario: Scenario) -> pd.DataFrame:
     df = df.assign(autonomy_id="L4", autonomy_weight_kg=0.0, autonomy_cost_usd=0.0, autonomy_added_wh_per_km=0.0)
     speed = bike_speed_kmh(df["motor_power_kw"].to_numpy(), _weight(df).to_numpy(), scenario)
     limit = scenario.bike_speed_limit_kmh if scenario.bike_speed_limit_kmh is not None else np.inf
-    fixed = _finish(df, "bike", speed, limit, bike_load_factor(df["chassis_pax"].to_numpy(), scenario))
+    fixed = _finish(df, "bike", speed, limit, bike_load_factor(df["chassis_pax"].to_numpy(), scenario),
+                    scenario.range_factor)
     parts = [fixed] if 0 in scenario.bike_spare_options else []
     for k in (k for k in scenario.bike_spare_options if k > 0):
         swap = fixed.copy()
@@ -248,13 +249,14 @@ def _weight(df: pd.DataFrame) -> pd.Series:
     )
 
 
-def _finish(df: pd.DataFrame, kind: str, speed, speed_limit_kmh: float, load_factor) -> pd.DataFrame:
-    """Apply the Appendix B equations to a table of component selections."""
+def _finish(df: pd.DataFrame, kind: str, speed, speed_limit_kmh: float, load_factor,
+            range_factor: float = 1.0) -> pd.DataFrame:
+    """Apply the Appendix B equations to a table of component selections (range scaled by ``range_factor``)."""
     weight = _weight(df)
     wh_per_km = power_consumption_wh_per_km(
         df["chassis_nominal_wh_per_km"], weight, df["chassis_weight_kg"], df["autonomy_added_wh_per_km"]
     )
-    rng = range_km(df["battery_capacity_kwh"], wh_per_km)
+    rng = range_km(df["battery_capacity_kwh"], wh_per_km) * range_factor
     charge = charge_time_h(df["battery_capacity_kwh"], df["charger_power_kw"])
     speed = np.asarray(speed, dtype=float)
     up, down = uptime_h(rng, speed), downtime_h(charge)

@@ -426,6 +426,19 @@ On the tradespace the reference is **dominated:** 3 × C7 + 5 × B1 reach the sa
 
 ---
 
+## 5. Task 4: second operating scenario (candidates)
+
+The candidates are presets in the Model Lab (`python -m os4.lab`, `src/os4/lab/presets.py`), each with its assumptions listed on the page; numbers marked PLACEHOLDER are for the team to set:
+
+- **Red Line disruption, shuttle to Boston:** about 5 km trips outside the boundary, so A4/A5 only and Table 1's 20-min outside wait goal; peak demand ×1.5.
+- **Point-to-point network:** trips between all three stops (average 2.27 km road), empty return 0.33.
+- **Winter:** road cap 18 km/h, bike assist 12 km/h, battery range ×0.75 (new `Scenario.range_factor`).
+- **A.m. rush only:** demand 6:00–12:00 only, volume threshold scaled to that window, ceilings off.
+
+**Decision pending (team):** which candidate becomes the Task 4 scenario.
+
+---
+
 
 ## Appendix: *Fundamentals of Transportation* extracts
 

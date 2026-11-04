@@ -150,6 +150,8 @@ def tradespace(
     variants: pd.DataFrame | None = None,
     screen: bool = True,
     label: str = "tradespace",
+    weights: dict[str, float] | None = None,
+    progress=None,
 ) -> pd.DataFrame:
     """Score every road-only, bike-only and mixed architecture on the fleet-size grids.
 
@@ -160,7 +162,8 @@ def tradespace(
     ``model.meets_car_ceiling``, PLAN.md Q22) are dropped right after capacity and volume are known, before the
     wait and utility calculations. ``df.attrs`` records
     ``screened_out`` and ``threshold_failures`` (counts over the whole grid). ``label`` names the run
-    on the progress bar.
+    on the progress bar; ``progress(done, total)``, if given, is called after each chunk. ``weights``
+    replaces the Appendix A weights in the ``mau`` column (e.g. a custom set from the Model Lab).
     """
     variants = prune_variants(all_variants(scenario)) if variants is None else variants
     road = variants[variants["kind"] == "road"].reset_index(drop=True)
@@ -184,12 +187,15 @@ def tradespace(
 
     failures = {"daily_volume": 0, "peak_throughput": 0, "offpeak_throughput": 0, "bike_ceiling": 0,
                 "car_ceiling": 0}
-    starts = range(0, grid.shape[1], CHUNK_ROWS)
+    # With a progress callback (the Model Lab), use about 40 chunks so the bar moves smoothly.
+    step = CHUNK_ROWS if progress is None else max(20_000, min(CHUNK_ROWS, grid.shape[1] // 40 + 1))
     bar = _Progress(label, grid.shape[1])
     chunks = []
-    for i in starts:
-        chunks.append(_score_chunk(grid[:, i:i + CHUNK_ROWS], road, bike, scenario, screen, failures))
-        bar.update(min(i + CHUNK_ROWS, grid.shape[1]))
+    for i in range(0, grid.shape[1], step):
+        chunks.append(_score_chunk(grid[:, i:i + step], road, bike, scenario, screen, failures, weights))
+        bar.update(min(i + step, grid.shape[1]))
+        if progress is not None:
+            progress(min(i + step, grid.shape[1]), grid.shape[1])
     bar.close()
     df = pd.concat(chunks, ignore_index=True)
     for col in ("fleet_type", "road_variant", "bike_variant"):
@@ -224,7 +230,7 @@ class _Progress:
 
 
 def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scenario: Scenario, screen: bool,
-                 failures: dict[str, int]) -> pd.DataFrame:
+                 failures: dict[str, int], weights: dict[str, float] | None = None) -> pd.DataFrame:
     ri, n_r, bi, n_b = grid
     # Placeholder row for an absent part (its n = 0 zeroes it out).
     road_rows = pd.concat([road, road.iloc[[0]] if len(road) else bike.iloc[[0]]], ignore_index=True).iloc[
@@ -298,8 +304,8 @@ def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scena
         "car_trips_per_vehicle_day": car_trips,
         "fleet_cost_usd": rp["cost"] + bp["cost"],
     })
-    weights = load_weights()
-    df["mau"] = sum(weights[a] * sau(a, df[a].to_numpy()) for a in ATTRIBUTES)
+    weights = load_weights() if weights is None else weights
+    df["mau"] = sum(w * sau(a, df[a].to_numpy()) for a, w in weights.items())
     reweight = load_weights("os3a_reweight")
     df["mau_os3a_reweight"] = sum(w * sau(a, df[a].to_numpy()) for a, w in reweight.items())
     return pd.concat([df, requirement_flags(df, scenario)], axis=1)

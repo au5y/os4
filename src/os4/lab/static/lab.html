@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OS4 Model Lab</title>
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="stylesheet" href="/static/lab.css">
+</head>
+<body>
+<header class="topbar"><nav aria-label="Lab">
+  <span class="brand">OS4 Model Lab</span>
+  <a class="nav" href="#run" data-tab="run" aria-current="page">Run</a>
+  <a class="nav" href="#compare" data-tab="compare">Compare</a>
+  <a class="nav" href="#saved" data-tab="saved">Saved</a>
+  <span class="spacer"></span>
+  <a class="nav" href="https://au5y.github.io/os4/" target="_blank" rel="noopener">Results explorer ↗</a>
+</nav></header>
+<main class="wrap" id="main">
+  <section id="tab-run" class="lab-tab">
+    <div class="lab-layout">
+      <aside class="lab-form" id="form" aria-label="Model inputs"></aside>
+      <div class="lab-results">
+        <div class="lab-run-bar">
+          <button type="button" class="primary" id="calc">Calculate</button>
+          <label class="small"><input type="checkbox" id="auto"> auto-calculate on change</label>
+          <button type="button" id="save-run" disabled>Save run</button>
+          <button type="button" id="export-run" disabled>Export run</button>
+          <span class="muted small" id="run-note"></span>
+        </div>
+        <div class="lab-progress" id="progress" hidden>
+          <div class="lab-progress-track"><div class="lab-progress-fill" id="progress-fill"></div></div>
+          <span class="small" id="progress-text"></span>
+        </div>
+        <div id="error" class="banner lab-error" hidden></div>
+        <div id="results"><p class="muted">Pick a preset or change any input, then press <b>Calculate</b>.</p></div>
+      </div>
+    </div>
+  </section>
+  <section id="tab-compare" class="lab-tab" hidden>
+    <h1>Compare saved runs</h1>
+    <p class="muted">Tick up to four saved runs. Fronts are overlaid; the tables show their summaries and only the inputs that differ.</p>
+    <div id="compare-pick" class="filters"></div>
+    <div id="compare-out"></div>
+  </section>
+  <section id="tab-saved" class="lab-tab" hidden>
+    <h1>Saved configs and runs</h1>
+    <p class="muted">Stored in this browser (localStorage). Export to a file to keep or share them; import a file to restore.</p>
+    <div class="toolbar">
+      <button type="button" id="export-all">Export everything</button>
+      <label class="lab-file"><input type="file" id="import" accept="application/json,.json"> Import file…</label>
+      <span class="muted small" id="storage-note"></span>
+    </div>
+    <h2>Configs</h2><div id="saved-configs"></div>
+    <h2>Runs</h2><div id="saved-runs"></div>
+  </section>
+</main>
+<div class="tooltip" id="tip" hidden></div>
+<script src="/assets/common.js"></script>
+<script src="/static/lab.js"></script>
+</body>
+</html>
