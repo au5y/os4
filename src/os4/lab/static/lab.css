@@ -19,6 +19,11 @@
 .lab-field .lab-input { display: flex; gap: 4px; align-items: center; justify-content: flex-end; }
 .lab-field .unit { color: var(--ink-2); font-size: 12px; min-width: 2.5em; }
 .lab-field.changed > .lab-label { font-weight: 600; }
+.lab-field.inactive { opacity: 0.45; }
+.lab-speed { margin: 8px 0 10px; }
+.lab-speed .seg { margin: 4px 0 2px; }
+.lab-speed .seg label { font-size: 12.5px; padding: 3px 8px; }
+.lab-effective { font-size: 12px; color: var(--ink-2); margin: 2px 0 0; }
 .lab-field.changed > .lab-label::before { content: "● "; color: var(--star); }
 .lab-field input[type="text"] { width: 11em; }
 .lab-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }

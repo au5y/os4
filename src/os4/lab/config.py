@@ -25,12 +25,19 @@ BATTERY_CASES = ("fixed", "removable")
 # kind: "num" (number), "opt" (number or off: None), "list" (comma-separated numbers), "autonomy", "demand".
 FIELDS = [
     {"key": "demand", "group": "Demand", "label": "Trips per hour by 2-hour bin", "kind": "demand", "q": 5},
-    {"key": "speed_limit_kmh", "group": "Speeds", "label": "Road speed cap", "unit": "km/h", "kind": "num",
-     "min": 5, "max": 60, "step": 0.1, "q": 4},
-    {"key": "bike_assisted_speed_kmh", "group": "Speeds", "label": "E-bike assisted speed", "unit": "km/h",
-     "kind": "opt", "off": "Appendix B formula (700·P/W)", "min": 1, "max": 32, "step": 0.5, "q": 6},
-    {"key": "bike_speed_limit_kmh", "group": "Speeds", "label": "E-bike speed limit", "unit": "km/h", "kind": "opt",
-     "off": "none", "min": 5, "max": 45, "step": 0.5, "q": 6},
+    # Speeds: the form shows a choice per vehicle kind (kind "speeds"); these are the values behind it.
+    {"key": "road_speed_basis", "group": "Speeds", "label": "Road speed", "kind": "speeds", "q": 4,
+     "choices": {"posted": "Posted speed limit", "achieved": "Achieved speed cap"}},
+    {"key": "road_posted_limit_kmh", "group": "Speeds", "label": "Posted speed limit", "unit": "km/h", "kind": "num",
+     "min": 5, "max": 120, "step": 0.1, "q": 4, "sub": True},
+    {"key": "road_achieved_cap_kmh", "group": "Speeds", "label": "Achieved speed cap", "unit": "km/h", "kind": "num",
+     "min": 5, "max": 120, "step": 0.1, "q": 4, "sub": True},
+    {"key": "bike_speed_basis", "group": "Speeds", "label": "E-bike speed", "kind": "speeds", "q": 6,
+     "choices": {"assisted": "Fixed assisted speed", "formula": "Appendix B formula (700·P/W)"}},
+    {"key": "bike_assisted_speed_kmh", "group": "Speeds", "label": "Assisted speed", "unit": "km/h", "kind": "num",
+     "min": 1, "max": 45, "step": 0.5, "q": 6, "sub": True},
+    {"key": "bike_speed_limit_kmh", "group": "Speeds", "label": "E-bike speed limit (caps either)", "unit": "km/h",
+     "kind": "opt", "off": "none", "min": 5, "max": 45, "step": 0.5, "q": 6, "sub": True},
     {"key": "avg_trip_km", "group": "Trips", "label": "Road trip length", "unit": "km", "kind": "num",
      "min": 0.2, "max": 30, "step": 0.05, "q": 3},
     {"key": "bike_trip_km", "group": "Trips", "label": "Bike trip length", "unit": "km", "kind": "opt",
@@ -74,6 +81,10 @@ FIELDS = [
      "kind": "num", "min": 1, "max": 30, "step": 1, "q": 22},
 ]
 SCENARIO_KEYS = tuple(f["key"] for f in FIELDS)
+# 20 mph, the posted limit in Kendall and Central (PLAN.md Q4); the model's default is the achieved cap.
+POSTED_LIMIT_KMH = 20 * 1.609344
+ACHIEVED_CAP_KMH = 21.0
+ASSISTED_KMH = 18.0
 
 
 def from_scenario(scenario: Scenario, name: str | None = None, battery_case: str = "fixed",
@@ -88,8 +99,9 @@ def from_scenario(scenario: Scenario, name: str | None = None, battery_case: str
         "grid": grid or {"road": [list(s) for s in ROAD_SEGMENTS], "bike": [list(s) for s in BIKE_SEGMENTS]},
         "scenario": {
             "demand": [[int(h), float(t)] for h, t in scenario.demand[["hour", "trips_per_hour"]].to_numpy()],
-            "speed_limit_kmh": scenario.speed_limit_kmh,
-            "bike_assisted_speed_kmh": scenario.bike_assisted_speed_kmh,
+            **_road_speed(scenario.speed_limit_kmh),
+            "bike_speed_basis": "formula" if scenario.bike_assisted_speed_kmh is None else "assisted",
+            "bike_assisted_speed_kmh": scenario.bike_assisted_speed_kmh or ASSISTED_KMH,
             "bike_speed_limit_kmh": scenario.bike_speed_limit_kmh,
             "avg_trip_km": scenario.avg_trip_km,
             "bike_trip_km": scenario.bike_trip_km,
@@ -124,8 +136,15 @@ def validate(config: dict) -> dict:
         raise ValueError(f"unsupported schema_version {config.get('schema_version')!r}")
     base = from_scenario(primary_scenario())
     out = {**base, **{k: v for k, v in config.items() if k != "scenario"}}
-    out["scenario"] = {**base["scenario"], **{k: v for k, v in (config.get("scenario") or {}).items()
-                                              if k in SCENARIO_KEYS}}
+    given = dict(config.get("scenario") or {})
+    if "speed_limit_kmh" in given and "road_speed_basis" not in given:  # configs saved before the speed choice
+        given.update(_road_speed(float(given["speed_limit_kmh"])))
+    if given.get("bike_assisted_speed_kmh", 0) is None and "bike_speed_basis" not in given:
+        given.update(bike_speed_basis="formula", bike_assisted_speed_kmh=ASSISTED_KMH)
+    out["scenario"] = {**base["scenario"], **{k: v for k, v in given.items() if k in SCENARIO_KEYS}}
+    s = out["scenario"]
+    if s["road_speed_basis"] not in ("posted", "achieved") or s["bike_speed_basis"] not in ("assisted", "formula"):
+        raise ValueError("road_speed_basis must be posted/achieved and bike_speed_basis assisted/formula")
     if out["battery_case"] not in BATTERY_CASES:
         raise ValueError(f"battery_case must be one of {BATTERY_CASES}")
     weights = {a: float(w) for a, w in out["weights"].items()}
@@ -159,8 +178,9 @@ def to_scenario(config: dict) -> Scenario:
         primary_scenario(),
         name=c["name"],
         demand=demand.reset_index(drop=True),
-        speed_limit_kmh=float(s["speed_limit_kmh"]),
-        bike_assisted_speed_kmh=_opt(s["bike_assisted_speed_kmh"]),
+        speed_limit_kmh=float(s["road_posted_limit_kmh"] if s["road_speed_basis"] == "posted"
+                              else s["road_achieved_cap_kmh"]),
+        bike_assisted_speed_kmh=float(s["bike_assisted_speed_kmh"]) if s["bike_speed_basis"] == "assisted" else None,
         bike_speed_limit_kmh=_opt(s["bike_speed_limit_kmh"]),
         avg_trip_km=float(s["avg_trip_km"]),
         bike_trip_km=_opt(s["bike_trip_km"]),
@@ -183,6 +203,13 @@ def to_scenario(config: dict) -> Scenario:
         max_car_trips_per_day=_opt(s["max_car_trips_per_day"]),
         car_max_seats=int(s["car_max_seats"]),
     )
+
+
+def _road_speed(speed_limit_kmh: float) -> dict:
+    """The road-speed choice for a scenario's cap: the posted limit if it equals 20 mph, else an achieved cap."""
+    posted = abs(speed_limit_kmh - POSTED_LIMIT_KMH) < 1e-6
+    return {"road_speed_basis": "posted" if posted else "achieved", "road_posted_limit_kmh": POSTED_LIMIT_KMH,
+            "road_achieved_cap_kmh": ACHIEVED_CAP_KMH if posted else speed_limit_kmh}
 
 
 def _opt(v):

@@ -111,3 +111,16 @@ def test_server_runs_a_job(tmp_path):
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_speed_choice_sets_the_road_cap_and_bike_speed():
+    cfg = from_scenario(primary_scenario())
+    s = cfg["scenario"]
+    assert s["road_speed_basis"] == "achieved" and s["bike_speed_basis"] == "assisted"
+    posted = {**cfg, "scenario": {**s, "road_speed_basis": "posted"}}
+    assert to_scenario(posted).speed_limit_kmh == pytest.approx(20 * 1.609344)
+    formula = {**cfg, "scenario": {**s, "bike_speed_basis": "formula"}}
+    assert to_scenario(formula).bike_assisted_speed_kmh is None
+    # A config saved before the choice existed (only speed_limit_kmh) still loads, as an achieved cap.
+    legacy = {**cfg, "scenario": {"speed_limit_kmh": 25.0, "bike_assisted_speed_kmh": None}}
+    assert to_scenario(legacy).speed_limit_kmh == 25.0 and to_scenario(legacy).bike_assisted_speed_kmh is None

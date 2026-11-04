@@ -64,7 +64,7 @@
     const box = U.el("span", { class: "lab-input" });
     const num = (val, on) =>
       U.el("input", {
-        type: "number", value: val ?? "", min: f.min, max: f.max, step: f.step || "any", "aria-label": f.label,
+        type: "number", value: typeof val === "number" ? +val.toFixed(3) : val ?? "", min: f.min, max: f.max, step: f.step || "any", "aria-label": f.label,
         onchange: (e) => {
           const x = e.target.value === "" ? null : Number(e.target.value);
           on(x);
@@ -106,6 +106,39 @@
       }
     }
     return U.el("div", { class: "lab-field" + (changed ? " changed" : "") }, [label, box]);
+  }
+
+  // Speeds: pick what sets each kind's speed; the chosen value is used, the other is kept but greyed out.
+  const SPEED_ACTIVE = {
+    road_posted_limit_kmh: (s) => s.road_speed_basis === "posted",
+    road_achieved_cap_kmh: (s) => s.road_speed_basis === "achieved",
+    bike_assisted_speed_kmh: (s) => s.bike_speed_basis === "assisted",
+    bike_speed_limit_kmh: () => true,
+  };
+  function speedsEditor(f) {
+    const prefix = f.key.split("_")[0];
+    const s = S();
+    const changed = !same(s[f.key], baseS()[f.key]);
+    const seg = U.el("span", { class: "seg", role: "radiogroup", "aria-label": f.label }, Object.entries(f.choices).map(([k, text]) =>
+      U.el("label", null, [U.el("input", { type: "radio", name: f.key, value: k, checked: s[f.key] === k, onchange: () => { S()[f.key] = k; setDirty(); } }), text])));
+    const rows = state.schema.fields.filter((x) => x.sub && x.key.startsWith(prefix + "_")).map((x) => {
+      const row = field(x);
+      if (!SPEED_ACTIVE[x.key](s)) row.classList.add("inactive");
+      return row;
+    });
+    let effective;
+    if (prefix === "road") {
+      const v = s.road_speed_basis === "posted" ? s.road_posted_limit_kmh : s.road_achieved_cap_kmh;
+      effective = "Road vehicles run at the Appendix B formula speed, capped at " + (+v).toFixed(1) + " km/h (" + (v / 1.609344).toFixed(1) + " mph).";
+    } else {
+      const lim = s.bike_speed_limit_kmh;
+      effective = (s.bike_speed_basis === "assisted" ? "E-bikes ride at " + s.bike_assisted_speed_kmh + " km/h" : "E-bikes ride at 700 × motor kW / total kg (about 1–8 km/h with a rider)") +
+        (lim !== null && lim !== undefined ? ", capped at " + lim + " km/h." : ", no cap.");
+    }
+    return U.el("div", { class: "lab-speed" + (changed ? " changed" : "") }, [
+      U.el("div", { class: "lab-label" }, [U.el("b", { text: prefix === "road" ? "Road vehicles" : "E-bikes" }), " ", U.el("a", { href: PLAN + f.q, target: "_blank", rel: "noopener", class: "small", text: "Q" + f.q })]),
+      seg, ...rows, U.el("p", { class: "lab-effective", text: effective }),
+    ]);
   }
 
   function demandEditor() {
@@ -217,7 +250,10 @@
 
     const sections = {};
     const section = (name) => sections[name] || (sections[name] = []);
-    for (const f of state.schema.fields) section(f.group).push(f.kind === "demand" ? demandEditor() : field(f));
+    for (const f of state.schema.fields) {
+      if (f.sub) continue; // drawn inside its speed choice
+      section(f.group).push(f.kind === "demand" ? demandEditor() : f.kind === "speeds" ? speedsEditor(f) : field(f));
+    }
     section("Utility weights").push(...weightsEditor());
     section("Fleet grid").push(...gridEditor());
     for (const [name, nodes] of Object.entries(sections)) {
