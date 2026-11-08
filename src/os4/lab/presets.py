@@ -26,7 +26,7 @@ def presets() -> list[dict]:
     """Every preset: ``{id, name, group, description, assumptions, config}``.
 
     The lab's default speeds are the posted 20 mph limit for road vehicles and the Appendix B formula for
-    e-bikes; "Task 3 report settings" keeps the model's own choices (21 km/h achieved cap, 18 km/h assist).
+    e-bikes; "Task 3 report settings" keeps the model's own choices (21 km/h achieved cap, Appendix B e-bike formula).
     """
     report = primary_scenario()
     base = replace(report, speed_limit_kmh=POSTED_LIMIT_KMH, bike_assisted_speed_kmh=None)
@@ -43,7 +43,7 @@ def presets() -> list[dict]:
         "description": "Exactly what the Task 3 report runs: the standard weekday scenario with the model's own "
                        "speed choices.",
         "assumptions": ["Road vehicles capped at the 21 km/h achieved speed (Q4)",
-                        "E-bikes at a fixed 18 km/h assist (Q6)", "Riders-per-day ceilings on (Q22)"],
+                        "E-bikes at the Appendix B formula speed (Q6)", "Riders-per-day ceilings on (Q22)"],
         "scenario": replace(report, name="Task 3 report settings"),
     }]
 

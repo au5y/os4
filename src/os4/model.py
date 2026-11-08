@@ -151,13 +151,18 @@ def representative_architectures(scenario: Scenario) -> dict[str, Fleet]:
     enlarged just enough to pass the utilization ceilings (PLAN.md Q22): 1 from 12
     to 24 cars (24.9 rides per car per day), 4 from 60 to 115 bikes (24.6 rides
     per car, 10.4 riders per bike).
+
+    At the Appendix B e-bike speed (PLAN.md Q6, revised 2026-11-07) the B2-K2 bike rides at
+    2.75 km/h: 150 of them miss Table 1, and 8 cars + 115 of them break the car ceiling. Fleets 3 and 4
+    switched to the K3 motor (8 km/h) and were re-sized to the smallest feasible count: 3 to 120 bikes,
+    4 to 8 cars + 165 bikes.
     """
     v = lambda vid: get_variant(vid, scenario)  # noqa: E731
     return {
         "1 small cars (C2)": Fleet(road=v("C2-P2-G3-M2-A3"), n_road=24),
         "2 large shuttles (C6)": Fleet(road=v("C6-P4-G3-M3-A3"), n_road=4),
-        "3 bike-only (B2)": Fleet(bike=v("B2-E1-G2-K2"), n_bike=150),
-        "4 mixed cars + bikes": Fleet(road=v("C2-P2-G3-M2-A3"), n_road=8, bike=v("B2-E1-G2-K2"), n_bike=115),
+        "3 bike-only (B2)": Fleet(bike=v("B2-E1-G2-K3"), n_bike=120),
+        "4 mixed cars + bikes": Fleet(road=v("C2-P2-G3-M2-A3"), n_road=8, bike=v("B2-E1-G2-K3"), n_bike=165),
         "5 A5 long-range (C4)": Fleet(road=v("C4-P5-G3-M2-A5"), n_road=6),
     }
 

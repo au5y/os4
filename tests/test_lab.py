@@ -82,7 +82,7 @@ def test_range_factor_scales_range_and_lowers_availability():
 def test_baseline_run_matches_task3():
     s = calculate(next(p for p in presets() if p["id"] == "report")["config"])["summary"]
     assert s["cheapest"]["cost"] == 182_200
-    assert s["knee"]["cost"] == 259_200
+    assert s["knee"]["cost"] == 275_950
     assert s["max_mau"] == pytest.approx(0.962, abs=5e-4)
 
 
@@ -120,11 +120,13 @@ def test_server_runs_a_job(tmp_path):
 def test_speed_choice_sets_the_road_cap_and_bike_speed():
     cfg = from_scenario(primary_scenario())
     s = cfg["scenario"]
-    assert s["road_speed_basis"] == "achieved" and s["bike_speed_basis"] == "assisted"
+    assert s["road_speed_basis"] == "achieved" and s["bike_speed_basis"] == "formula"
     posted = {**cfg, "scenario": {**s, "road_speed_basis": "posted"}}
     assert to_scenario(posted).speed_limit_kmh == pytest.approx(20 * 1.609344)
     formula = {**cfg, "scenario": {**s, "bike_speed_basis": "formula"}}
     assert to_scenario(formula).bike_assisted_speed_kmh is None
+    assisted = {**cfg, "scenario": {**s, "bike_speed_basis": "assisted"}}
+    assert to_scenario(assisted).bike_assisted_speed_kmh == 18.0
     # A config saved before the choice existed (only speed_limit_kmh) still loads, as an achieved cap.
     legacy = {**cfg, "scenario": {"speed_limit_kmh": 25.0, "bike_assisted_speed_kmh": None}}
     assert to_scenario(legacy).speed_limit_kmh == 25.0 and to_scenario(legacy).bike_assisted_speed_kmh is None
@@ -137,7 +139,7 @@ def test_tags_are_scored_and_checked_against_the_front():
     knee = result["summary"]["knee"]["fleet"].replace(" × ", "×")
     tags = evaluate_tags(cfg, [{"id": knee, "label": "knee"}, {"id": "6 x C4-P2-G3-M2-A3", "label": "ref"},
                                {"id": "nonsense"}], result["front"])
-    assert tags[0]["status"] == "ok" and not tags[0]["dominated"] and tags[0]["fleet_cost_usd"] == 259_200
+    assert tags[0]["status"] == "ok" and not tags[0]["dominated"] and tags[0]["fleet_cost_usd"] == 275_950
     assert tags[1]["dominated"] and tags[1]["fleet_cost_usd"] == 430_800
     assert "cannot read" in tags[2]["status"]
     red_line = next(p for p in presets() if p["id"] == "red_line")["config"]

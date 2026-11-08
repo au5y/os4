@@ -112,8 +112,9 @@ def primary_scenario() -> Scenario:
         # returns carry a passenger; run it as a sensitivity.
         deadhead_fraction=1.0,
         demand=load("demand_mit_kendall"),
-        # Q6: fixed assisted speed, low end of 18-20 km/h (OS3A anchor: 15-18 km/h door to door).
-        bike_assisted_speed_kmh=18.0,
+        # Q6 (Decision, Austin, 2026-11-07): the Appendix B formula speed (700·P/W), as the assignment
+        # gives it, even though it is unrealistic; the 18 km/h assist is a sensitivity.
+        bike_assisted_speed_kmh=None,
         # Class 1/2 e-bike assist cap, 20 mph.
         bike_speed_limit_kmh=32.0,
         # Q3: both Kendall bike links are 1.6 km.

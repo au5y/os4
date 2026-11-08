@@ -42,7 +42,7 @@ The primary scenario, **standard weekday demand**, is a weekday on-demand last-m
 | Trip length | 1.75 km by road, 1.6 km by bike | [Q3](#q3) |
 | Empty return (deadhead) | 1.0: every trip returns to Kendall empty | [Q3](#q3) |
 | Road speed | Capped at 21 km/h average (achieved, not posted) | [Q4](#q4) |
-| Bike speed | Fixed 18 km/h with assist | [Q6](#q6) |
+| Bike speed | Appendix B formula, 700 · motor kW / total kg (1–8 km/h with a rider) | [Q6](#q6) |
 | Dwell | 60 s per trip (Appendix B) | |
 | Autonomy | A3 is allowed inside the boundary | [Q7](#q7) |
 
@@ -90,9 +90,11 @@ Google Maps was not checked (no API key). Lechmere–Central would break the 7-m
 
 #### <a id="q6"></a>Q6. How fast do e-bikes go?
 
-**Answer (From OS3A; Deviation from Appendix B):** a **fixed assisted speed of 18 km/h**. The Appendix B formula's value is reported alongside it.
+**Answer (Decision, Austin, 2026-11-07):** **the Appendix B formula speed, 700 · motor kW / total kg,** as the assignment gives it. Even if it is unrealistic, and a rider who pedals would add speed, we ran against the given constraints. A fixed 18 km/h assist is the sensitivity case.
 
-**Discussion.** Appendix B's `700·P/W` gives 5–8 km/h for a bike with a rider, which is unrealistic. 18 km/h is the low end of 18–20 km/h and under the 20 mph class 1/2 assist cap. The validation anchor is the OS3A interview [[14]](references.md#ref-14): South Station to Draper (2–2.5 mi) in a reliable 13–15 min, about 15–18 km/h door to door. An e-bike saves only about 3 min, because of traffic and red lights. **Sensitivity:** `outputs/task3_speed_sensitivity.md` reruns the model with the formula speed: availability rises (a slow bike drains its battery more slowly), but trips take 12–101 min.
+**Discussion.** With a 100 kg rider the formula gives 0.9–8.1 km/h, slower than walking for most variants, so a Kendall bike trip takes 12–101 min. A realistic assisted speed is 18 km/h: the low end of 18–20 km/h, under the 20 mph class 1/2 assist cap, and in line with the OS3A interview [[14]](references.md#ref-14) (South Station to Draper, 2–2.5 mi, in a reliable 13–15 min, about 15–18 km/h door to door; an e-bike saves only about 3 min because of traffic and red lights). The model used 18 km/h until 2026-11-07; it was dropped because it departs from the given equations.
+
+What the formula speed does: a slow bike drains its battery slowly, so fixed-battery availability is 0.36–0.91 instead of 0.14–0.42 at 18 km/h, but each bike carries few riders per hour. The fastest motor (K3, about 8 km/h) dominates the bike part of the tradespace, the knee moves from 2 × C8 + 20 × B1-K1 ($259,200) to 3 × C7 + 10 × B1-K3 ($275,950), and only 22% of the fixed-battery front meets the 7-minute travel goal (all of it does at 18 km/h; see [Q11](#q11)). **Sensitivity:** `outputs/task3_speed_sensitivity.md` reruns the model at the 18 km/h assist.
 
 #### <a id="q7"></a>Q7. What autonomy level is allowed?
 
@@ -227,7 +229,7 @@ Case MAUs become A 0.628 / B 0.619 / C 0.676, so the ranking changes from C > B 
 
 **Answer (Decision, Austin, 2026-11-03):** no. The 7-minute requirement stays a pass/fail flag (`meets_travel_goal`), and the SAU is kept for a scenario with longer trips.
 
-**Discussion.** Travel time traces to Table 1 (7 min maximum) [[1]](references.md#ref-1) and OS3A MOE 1, and has an SAU (`data/sau_travel_time.csv`: 0 → 1.0, 4 → 0.95, 7 → 0.8, 10 → 0.5, 15 → 0.2, 20 → 0). On Kendall trips it barely varies: a road vehicle at the speed cap takes 5.0 min and a bike 5.3 min. On the Pareto front it spans 5.0–6.6 min (SAU 0.90–0.82), at most 0.012 of MAU at a 0.15 weight. Only slow road variants score low, and their longer cycle already costs them throughput and wait. Every front architecture passes the 7-minute flag.
+**Discussion.** Travel time traces to Table 1 (7 min maximum) [[1]](references.md#ref-1) and OS3A MOE 1, and has an SAU (`data/sau_travel_time.csv`: 0 → 1.0, 4 → 0.95, 7 → 0.8, 10 → 0.5, 15 → 0.2, 20 → 0). A road vehicle at the speed cap takes 5.0 min. When bikes rode at 18 km/h (5.3 min) the front spanned 5.0–6.6 min and every front architecture passed the 7-minute flag, so weighting it changed little. At the Appendix B bike speed ([Q6](#q6)) a bike trip takes 12–101 min: the fixed-battery front spans 5.0–12.2 min, only 22% of it passes the flag, and bike-heavy fleets score well on MAU while missing the requirement. **Open (team):** whether to revisit this decision now that bikes are slow.
 
 #### <a id="q12"></a>Q12. Should bike share be a weighted attribute?
 
@@ -275,9 +277,9 @@ Appendix B as given, for every feasible variant: total weight (+100 kg per passe
 
 **Answer (Decision, team, 2026-11-01; Deviation from Appendix B):** model both pathways: fixed batteries (Appendix B as given) and removable batteries swapped at the hub, with k spare packs per bike. This is our candidate for the rubric's "Above & Beyond: Excellency in Modeling".
 
-**Discussion.** **E-bike availability is 0.14–0.42 under Appendix B,** far below the 0.75 benchmark. Small batteries (0.5–3 kWh) and slow chargers mean bikes charge much longer than they ride. **Assumption:** the formula assumes a vehicle rides nonstop until its battery is empty. Real bikes sit idle most of the day and could charge then, so it understates bike availability.
+**Discussion.** **At a realistic 18 km/h, fixed-battery e-bike availability is 0.14–0.42 under Appendix B,** far below the 0.75 benchmark: small batteries (0.5–3 kWh) and slow chargers mean bikes charge much longer than they ride. At the Appendix B formula speed the model uses ([Q6](#q6)) it is 0.36–0.91, because a bike at 1–8 km/h barely drains its pack. **Assumption:** the formula assumes a vehicle rides nonstop until its battery is empty. Real bikes sit idle most of the day and could charge then, so it understates bike availability.
 
-With removable batteries, a bike swaps packs in 5 min (**Assumption**) instead of charging in place, with k spare packs per bike pooled across the fleet (0.5, 1, 1.5, 2 or 3). Availability = min( U/(U+s), (1+k)·U/(U+s+C+0.25) ): the bike is limited either by the swap itself or by the supply of charged packs. Each spare adds its battery and a charger slot to the bike's cost. A B2 bike goes from 0.42 availability at $4,500 to 0.90 at $6,150 with 1.5 spares. **Decision (team, 2026-11-01):** swap labor is not counted ([Q21](#q21)), stated as a limitation.
+With removable batteries, a bike swaps packs in 5 min (**Assumption**) instead of charging in place, with k spare packs per bike pooled across the fleet (0.5, 1, 1.5, 2 or 3). Availability = min( U/(U+s), (1+k)·U/(U+s+C+0.25) ): the bike is limited either by the swap itself or by the supply of charged packs. Each spare adds its battery and a charger slot to the bike's cost. A B2-E1-G2-K2 bike goes from 0.82 availability at $4,500 to 0.98 at $5,050 with 0.5 spares (at 18 km/h: 0.42 to 0.90 with 1.5 spares, $6,150). **Decision (team, 2026-11-01):** swap labor is not counted ([Q21](#q21)), stated as a limitation.
 
 #### <a id="q16"></a>Q16. How many riders does an e-bike carry per trip?
 
@@ -318,7 +320,7 @@ Equations follow the *Fundamentals of Transportation* extracts in the appendix [
 
 **Answer (Decision):** the average Kendall trip (1.75 km road, 1.6 km bike) ÷ speed, weighted by each part's share of trips.
 
-**Discussion.** A capped road fleet takes 5.0 min, inside Table 1's 7-minute requirement. It is reported, not weighted ([Q11](#q11)).
+**Discussion.** A capped road fleet takes 5.0 min, inside Table 1's 7-minute requirement; bikes at the Appendix B speed take 12–101 min ([Q6](#q6)). It is reported, not weighted ([Q11](#q11)).
 
 #### <a id="q21"></a>Q21. What does cost include?
 
@@ -342,7 +344,7 @@ Architectures that fail a screen are dropped before scoring.
 - **Cars:** set at Waymo's observed rate of about 24 (250,000 paid rides a week [[32]](references.md#ref-32) on over 1,500 vehicles [[33]](references.md#ref-33), spring 2025). NYC yellow taxis ran 14.0 and Uber/Lyft 11.2 in 2024 [[31]](references.md#ref-31).
 - **Shuttles and buses:** MBTA buses carry about 300–320 weekday riders per bus [[30]](references.md#ref-30), in line with the model.
 - **Not adopted:** a utilization factor X on every architecture's capacity (the load-management ratio in the appendix).
-- **Sensitivity:** `outputs/task3_speed_sensitivity.md` reruns the model with both ceilings off. Bike-only and small-car fleets shrink (75 bikes at 24 riders a day; 7 cars at 57 rides a day), and with removable batteries 40 bikes reach MAU 0.960 for $202,000 at 45 riders per bike per day.
+- **Sensitivity:** `outputs/task3_speed_sensitivity.md` reruns the model with both ceilings off. Small-car fleets shrink (7 cars at 57 rides a day); slow bike-only fleets don't (still 125 bikes). With removable batteries the cheapest bike-only fleet falls to 70 bikes ($336,000).
 
 ### Anchors and architectures
 
@@ -368,11 +370,11 @@ Architectures that fail a screen are dropped before scoring.
 | --- | --- | --- | --- |
 | 1 | 24 × C2-P2-G3-M2-A3 (small cars) | $1,435,200 | 0.961 |
 | 2 | 4 × C6-P4-G3-M3-A3 (large shuttles) | $350,600 | 0.946 |
-| 3 | 150 × B2-E1-G2-K2 (bike-only) | $675,000 | 0.962 |
-| 4 | 8 × C2-P2-G3-M2-A3 + 115 × B2-E1-G2-K2 (mixed) | $995,900 | 0.962 |
+| 3 | 120 × B2-E1-G2-K3 (bike-only) | $564,000 | 0.958 |
+| 4 | 8 × C2-P2-G3-M2-A3 + 165 × B2-E1-G2-K3 (mixed) | $1,253,900 | 0.962 |
 | 5 | 6 × C4-P5-G3-M2-A5 (A5, long range) | $784,800 | 0.893 |
 
-**Discussion.** Fleets 1 and 4 (originally 12 × C2, and 8 × C2 + 60 × B2) failed the utilization ceilings ([Q22](#q22)) and were sized up with the same vehicles.
+**Discussion.** Fleets 1 and 4 (originally 12 × C2, and 8 × C2 + 60 × B2) failed the utilization ceilings ([Q22](#q22)) and were sized up with the same vehicles. **Revised (Austin, 2026-11-07):** at the Appendix B bike speed ([Q6](#q6)) the B2-K2 bike rides at 2.75 km/h, so 150 of them miss Table 1 and 8 cars + 115 of them break the car ceiling (45 rides per car per day). Fleets 3 and 4 switched to the K3 motor (8 km/h) and were re-sized to the smallest feasible count. Their bike trips take 12 min, missing the 7-minute travel goal ([Q11](#q11)).
 
 **Finding: large shuttles look cheapest** (4 × C6 for $351k vs. 24 × C2 for $1.44M), because Appendix B's 0.75 load factor fills a 16-seat shuttle with 12 riders per trip. For on-demand service at 150 trips/h that is optimistic, which is why Task 3 shows a load-factor sweep ([Q27](#q27)).
 
@@ -394,12 +396,12 @@ Architectures that fail a screen are dropped before scoring.
 
 ## 4. Task 3: tradespace
 
-`tradespace.py` scores every architecture on the [Q14](#q14) grid: about 1.0 million feasible with fixed batteries and 2.1 million with removable batteries. Dominated vehicle variants are pruned first (e.g. a bigger motor with no speed gain), so every road vehicle in the space is A3. Both battery cases are plotted with the Appendix A MAU and with `os3a_reweight`.
+`tradespace.py` scores every architecture on the [Q14](#q14) grid: about 1.7 million feasible with fixed batteries and 4.2 million with removable batteries. Dominated vehicle variants are pruned first (e.g. a bigger motor with no speed gain), so every road vehicle in the space is A3. Both battery cases are plotted with the Appendix A MAU and with `os3a_reweight`.
 
 | Case | Front (road / bike / mixed) | Cheapest feasible | First front point with MAU ≥ 0.94 |
 | --- | --- | --- | --- |
-| Fixed batteries | 3 / 12 / 388 | $182,200 | 2 × C8 + 20 × B1, 0.942 at $259,200 |
-| Removable batteries | 3 / 20 / 429 | $182,200 | 2 × C8 + 20 × B1, 0.942 at $259,200 |
+| Fixed batteries | 3 / 4 / 310 | $182,200 | 3 × C7 + 10 × B1-K3, 0.942 at $275,950 |
+| Removable batteries | 3 / 12 / 385 | $182,200 | 3 × C7 + 10 × B1-K3, 0.942 at $275,950 |
 
 #### <a id="q26"></a>Q26. What is the Task 3 reference architecture?
 
@@ -410,7 +412,7 @@ Architectures that fail a screen are dropped before scoring.
 - A3 is the minimum inside the boundary ([Q7](#q7)); M2 is the smallest motor that reaches the speed cap ([Q4](#q4)); G3 is the fastest charger, for availability; P2 is the smallest pack that covers a service day (about 18 h × 21 km/h ≈ 380 km).
 - Fleet size from load management at the peak [[5]](references.md#ref-5): f ≥ 150 / (0.90 × 8 × 0.75) = 27.8 departures/h, so N = 27.8 × 11 min / 60 / 0.904 = 5.6 → 6. X = 0.90 is the textbook example's value.
 
-On the tradespace the reference is **dominated:** 3 × C7 + 5 × B1 reach the same MAU for $254,950. The model can't see why the reference chose 8 seats: every road vehicle runs at the fixed 0.75 load factor, so a larger vehicle is always more capacity per dollar.
+On the tradespace the reference is **dominated:** 2 × C8 + 15 × B1-K3 reach the same MAU for $256,700. The model can't see why the reference chose 8 seats: every road vehicle runs at the fixed 0.75 load factor, so a larger vehicle is always more capacity per dollar.
 
 #### <a id="q27"></a>Q27. How sensitive is the front to the road load factor?
 
@@ -422,7 +424,8 @@ On the tradespace the reference is **dominated:** 3 × C7 + 5 × B1 reach the sa
 
 - **The MAU levels off once demand is met.** Served throughput caps at 150 trips/h (U = 0.90) and volume at 1,790 trips/day (U = 0.916), and service availability is near 1 for almost every fleet that meets the thresholds. The Appendix A ceiling is 0.962 (0.967 with `os3a_reweight`). Past the knee, architectures differ only by seconds of wait, so the practical choice is the cheapest fleet that meets demand.
 - **Both fronts are mostly small mixed fleets:** 1–3 buses or shuttles plus bikes.
-- **MIT shuttles are dominated:** 3 × C7 + 20 × B1 match their MAU for $306,950, vs. $373,250.
+- **MIT shuttles are dominated:** 3 × C7 + 25 × B1-K3 match their MAU for $346,450, vs. $373,250.
+- **Bikes on the front use the K3 motor** (312 of 314 front points with bikes): at the Appendix B speed ([Q6](#q6)) the fastest bike (about 8 km/h) carries the most riders per hour. The cheapest bike-only fleet on the fixed-battery front, 150 × B1-K3 at $555,000 (MAU 0.961), takes 12 min per trip.
 
 ---
 
