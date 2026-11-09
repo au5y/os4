@@ -80,3 +80,9 @@
 .lab-details { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 2px 0; padding: 8px 10px;
   border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
 .lab-details .grow { flex: 1; min-width: 16em; }
+
+/* report figures */
+.lab-figure-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 8px; }
+.lab-figure-grid figure { margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px; }
+.lab-figure-grid img { display: block; width: 100%; height: auto; border-radius: 4px; }
+.lab-figure-grid figcaption { color: var(--ink-2); margin-top: 4px; }

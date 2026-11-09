@@ -12,13 +12,17 @@ Routes:
     POST /api/estimate         {"config", "limit"} -> architectures the run would score, and any trimming
     POST /api/jobs             start a run: {"config", "tags", "limit"} (or a bare config) -> {"job_id"}
     GET  /api/jobs/<id>        {"status", "progress", "position", "result" | "error"}
+    POST /api/figures          start a figures job: {"config", "limit"} -> {"job_id"}; result {"key", "files", "skipped"}
+    GET  /api/figures/<key>.zip           the figures job's zip (PNGs, config.json, pareto_front.csv)
+    GET  /api/figures/<key>/<name>.png    one figure from it
 
 When the server has a password (``--password`` or ``OS4_LAB_PASSWORD``), every ``/api`` route except
 session and login needs the session cookie. Runs go through one worker thread (a full tradespace uses up to
-about 1 GB) with at most ``max_queue`` waiting, and results are cached on disk up to ``cache_max_mb``.
+about 1 GB) with at most ``max_queue`` waiting, and results (and figure zips) are cached on disk up to ``cache_max_mb``.
 """
 
 import hmac
+import io
 import json
 import mimetypes
 import os
@@ -27,6 +31,8 @@ import threading
 import time
 import traceback
 import uuid
+import zipfile
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -34,7 +40,8 @@ from pathlib import Path
 
 from os4.lab.config import FIELDS, GRID_MAX, GRID_MAX_SIZES, from_scenario, validate
 from os4.lab.presets import presets
-from os4.lab.run import DEFAULT_LIMIT, HARD_LIMIT, calculate, estimate, evaluate_tags, limit_grid
+from os4.lab.run import (DEFAULT_LIMIT, FIGURES, HARD_LIMIT, calculate, estimate, evaluate_tags, figures_key,
+                         limit_grid, render_figures)
 from os4.scenario import primary_scenario
 from os4.site import COLUMN_LABELS, components_payload
 from os4.utility import ATTRIBUTES, WEIGHT_SETS, load_weights
@@ -45,6 +52,7 @@ MAX_BODY = 1 << 20
 COOKIE = "os4lab"
 JOB_TTL_S = 15 * 60
 OPEN_API = ("/api/session", "/api/login")
+KEEP_FIGURES = 4  # figure zips held in memory for download
 
 
 class Busy(Exception):
@@ -64,6 +72,7 @@ class Lab:
         self.sessions: set[str] = set()
         self.jobs: dict[str, dict] = {}
         self.waiting: list[str] = []  # queued job ids, oldest first
+        self.figures: OrderedDict[str, bytes] = OrderedDict()  # figures key -> zip, most recent last
         self.lock = threading.Lock()
         self.pool = ThreadPoolExecutor(max_workers=1)
 
@@ -104,7 +113,8 @@ class Lab:
                              "Use fewer or smaller fleet sizes, or turn the 2 million limit back on.")
         return cfg, note, size
 
-    def submit(self, config: dict, tags: list | None = None, limit: bool = True) -> str:
+    def submit(self, config: dict, tags: list | None = None, limit: bool = True, figures: bool = False) -> str:
+        """Queue a run, or with ``figures`` a figures job (same config, rendered by ``run.render_figures``)."""
         cfg, note, size = self.plan(config, limit)
         tags = [t for t in (tags or []) if isinstance(t, dict) and t.get("id")][:50]
         job_id = uuid.uuid4().hex[:12]
@@ -125,9 +135,20 @@ class Lab:
                     self.waiting.remove(job_id)
             job["status"] = "running"
             try:
-                result = calculate(cfg, progress, self.cache_dir)
-                result["tags"] = evaluate_tags(cfg, tags, result.get("front", []))
-                result["limited"] = note
+                if figures:
+                    data, files, skipped = render_figures(cfg, progress, self.cache_dir)
+                    key = figures_key(cfg)
+                    with self.lock:
+                        self.figures[key] = data
+                        self.figures.move_to_end(key)
+                        while len(self.figures) > KEEP_FIGURES:
+                            self.figures.popitem(last=False)
+                    result = {"key": key, "files": files, "captions": {f: FIGURES[f] for f in files},
+                              "skipped": skipped}
+                else:
+                    result = calculate(cfg, progress, self.cache_dir)
+                    result["tags"] = evaluate_tags(cfg, tags, result.get("front", []))
+                    result["limited"] = note
                 job["result"] = result
                 job["progress"], job["status"] = 1.0, "done"
                 self._trim_cache()
@@ -150,6 +171,20 @@ class Lab:
                 self.jobs.pop(job_id, None)
         return out
 
+    def figure(self, key: str, member: str | None = None) -> bytes | None:
+        """A figures zip (``member`` None) or one file from it; from memory, else the disk cache."""
+        with self.lock:
+            data = self.figures.get(key)
+        if data is None and self.cache_dir and all(c.isalnum() or c == "-" for c in key):
+            path = self.cache_dir / f"{key}.zip"
+            data = path.read_bytes() if path.is_file() else None
+        if data is None or member is None:
+            return data
+        if member not in FIGURES:
+            return None
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            return zf.read(member) if member in zf.namelist() else None
+
     def _expire(self) -> None:
         """Forget finished jobs nobody collected (call with the lock held)."""
         now = time.time()
@@ -161,7 +196,8 @@ class Lab:
         """Keep the result cache under ``cache_max_bytes``, deleting the least recently used results first."""
         if not self.cache_dir or not self.cache_dir.exists():
             return
-        files = sorted(self.cache_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
+        files = sorted((p for p in self.cache_dir.iterdir() if p.suffix in (".json", ".zip")),
+                       key=lambda p: p.stat().st_mtime)
         total = sum(p.stat().st_size for p in files)
         for p in files:
             if total <= self.cache_max_bytes:
@@ -243,6 +279,16 @@ def make_handler(lab: Lab):
                 if job is None:
                     return self._json({"error": "unknown job"}, 404)
                 return self._json(job)
+            if path.startswith("/api/figures/"):
+                rest = path[len("/api/figures/"):]
+                key, member = (rest[:-4], None) if rest.endswith(".zip") and "/" not in rest else (rest.split("/", 1) + [""])[:2]
+                data = lab.figure(key, member)
+                if data is None:
+                    return self._json({"error": "figures not found; render them again"}, 404)
+                if member is None:
+                    return self._send(200, data, "application/zip",
+                                      {"Content-Disposition": f'attachment; filename="os4-lab-{key[:8]}-figures.zip"'})
+                return self._send(200, data, "image/png")
             return self._json({"error": "not found"}, 404)
 
         def do_POST(self):
@@ -266,6 +312,8 @@ def make_handler(lab: Lab):
                 if path == "/api/jobs":
                     return self._json({"job_id": lab.submit(config, body.get("tags") if "config" in body else None,
                                                             limit)}, 202)
+                if path == "/api/figures":
+                    return self._json({"job_id": lab.submit(config, limit=limit, figures=True)}, 202)
                 return self._json({"error": "not found"}, 404)
             except Busy as e:
                 return self._json({"error": str(e), "busy": True}, 429)

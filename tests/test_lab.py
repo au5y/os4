@@ -1,7 +1,9 @@
+import io
 import json
 import threading
 import time
 import urllib.request
+import zipfile
 from dataclasses import fields
 
 import numpy as np
@@ -202,3 +204,30 @@ def test_server_password_queue_and_cache_cap(tmp_path):
         time.sleep(0.01)
     lab._trim_cache()
     assert [p.name for p in tmp_path.glob("*.json")] == ["r2.json"]
+
+
+def test_server_renders_figures(tmp_path):
+    server = serve(port=0, cache_dir=tmp_path)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        job_id = json.load(_post(url + "/api/figures", {"config": _small(presets()[0]["config"]), "limit": False}))["job_id"]
+        for _ in range(1200):
+            job = json.load(urllib.request.urlopen(f"{url}/api/jobs/{job_id}"))
+            if job["status"] in ("done", "error"):
+                break
+            time.sleep(0.05)
+        assert job["status"] == "done", job.get("error")
+        key, files = job["result"]["key"], job["result"]["files"]
+        assert {"tradespace.png", "knee.png"} <= set(files)
+        png = urllib.request.urlopen(f"{url}/api/figures/{key}/knee.png")
+        assert png.headers["Content-Type"] == "image/png" and png.read(8) == b"\x89PNG\r\n\x1a\n"
+        with zipfile.ZipFile(io.BytesIO(urllib.request.urlopen(f"{url}/api/figures/{key}.zip").read())) as zf:
+            assert {"config.json", "pareto_front.csv", *files} <= set(zf.namelist())
+            assert json.loads(zf.read("config.json"))["kind"] == "os4-lab-config"
+        assert (tmp_path / f"{key}.zip").exists()  # cached on disk too
+        with pytest.raises(urllib.error.HTTPError):
+            urllib.request.urlopen(f"{url}/api/figures/{key}/../server.py")
+    finally:
+        server.shutdown()
+        server.server_close()
