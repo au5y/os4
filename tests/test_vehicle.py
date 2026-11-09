@@ -30,17 +30,17 @@ def test_speed_never_exceeds_limit():
     assert (road_variants(scenario)["speed_kmh"] <= scenario.speed_limit_kmh + 1e-9).all()
 
 
-# Worked by hand from Appendix B with the primary scenario (21 km/h road cap, 18 km/h bikes).
+# Worked by hand from Appendix B with the primary scenario (21 km/h road cap, Appendix B bike speed).
 # C2-P2-G3-M2-A3: weight 1600+220+5+80+30+4*100 = 2335 kg; cost 17000+11000+7000+9800+15000;
 # Wh/km 135 + 0.1*(2335-1600) + 1.5 = 210; range 100000/210; formula speed 700*100/2335 = 30.0 -> 21;
 # charge 100/60 h; up 476.19/21 h; down charge + 0.25 h.
 # B2-E1-G2-K2: weight 17+5+1.2+4+100 = 127.2 kg; cost 3000+600+500+400; Wh/km 25 + 0.1*(127.2-17);
-# range 500/36.02; speed 18 (fixed assist); charge 0.5/0.6 h.
+# range 500/36.02; speed 700*0.5/127.2 = 2.7516 (formula, PLAN.md Q6); charge 0.5/0.6 h; up 13.8812/2.7516 h.
 HAND_CALC = {
     "C2-P2-G3-M2-A3": dict(weight_kg=2335, cost_usd=59800, wh_per_km=210.0, range_km=476.1905,
                            speed_kmh=21.0, charge_time_h=1.6667, uptime_h=22.6757, availability=0.92206),
     "B2-E1-G2-K2": dict(weight_kg=127.2, cost_usd=4500, wh_per_km=36.02, range_km=13.8812,
-                        speed_kmh=18.0, charge_time_h=0.8333, uptime_h=0.77118, availability=0.41585),
+                        speed_kmh=2.751572, charge_time_h=0.8333, uptime_h=5.04477, availability=0.82322),
 }
 
 
@@ -59,10 +59,10 @@ def test_battery_limit_is_inclusive():
 
 
 def test_removable_battery_hand_calc():
-    # B2-E1-G2-K2 with 1 spare per bike: U = 0.77118 h, C = 0.8333 h, swap s = 5 min.
-    # min(U/(U+s), 2U/(U+s+C+0.25)) = min(0.9025, 0.7959); cost 4500 + 1 x (600 battery + 500 charger).
+    # B2-E1-G2-K2 with 1 spare per bike: U = 5.04477 h (formula speed), C = 0.8333 h, swap s = 5 min.
+    # min(U/(U+s), 2U/(U+s+C+0.25)) = min(0.98375, 1.6243); cost 4500 + 1 x (600 battery + 500 charger).
     row = get_variant("B2-E1-G2-K2-S1", primary_scenario())
-    assert row["availability"] == pytest.approx(0.79593, rel=1e-4)
+    assert row["availability"] == pytest.approx(0.98375, rel=1e-4)
     assert row["cost_usd"] == pytest.approx(5600)
     assert row["uptime_h"] / (row["uptime_h"] + row["downtime_h"]) == pytest.approx(row["availability"])
 
@@ -72,4 +72,4 @@ def test_spares_raise_availability_up_to_the_swap_limit():
     b2 = bikes[bikes["variant_id"].str.startswith("B2-E1-G2-K2")].sort_values("spares_per_bike")
     assert b2["availability"].is_monotonic_increasing
     assert b2["cost_usd"].is_monotonic_increasing
-    assert b2["availability"].iloc[0] == pytest.approx(0.41585, rel=1e-4)  # fixed battery, Appendix B
+    assert b2["availability"].iloc[0] == pytest.approx(0.82322, rel=1e-4)  # fixed battery, Appendix B

@@ -82,8 +82,8 @@ def test_service_availability_hand_calc(scenario):
 
 
 def test_service_availability_rises_with_spares(scenario):
-    # Bikes are only ~0.42 available each, but a pool of spares still serves almost every rider.
-    bike = get_variant("B2-E1-G2-K2", scenario)
+    # Bikes are only ~0.61 available each, but a pool of spares still serves almost every rider.
+    bike = get_variant("B2-E1-G2-K3", scenario)
     values = [fleet_availability(Fleet(bike=bike, n_bike=n), scenario) for n in (60, 94, 120, 150, 200)]
     assert values == sorted(values)
     assert values[-1] > 0.99 > bike["availability"]

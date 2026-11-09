@@ -27,7 +27,7 @@ The assignment asks for a tradespace exploration of an autonomous, battery-elect
 
 Every modeling decision and open question is in [`docs/PLAN.md`](docs/PLAN.md) (questions are numbered **Q#**; code that depends on one is tagged with its number). The main ones so far:
 
-- **Scenario:** weekday on-demand last-mile service from a Kendall hub to Lechmere and Central; links 1.9 / 1.6 / 3.3 km measured on OpenStreetMap; road speed capped at 21 km/h (20 mph posted, signals); e-bikes a fixed 18 km/h assist.
+- **Scenario:** weekday on-demand last-mile service from a Kendall hub to Lechmere and Central; links 1.9 / 1.6 / 3.3 km measured on OpenStreetMap; road speed capped at 21 km/h (20 mph posted, signals); e-bikes at the Appendix B formula speed (700·P/W, 1–8 km/h with a rider), with an 18 km/h assist as a sensitivity.
 - **MoPs:** peak throughput is the demand actually served (Q17); availability is *service* availability, the chance the vehicles in service can carry each hour's demand (Q19); travel time is the average Kendall trip; cost is vehicle capital only (Q21).
 - **Design space:** every feasible Appendix C/D vehicle, road fleets 1–200 and bike fleets 5–300 with steps that widen as fleets grow (road step 1 up to 15; bikes step 5 up to 50), alone or mixed: ~3.9 million architectures. The reference architecture and anchors (EZRide, MBTA bus and MIT shuttle service levels, `data/anchors.csv`) are plotted on every tradespace. Table 1 thresholds (1,500 trips/day, 150/h peak, 50/h off-peak) screen architectures out before scoring.
 - **E-bike batteries:** fixed (Appendix B) and removable with spare packs (team proposal) are both kept as alternate pathways.

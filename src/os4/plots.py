@@ -310,53 +310,57 @@ def _swap_table(variants: pd.DataFrame, base: str = "B2-E1-G2-K2") -> pd.DataFra
 
 
 def _bike_availability_note(variants: pd.DataFrame, scenario) -> str:
-    """Why fixed-battery e-bikes are so rarely available: the best one worked through Appendix B, and the
-    charger power against the power drawn while riding, which sets the ceiling."""
+    """Why e-bike availability depends on speed: the hand-calculation bike worked through Appendix B at the
+    model's speed, and the charger power against the power drawn while riding, which sets the ceiling."""
     from dataclasses import replace
 
+    from os4.speed_sensitivity import ASSISTED_KMH
     from os4.vehicle import CHARGE_OVERHEAD_H, bike_variants
 
-    bikes = variants[(variants["kind"] == "bike") & (variants["spares_per_bike"] == 0)].copy()
+    def power(b: pd.DataFrame) -> pd.DataFrame:
+        b = b.copy()
+        b["battery_kwh"] = b["range_km"] * b["wh_per_km"] / 1000
+        b["charger_kw"] = b["battery_kwh"] / b["charge_time_h"]
+        b["riding_kw"] = b["wh_per_km"] * b["speed_kmh"] / 1000
+        b["ceiling"] = b["charger_kw"] / (b["charger_kw"] + b["riding_kw"])
+        return b.set_index("variant_id", drop=False)
+
+    bikes = power(variants[(variants["kind"] == "bike") & (variants["spares_per_bike"] == 0)])
+    assisted = power(bike_variants(replace(scenario, bike_assisted_speed_kmh=ASSISTED_KMH, bike_spare_options=(0.0,))))
     road = variants[(variants["kind"] == "road") & variants["speed_capped"] & (variants["charger"] == "G3")]
-    bikes["battery_kwh"] = bikes["range_km"] * bikes["wh_per_km"] / 1000
-    bikes["charger_kw"] = bikes["battery_kwh"] / bikes["charge_time_h"]
-    bikes["riding_kw"] = bikes["wh_per_km"] * bikes["speed_kmh"] / 1000
-    bikes["ceiling"] = bikes["charger_kw"] / (bikes["charger_kw"] + bikes["riding_kw"])
-    best = bikes.sort_values("availability").iloc[-1]
-    worst = bikes.sort_values("availability").iloc[0]
-    formula = bike_variants(replace(scenario, bike_assisted_speed_kmh=None, bike_spare_options=(0.0,)))
-    formula = formula.set_index("variant_id").loc[best["variant_id"]]
+    b = bikes.loc["B2-E1-G2-K2"]
+    fast = assisted.loc[b["variant_id"]]
     steps = pd.DataFrame([
-        ("Power consumption", "nominal + 0.1 × (total − chassis weight)", f"{best['wh_per_km']:.1f} Wh/km"),
-        ("Range", "battery Wh / consumption", f"{best['battery_kwh'] * 1000:.0f} / {best['wh_per_km']:.1f} = "
-                                              f"{best['range_km']:.1f} km"),
-        ("Up-time", "range / speed", f"{best['range_km']:.1f} / {best['speed_kmh']:g} = {best['uptime_h']:.2f} h"),
+        ("Power consumption", "nominal + 0.1 × (total − chassis weight)", f"{b['wh_per_km']:.1f} Wh/km"),
+        ("Range", "battery Wh / consumption", f"{b['battery_kwh'] * 1000:.0f} / {b['wh_per_km']:.1f} = "
+                                              f"{b['range_km']:.1f} km"),
+        ("Speed", "700 × motor kW / total kg", f"{b['speed_kmh']:.2f} km/h"),
+        ("Up-time", "range / speed", f"{b['range_km']:.1f} / {b['speed_kmh']:.2f} = {b['uptime_h']:.2f} h"),
         ("Down-time", "battery kWh / charger kW + 0.25 h",
-         f"{best['battery_kwh']:g} / {best['charger_kw']:g} + {CHARGE_OVERHEAD_H:g} = {best['downtime_h']:.2f} h"),
-        ("Availability", "up / (up + down)", f"{best['uptime_h']:.2f} / ({best['uptime_h']:.2f} + "
-                                             f"{best['downtime_h']:.2f}) = {best['availability']:.3f}"),
-    ], columns=["step (Appendix B)", "equation", best["variant_id"]])
+         f"{b['battery_kwh']:g} / {b['charger_kw']:g} + {CHARGE_OVERHEAD_H:g} = {b['downtime_h']:.2f} h"),
+        ("Availability", "up / (up + down)", f"{b['uptime_h']:.2f} / ({b['uptime_h']:.2f} + "
+                                             f"{b['downtime_h']:.2f}) = {b['availability']:.3f}"),
+    ], columns=["step (Appendix B)", "equation", b["variant_id"]])
     return (
-        "### Why fixed-battery e-bikes are rarely available\n\n"
-        "The low number is not an assumption: it is the Appendix B availability equations applied to the "
-        f"Appendix D e-bike components {_ref(1)} at the {scenario.bike_assisted_speed_kmh:g} km/h assisted speed "
-        f"(Q6 {_ref(14)}). The best fixed-battery bike, worked through:\n\n"
+        "### Why e-bike availability depends on speed\n\n"
+        "The model runs e-bikes at the Appendix B formula speed, 700 × motor kW / total kg, as the assignment gives "
+        f"it (Q6). With a 100 kg rider that is {bikes['speed_kmh'].min():.1f}–{bikes['speed_kmh'].max():.1f} km/h, "
+        "slower than walking for most variants: unrealistic, since a rider who pedals goes faster, but we ran "
+        "against the given constraints. The hand-calculation bike, worked through:\n\n"
         f"{_md_table(steps)}\n"
         "Leaving out the 0.25 h overhead, availability is at most charger power / (charger power + power drawn "
-        f"while riding), and riding power is Wh/km × km/h. {best['variant_id']} draws "
-        f"{best['wh_per_km']:.0f} Wh/km × {best['speed_kmh']:g} km/h = {best['riding_kw']:.2f} kW while its "
-        f"{best['charger']} charger delivers {best['charger_kw']:g} kW, so it drains faster than it charges and "
-        f"cannot pass {best['ceiling']:.2f}; the 0.25 h overhead, about a quarter of an E1 pack's down-time, pulls "
-        f"it to {best['availability']:.2f}. The worst, {worst['variant_id']}, draws {worst['riding_kw']:.2f} kW "
-        f"(two riders) on a {worst['charger_kw']:g} kW charger: {worst['availability']:.2f}. The battery weight "
-        "limit (½ the frame) keeps the 1-seat frames on the smallest pack. The G3 road charger is 60 kW against a "
-        f"few kW of driving, which is why capped road variants on G3 reach {road['availability'].min():.2f}–"
-        f"{road['availability'].max():.2f}.\n\n"
-        f"The faster assisted speed lowers availability: at the Appendix B formula speed "
-        f"({formula['speed_kmh']:.1f} km/h, slower than walking) the same bike drains more slowly per hour and reaches "
-        f"{formula['availability']:.2f}. Two responses in the model: availability is scored as *service* "
-        "availability (Q19), so a large pool of bikes can still cover demand, and the removable-battery option "
-        "below.\n\n"
+        f"while riding), and riding power is Wh/km × km/h. At {b['speed_kmh']:.2f} km/h {b['variant_id']} draws "
+        f"only {b['riding_kw']:.2f} kW against its {b['charger']} charger's {b['charger_kw']:g} kW, so availability "
+        f"is high ({b['availability']:.2f}). At a realistic {ASSISTED_KMH:g} km/h assist it would draw "
+        f"{fast['riding_kw']:.2f} kW, drain faster than it charges and reach only {fast['availability']:.2f}: "
+        f"fixed-battery bikes would be {assisted['availability'].min():.2f}–{assisted['availability'].max():.2f} "
+        f"available instead of {bikes['availability'].min():.2f}–{bikes['availability'].max():.2f}. The slow formula "
+        "speed buys availability with long trips: each bike carries few riders per hour, and a Kendall trip takes "
+        f"{60 * scenario.bike_trip_km / bikes['speed_kmh'].max():.0f}–"
+        f"{60 * scenario.bike_trip_km / bikes['speed_kmh'].min():.0f} min. The G3 road charger is 60 kW against a few "
+        f"kW of driving, which is why capped road variants on G3 reach {road['availability'].min():.2f}–"
+        f"{road['availability'].max():.2f}. `task3_speed_sensitivity.md` reruns the tradespace at the "
+        f"{ASSISTED_KMH:g} km/h assist.\n\n"
     )
 
 
@@ -378,8 +382,10 @@ def assumptions_table(scenario) -> pd.DataFrame:
         ("Trip length", f"road {scenario.avg_trip_km:g} km, bike {scenario.bike_trip_km:g} km (OSRM)",
          f"Q2, Q3 {_ref(23, 24)}"),
         ("Access", "riders start at the hub; no walk or access time", "Q5 (limitation)"),
-        ("Speed", f"road capped at {scenario.speed_limit_kmh:g} km/h (signals, congestion); "
-         f"bikes fixed at {scenario.bike_assisted_speed_kmh:g} km/h", f"Q4, Q6 {_ref(10, 11, 14)}"),
+        ("Speed", f"road capped at {scenario.speed_limit_kmh:g} km/h (signals, congestion); bikes "
+         + (f"fixed at {scenario.bike_assisted_speed_kmh:g} km/h" if scenario.bike_assisted_speed_kmh is not None
+            else "at the Appendix B formula speed, 700 × motor kW / total kg (as given, though unrealistic)"),
+         f"Q4, Q6 {_ref(10, 11, 14)}"),
         ("Occupancy", f"road load factor {scenario.load_factor:g} (Appendix B); bikes by seats: {lf}", "PLAN.md Q16"),
         ("Dwell", f"{scenario.dwell_s:g} s per trip", "Appendix B"),
         ("Operations", "every vehicle in service cycles all day without idle time or rebalancing", "Q18 (limitation)"),
@@ -425,7 +431,8 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
     shown = shown.round(2).fillna("-")
     inputs = pd.DataFrame([
         ("Road average-speed cap", f"{scenario.speed_limit_kmh:g} km/h", "Q4: 20 mph posted; signals hold peak speed near 13 mph"),
-        ("E-bike speed", f"{scenario.bike_assisted_speed_kmh:g} km/h", "Q6: fixed assist instead of 700·P/W"),
+        ("E-bike speed", "700·P/W" if scenario.bike_assisted_speed_kmh is None else
+         f"{scenario.bike_assisted_speed_kmh:g} km/h", "Q6: Appendix B formula as given (1–8 km/h with a rider)"),
         ("Trip length (road / bike)", f"{scenario.avg_trip_km:g} / {scenario.bike_trip_km:g} km", "Q3: Kendall links measured on OSRM (Q2)"),
         ("Empty return (deadhead)", f"{scenario.deadhead_fraction:g} × trip", "Q3: vehicles return to Kendall empty"),
         ("Dwell / load factor", f"{scenario.dwell_s:g} s / {scenario.load_factor:g} (road vehicles)", "Appendix B"),
@@ -466,8 +473,8 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"{_md_table(shown)}\n"
         "## Vehicle variants\n\n"
         f"![Availability vs. cost and uncapped road speeds]({media_link(var_png)})\n\n"
-        f"Fixed-battery e-bikes (Appendix B as given) reach only {fixed_avail.min():.2f}–{fixed_avail.max():.2f} "
-        "availability: small batteries and slow chargers mean they charge far longer than they ride. With removable "
+        f"Fixed-battery e-bikes (Appendix B as given, at the formula speed) are {fixed_avail.min():.2f}–"
+        f"{fixed_avail.max():.2f} available: the slowest bikes barely drain their packs. With removable "
         f"batteries (below) they reach up to {swap_avail.max():.2f}, depending on spare packs per bike. Most road "
         "variants hit the speed cap, so motors above M2 rarely add speed.\n\n"
         f"{_bike_availability_note(variants, scenario)}"
