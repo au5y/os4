@@ -2,12 +2,16 @@
 
 ``calculate(config)`` returns the summary, the Pareto front, a sample of the tradespace for the scatter
 (the explorer's columnar encoding), the reference architecture and anchors (dominated or not), and the
-five Task 2 architectures, all under the config's scenario and weights.
+five Task 2 architectures, all under the config's scenario and weights. ``render_figures(config)`` rescores
+the config and draws the Task 3 report's matplotlib figures for it, zipped with the config and the front as CSV.
 """
 
 import hashlib
+import io
 import json
 import re
+import tempfile
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -17,8 +21,8 @@ from os4.lab.config import to_scenario, validate
 from os4.fleet import Fleet
 from os4.model import architecture_table, evaluate_many, reference_and_anchor_table, requirement_flags
 from os4.site import _clean, columnar, records, sample_rows
-from os4.tradespace import (FLEET_TYPES, _describe, front_comparison, pareto_front, progressive_grid,
-                            prune_variants, tradespace)
+from os4.tradespace import (FLEET_TYPES, _describe, front_comparison, pareto_front, plot_fleet_size, plot_knee,
+                            plot_tradespace, progressive_grid, prune_variants, tradespace)
 from os4.utility import ATTRIBUTES, sau
 from os4.vehicle import all_variants
 
@@ -183,6 +187,71 @@ def _calculate(cfg: dict, progress) -> dict:
         out["markers"] = []
     out["architectures"] = [] if archs is None else records(archs[[c for c in MARKER_COLUMNS if c in archs]])
     return out
+
+
+FIGURES = {  # zip member -> what it shows; the same charts as the Task 3 report
+    "tradespace.png": "Tradespace with the Pareto front, utopia point, Task 2 architectures, reference and anchors",
+    "knee.png": "Knee of the front on linear axes, with the reference and anchors",
+    "fleet_size_road.png": "Road-only fleets by chassis, colored by fleet size",
+    "fleet_size_bike.png": "Bike-only fleets by frame, colored by fleet size",
+}
+
+
+def figures_key(config: dict) -> str:
+    return config_key(config) + "-figures"
+
+
+def render_figures(config: dict, progress=None, cache_dir: Path | None = None) -> tuple[bytes, list[str], list[str]]:
+    """Rescore ``config`` and draw ``FIGURES`` as in the Task 3 report (``tradespace.plot_*``) with the config's
+    weights. Returns a zip of the PNGs, ``config.json`` and ``pareto_front.csv`` (cached in ``cache_dir``), the
+    figures it holds, and why any were left out. ``progress(done, total)`` reports scoring progress only."""
+    cfg = validate(config)
+    path = cache_dir / f"{figures_key(cfg)}.zip" if cache_dir else None
+    if path and path.exists():
+        path.touch()  # mark as recently used, for the cache's size cap
+        data = path.read_bytes()
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            names = zf.namelist()
+            skipped = zf.read("skipped.txt").decode().splitlines() if "skipped.txt" in names else []
+            return data, [n for n in names if n in FIGURES], skipped
+    scenario = to_scenario(cfg)
+    n_road = progressive_grid([tuple(s) for s in cfg["grid"]["road"]])
+    n_bike = progressive_grid([tuple(s) for s in cfg["grid"]["bike"]])
+    df = tradespace(scenario, n_road, n_bike, label="lab figures", weights=cfg["weights"], progress=progress)
+    if df.empty:
+        raise ValueError("no architecture meets the Table 1 thresholds and ceilings, so there is nothing to plot")
+    markers = _rescore(_safe(reference_and_anchor_table, scenario)[0], cfg["weights"])
+    archs = _rescore(_safe(architecture_table, scenario)[0], cfg["weights"])
+    name = cfg["name"]
+    draw = {
+        "tradespace.png": lambda p: plot_tradespace(df, p, archs, title=f"Tradespace: {name}", markers=markers),
+        "knee.png": lambda p: plot_knee(df, p, markers, title=f"Knee of the front: {name}"),
+        "fleet_size_road.png": lambda p: plot_fleet_size(df, "road", p, subtitle=name),
+        "fleet_size_bike.png": lambda p: plot_fleet_size(df, "bike", p, subtitle=name),
+    }
+    buf, drawn, skipped = io.BytesIO(), [], []
+    with tempfile.TemporaryDirectory() as tmp, zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for member, fn in draw.items():
+            kind = member.removeprefix("fleet_size_").removesuffix(".png") if member.startswith("fleet_size_") else None
+            sizes = df.loc[df["fleet_type"] == f"{kind}-only", f"n_{kind}"].nunique() if kind else None
+            if kind and sizes < 2:  # the color scale needs two fleet sizes
+                skipped.append(f"{member}: {sizes} {kind}-only fleet size{'' if sizes == 1 else 's'} feasible under "
+                               "these inputs; the chart needs at least two")
+                continue
+            try:
+                zf.write(fn(Path(tmp) / member), member)
+                drawn.append(member)
+            except (IndexError, KeyError, ValueError) as e:
+                skipped.append(f"{member}: {type(e).__name__}: {e}")
+        zf.writestr("config.json", json.dumps({"kind": "os4-lab-config", "config": cfg}, indent=2))
+        zf.writestr("pareto_front.csv", pareto_front(df).round(4).to_csv(index=False))
+        if skipped:
+            zf.writestr("skipped.txt", "\n".join(skipped) + "\n")
+    data = buf.getvalue()
+    if path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    return data, drawn, skipped
 
 
 PART = re.compile(r"^\s*(\d+)\s*[×x*]\s*([A-Z][\w.-]*)\s*$")

@@ -8,7 +8,7 @@
   const MAX_RUNS = 40;
   const KNEE = 0.94;
 
-  const state = { schema: null, presets: [], base: null, config: null, presetId: null, result: null, zoom: true, compare: [] };
+  const state = { schema: null, presets: [], base: null, config: null, presetId: null, result: null, zoom: true, compare: [], figures: {} };
 
   // ---------- storage (every access guarded: private windows and full quotas must not break the page) ----------
   function load(key, fallback) {
@@ -408,6 +408,7 @@
     if (r.notes.length) out.append(U.el("ul", { class: "lab-notes" }, r.notes.map((n) => U.el("li", { text: n }))));
     const chart = chartBlock([{ label: r.name, front: r.front, color: U.css("--accent") }], r.scatter, r.markers, { filters: true, tags: r.tags || [] });
     out.append(chart);
+    out.append(U.el("h2", { text: "Report figures" }), figuresSection(r));
     out.append(U.el("h2", { text: "Tagged architectures" }), tagsSection(r.tags || []));
     out.append(U.el("h2", { text: "Cheapest fleet of each type" }));
     tableOf(out, Object.entries(s.cheapest_by_type).map(([t, p]) => ({ fleet_type: t, ...p })),
@@ -424,6 +425,60 @@
     tableOf(out, r.front, [["fleet_type", "type"], ["road_variant", "road vehicle"], ["n_road", "road N"], ["bike_variant", "bike"], ["n_bike", "bike N"], ["fleet_cost_usd", "cost"], ["mau", "MAU"], ["wait_time", "wait (min)"], ["availability", "availability"], ["travel_time", "travel (min)"], ["trips_per_vehicle_day", "riders/vehicle/day"], ["meets_travel_goal", "travel goal"]], 25,
       (row) => { chart.select(archOf(row)); chart.scrollIntoView({ behavior: "smooth", block: "center" }); });
     out.append(failures(r));
+  }
+
+  // ---------- report figures: the Task 3 report's matplotlib charts for this run, rendered on the server ----------
+  function figuresSection(r) {
+    const box = U.el("div", { class: "lab-figures" });
+    const note = U.el("span", { class: "muted small" });
+    const gallery = U.el("div", { class: "lab-figure-grid" });
+    const btn = U.el("button", { type: "button", text: "Render figures", onclick: render });
+    box.append(U.el("p", { class: "muted small", text: "The tradespace, knee and fleet-size charts drawn by the same Python code as the Task 3 report, for exactly this run's inputs. " +
+      "Rendering rescores the run on the server (about as long as Calculate). The zip also holds config.json (re-import it on the Saved tab) and pareto_front.csv." }),
+      U.el("div", { class: "lab-row" }, [btn, note]), gallery);
+    const show = (fig) => {
+      gallery.textContent = "";
+      note.textContent = "";
+      btn.textContent = "Render again";
+      const base = "/api/figures/" + fig.key;
+      const name = slug(r.name);
+      note.append(U.el("a", { href: base + ".zip", download: name + "-figures.zip", text: "Download all (.zip)" }));
+      if (fig.skipped && fig.skipped.length) note.append(" · not drawn: " + fig.skipped.join("; "));
+      for (const f of fig.files) {
+        const href = base + "/" + f;
+        gallery.append(U.el("figure", null, [
+          U.el("a", { href, target: "_blank", rel: "noopener" }, [U.el("img", { src: href, alt: fig.captions[f], loading: "lazy" })]),
+          U.el("figcaption", { class: "small" }, [fig.captions[f] + " · ", U.el("a", { href, download: name + "-" + f, text: "PNG" })]),
+        ]));
+      }
+    };
+    async function render() {
+      btn.disabled = true;
+      const t0 = performance.now();
+      const secs = () => ((performance.now() - t0) / 1000).toFixed(0) + " s";
+      try {
+        note.textContent = "Starting…";
+        const { job_id } = await api("/api/figures", { config: r.config, limit: false });
+        for (;;) {
+          await new Promise((res) => setTimeout(res, 400));
+          const job = await api("/api/jobs/" + job_id);
+          if (job.status === "queued") note.textContent = "Queued (" + (job.position || 1) + " in line) · " + secs();
+          else if (job.status === "running") note.textContent = (job.progress < 1 ? "Scoring " + Math.round(job.progress * 100) + "%" : "Drawing figures") + " · " + secs();
+          else if (job.status === "error") throw new Error(job.error);
+          else if (job.status === "done") {
+            state.figures[r.key] = job.result;
+            if (state.result === r) show(job.result);
+            return;
+          }
+        }
+      } catch (e) {
+        note.textContent = "Rendering failed: " + e.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+    if (state.figures[r.key]) show(state.figures[r.key]);
+    return box;
   }
 
   function failures(r) {
