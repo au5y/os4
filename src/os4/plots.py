@@ -61,6 +61,13 @@ def _style(ax: plt.Axes) -> None:
     ax.set_axisbelow(True)
 
 
+def _bold_axes(ax: plt.Axes) -> None:
+    """Task 1 figures: axis titles and tick numbers in bold ink so they stand out (sizes unchanged)."""
+    for label in (ax.xaxis.label, ax.yaxis.label, *ax.get_xticklabels(), *ax.get_yticklabels()):
+        label.set_fontweight("bold")
+        label.set_color(INK)
+
+
 def case_table(weights=None) -> pd.DataFrame:
     """Cases A/B/C with raw values, each SAU, weighted contributions, MAU and rank."""
     weights = load_weights() if weights is None else weights
@@ -93,6 +100,8 @@ def plot_sau_curves(path: Path) -> Path:
         ax.set_ylim(-0.05, 1.08)
     axes[0, 0].set_ylabel("utility", fontsize=9, color=INK_2)
     axes[1, 0].set_ylabel("utility", fontsize=9, color=INK_2)
+    for ax in axes.flat:
+        _bold_axes(ax)
     handles = [plt.Line2D([], [], marker="o", linestyle="", markersize=9, color=c, label=f"Case {k}")
                for c, k in zip(SERIES, cases["case"])]
     fig.legend(handles=handles, loc="upper right", ncol=3, frameon=False, fontsize=9)
@@ -126,6 +135,7 @@ def plot_mau_breakdown(path: Path) -> Path:
     ax.set_yticks(y, [f"Case {c}" for c in table["case"]], fontsize=10, color=INK)
     ax.set_xlim(0, 1)
     ax.set_xlabel("multi-attribute utility  U = Σ kᵢ·uᵢ", fontsize=9, color=INK_2)
+    _bold_axes(ax)
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.28), ncol=4, frameon=False, fontsize=8)
     ax.set_title("MAU by case, split by weighted attribute", loc="left", fontsize=13,
                  color=INK, fontweight="bold")

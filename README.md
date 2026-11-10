@@ -203,6 +203,22 @@ case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  
 | `site/` | The results explorer (see below) |
 | `os4_model.xlsx` | Excel backup for the submission: SAU tables, weights, Cases A–C, scenario, every vehicle variant and the five architectures, all with live formulas checked against Python |
 
+### Re-rendering and editing the figures
+
+`uv run python -m os4 --only task1` re-renders only the Task 1 figures, in about a second: `outputs/media/task1_sau_curves.png` and `task1_mau_breakdown.png`. Add `--out DIR` to write them somewhere else. `--only task2` works the same way; `task3` and `sensitivity` take about a minute each. The style is set in code, so edit it there and rerun:
+
+| What | Where |
+|---|---|
+| Bold, dark axis titles and tick numbers (Task 1 only) | `plots._bold_axes()`; delete its calls to undo |
+| Tick number size and color (all figures) | `plots._style()`: `ax.tick_params(colors=INK_2, labelsize=9, ...)` |
+| SAU curves: axis and panel titles | `plots.plot_sau_curves()`: `set_xlabel` / `set_ylabel` (`fontsize=9`), `set_title` (`fontsize=11`) |
+| MAU breakdown: x-axis title, case labels | `plots.plot_mau_breakdown()`: `set_xlabel` (`fontsize=9`), `set_yticks` (`fontsize=10`) |
+| Colors and axis label wording | `INK`, `INK_2`, `SERIES` and the `LABELS` dict at the top of `src/os4/plots.py` |
+| Task 3 charts (tradespace, knee, fleet size) | `plot_tradespace`, `plot_knee`, `plot_fleet_size` in `src/os4/tradespace.py` |
+| Image resolution | `fig.savefig(path, dpi=200)` at the end of each plot function |
+
+Figures on GitHub Pages only change when the edit is merged into `main`.
+
 ## Results explorer
 
 **Online:** https://au5y.github.io/os4/ (published from `main` by CI).
