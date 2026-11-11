@@ -22,7 +22,7 @@ uv sync --extra dev --extra build && uv run python scripts/build_exe.py   # stan
 
 ## Conventions
 
-- Modeling decisions live in `docs/PLAN.md` as **Q1–Q27**, numbered in document order. Each is a heading `#### <a id="qN"></a>QN. <the question>?` followed by **Answer** (labeled Decision / From OS3A / Assumption / Deviation from Appendix B) and **Discussion**; other mentions link to it as `[QN](#qN)`. Code that depends on one is tagged `PLAN.md QN`. Renumbering means updating every tag in `src/`, `tests/`, README and this file. Open questions are the group's call: implement a clearly labeled default, don't decide them.
+- Modeling decisions live in `docs/PLAN.md` as **Q1–Q28**, numbered in document order. Each is a heading `#### <a id="qN"></a>QN. <the question>?` followed by **Answer** (labeled Decision / From OS3A / Assumption / Deviation from Appendix B) and **Discussion**; other mentions link to it as `[QN](#qN)`. Code that depends on one is tagged `PLAN.md QN`. Renumbering means updating every tag in `src/`, `tests/`, README and this file. Open questions are the group's call: implement a clearly labeled default, don't decide them.
 - Sources are numbered in `docs/references.md` and tagged in line as `[[n]](references.md#ref-n)`.
 - Any change to an equation must keep `tradespace.tradespace` (vectorized) in step with `fleet.py` / `model.evaluate`; `tests/test_tradespace.py` checks they match.
 - Work on a branch and open a PR into `main`.

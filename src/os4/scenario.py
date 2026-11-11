@@ -2,7 +2,7 @@
 
 Kept separate from the design vector so Tasks 3-4 can re-run the same model
 under a different scenario (e.g. a Task 4 Red Line shutdown or winter case).
-Values trace to the numbered questions (Q1-Q27) in ``docs/PLAN.md``.
+Values trace to the numbered questions (Q1-Q28) in ``docs/PLAN.md``.
 """
 
 from dataclasses import dataclass, field

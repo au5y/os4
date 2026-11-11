@@ -2,7 +2,7 @@
 
 How the team's model works, and every decision and assumption behind it. Sources are tagged in line by number, e.g. [[1]](references.md#ref-1), and listed in [references.md](references.md).
 
-**How the questions are laid out.** Every modeling question is numbered Q1–Q27 in the order it comes up, and code that depends on one is tagged with its number (e.g. `PLAN.md Q18`). Each question has a heading that states the question (with an anchor, so `[Q18](#q18)` links to it), then:
+**How the questions are laid out.** Every modeling question is numbered Q1–Q28 in the order it comes up, and code that depends on one is tagged with its number (e.g. `PLAN.md Q18`). Each question has a heading that states the question (with an anchor, so `[Q18](#q18)` links to it), then:
 
 - **Answer:** what the model does, labeled with where the answer came from:
   - **Decision (Austin, date)** or **Decision (team, date):** a choice and who made it, when that was recorded.
@@ -27,11 +27,13 @@ How the team's model works, and every decision and assumption behind it. Sources
 | [Q11](#q11) | Travel time as an attribute | [Q25](#q25) | Tools |
 | [Q12](#q12) | Bike share as an attribute | [Q26](#q26) | Task 3 reference architecture |
 | [Q13](#q13) | Energy and fleet size as attributes | [Q27](#q27) | Load factor |
-| [Q14](#q14) | Architectures and fleet grid | | |
+| [Q14](#q14) | Architectures and fleet grid | [Q28](#q28) | Final standard weekday baseline |
 
 ---
 
 ## 1. Operating scenario
+
+> **Final (2026-11-11):** the standard weekday demand inputs and outputs are frozen at tag `v1.1-weekday-final` on `main` ([Q28](#q28)).
 
 The primary scenario, **standard weekday demand**, is a weekday on-demand last-mile service from a hub at Kendall T to Lechmere and Central, using small road EVs and/or e-bikes. It lives in `scenario.primary_scenario()`, separate from the design vector, so later tasks can rerun the same architectures under a different scenario.
 
@@ -426,6 +428,19 @@ On the tradespace the reference is **dominated:** 2 × C8 + 15 × B1-K3 reach th
 - **Both fronts are mostly small mixed fleets:** 1–3 buses or shuttles plus bikes.
 - **MIT shuttles are dominated:** 3 × C7 + 25 × B1-K3 match their MAU for $346,450, vs. $373,250.
 - **Bikes on the front use the K3 motor** (312 of 314 front points with bikes): at the Appendix B speed ([Q6](#q6)) the fastest bike (about 8 km/h) carries the most riders per hour. The cheapest bike-only fleet on the fixed-battery front, 150 × B1-K3 at $555,000 (MAU 0.961), takes 12 min per trip.
+
+### Final baseline
+
+#### <a id="q28"></a>Q28. Are the standard weekday demand inputs and outputs final?
+
+**Answer (Decision, Austin, 2026-11-11):** yes. The standard weekday demand scenario (`scenario.primary_scenario()`), its inputs in `data/` and every output `python -m os4` writes from them are frozen at tag **`v1.1-weekday-final`** on `main`. That tag's GitHub Release is the saved copy: the inputs (`os4-inputs.zip`, the `data/` CSVs), the outputs (reports, CSVs, figures, `os4_model.xlsx`) and the standalone executables. A later change to this scenario, the equations or `data/` needs a new decision here and a new tag.
+
+**Discussion.** The frozen results, as the reports give them:
+- **Task 1:** MAU A 0.613, B 0.639, C 0.651; C ranks first.
+- **Task 2** ([Q24](#q24)): 24 × C2 cars $1,435,200, MAU 0.961; 4 × C6 shuttles $350,600, 0.946; 120 × B2-K3 bikes $564,000, 0.958; 8 × C2 + 165 × B2-K3 $1,253,900, 0.962; 6 × C4-A5 long-range $784,800, 0.893.
+- **Task 3:** 1,684,991 feasible architectures with fixed e-bike batteries and 4,215,800 with removable ones; fronts 3 / 4 / 310 and 3 / 12 / 385 (road / bike / mixed); cheapest feasible $182,200; first front point with MAU ≥ 0.94 is 3 × C7-P1-G3-M3-A3 + 10 × B1-E1-G2-K3, 0.942 at $275,950; Appendix A ceiling 0.962.
+- **Reference and anchors** ([Q23](#q23), [Q26](#q26)): reference 6 × C4-P2-G3-M2-A3, $430,800, MAU 0.932; EZRide-level 2 × C8, $191,200, 0.834; MBTA-bus-level 1 × C8, $95,600, 0.365; MIT shuttles 5 × C6, $373,250, 0.954.
+- **Not decided by this freeze:** the Task 4 scenario (section 5). Weights edited in the Model Lab or the standalone executable's browser page are what-if runs; the frozen MAUs use the Appendix A weights (and `os3a_reweight` where reported).
 
 ---
 
