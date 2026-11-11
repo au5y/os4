@@ -10,11 +10,13 @@ This ZIP holds the model, its input data and its formulas. The slides, with our 
 
 | Item | What it is |
 |---|---|
+| `os4-windows.exe`, `os4-mac`, `os4-linux` | **Standalone executables** (Windows, Apple Silicon Mac, Linux): double-click to run the model, with no installation (Section 3, Option A). |
+| `OS4_How_to_Run.pdf` | This document. |
 | `os4_model.xlsx` | **Excel backup with live formulas:** the SAU tables, weights, Cases A–C, the operating scenario, every vehicle variant and the five Task 2 architectures. It opens with no installation, and its values are checked against the Python model. |
 | `src/os4/` | The Python model (the formulas). See Section 5 for which file does what. |
 | `data/` | All inputs as CSV: the Appendix A SAUs and weights, the Appendix B demand, the Appendix C/D components, the team's proposed SAUs and weight sets, and the anchor architectures. |
 | `tests/` | Automated checks (129 tests): Appendix A Table 4 values, hand calculations, and agreement between the vectorized tradespace and the per-architecture model. |
-| `scripts/` | Builds the standalone executable. |
+| `scripts/` | Builds the standalone executables, this PDF and the submission ZIP. |
 | `pyproject.toml`, `uv.lock` | The dependency list and exact pinned versions. |
 | `docs/PLAN.md` | Every modeling decision and assumption, numbered Q1–Q28; code that depends on one is tagged `PLAN.md Q#`. |
 | `README.md` | Full developer documentation. |
@@ -30,12 +32,12 @@ Pick one option. Option A needs nothing installed; Options B and C run the sourc
 
 ### Option A: the standalone executable (no Python at all)
 
-Download `os4-macos-arm64`, `os4-windows-x64` or `os4-linux-x64` from the Release page
-https://github.com/au5y/os4/releases/tag/v1.1-weekday-final, then unpack it.
+The executables are in the top-level folder of this ZIP: `os4-windows.exe` (Windows), `os4-mac` (Apple Silicon Macs, M1 or later) and `os4-linux`. Each bundles Python, the model and its data. They are also on the Release page https://github.com/au5y/os4/releases/tag/v1.1-weekday-final.
 
-- **Double-click `os4`** (`os4.exe` on Windows) to open the Model Lab in your browser (Section 4).
-- **Run `./os4 run`** in a terminal for the same batch run as `python -m os4`. It writes `outputs/` next to the executable.
-- **macOS:** the app isn't signed by Apple, so the first launch shows "Apple can't verify". Run `xattr -d com.apple.quarantine os4` in Terminal, or go to System Settings → Privacy & Security → Open Anyway.
+- **Double-click the one for your computer** to open the Model Lab in your browser (Section 4). A console window stays open while it runs; close it to stop. It takes a few seconds to start.
+- **Run it with `run`** in a terminal for the same batch run as `python -m os4`, for example `os4-windows.exe run` or `./os4-mac run`. It writes `outputs/` next to the executable.
+- **Windows:** if SmartScreen says "Windows protected your PC", click **More info → Run anyway**.
+- **macOS:** the app isn't signed by Apple, so the first launch shows "Apple can't verify". In Terminal, in the unzipped folder, run `xattr -d com.apple.quarantine os4-mac`, then double-click it again. Or go to System Settings → Privacy & Security → Open Anyway. Intel Macs: use Option B.
 
 ### Option B: uv (recommended for running from source; macOS, Windows or Linux)
 
@@ -85,7 +87,7 @@ Useful options: `python -m os4 --only task1` re-runs only Task 1, in about a sec
 ## 4. Model Lab: change the weights or inputs
 
 ```bash
-uv run python -m os4 lab --open     # or double-click the executable
+uv run python -m os4 lab --open     # or double-click an executable (Option A)
 ```
 
 This opens a local page at http://127.0.0.1:8411. To use it:
