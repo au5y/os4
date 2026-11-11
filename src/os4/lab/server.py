@@ -12,8 +12,8 @@ Routes:
     POST /api/estimate         {"config", "limit"} -> architectures the run would score, and any trimming
     POST /api/jobs             start a run: {"config", "tags", "limit"} (or a bare config) -> {"job_id"}
     GET  /api/jobs/<id>        {"status", "progress", "position", "result" | "error"}
-    POST /api/figures          start a figures job: {"config", "limit"} -> {"job_id"}; result {"key", "files", "skipped"}
-    GET  /api/figures/<key>.zip           the figures job's zip (PNGs, config.json, pareto_front.csv)
+    POST /api/figures          start a figures job: {"config", "limit"} -> {"job_id"}; result {"key", "files", "captions", "skipped"}
+    GET  /api/figures/<key>.zip           the figures job's zip (PNGs, config.json, pareto_front.csv, skipped.txt if any)
     GET  /api/figures/<key>/<name>.png    one figure from it
 
 When the server has a password (``--password`` or ``OS4_LAB_PASSWORD``), every ``/api`` route except
@@ -101,7 +101,7 @@ class Lab:
         }
 
     def plan(self, config: dict, limit: bool) -> tuple[dict, dict | None, int]:
-        """The config to run (grid trimmed to the 2 M default if ``limit``), the trimming note, and its size."""
+        """The config to run (grid trimmed to ``DEFAULT_LIMIT``, 1.5 M, if ``limit``), the trimming note, and its size."""
         cfg = validate(config)
         if limit:
             cfg, note = limit_grid(cfg, DEFAULT_LIMIT)
@@ -110,7 +110,7 @@ class Lab:
         size = estimate(cfg)["architectures"]
         if size > HARD_LIMIT:
             raise ValueError(f"this run would score {size:,} architectures; the most allowed is {HARD_LIMIT:,}. "
-                             "Use fewer or smaller fleet sizes, or turn the 2 million limit back on.")
+                             f"Use fewer or smaller fleet sizes, or turn the {DEFAULT_LIMIT / 1e6:g} million limit back on.")
         return cfg, note, size
 
     def submit(self, config: dict, tags: list | None = None, limit: bool = True, figures: bool = False) -> str:

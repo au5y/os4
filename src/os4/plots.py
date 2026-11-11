@@ -1,4 +1,5 @@
-"""Task 1 figures and tables: SAU curves with the A/B/C cases, and the MAU breakdown.
+"""Shared figure style and output paths; Task 1 figures and report (SAU curves with the A/B/C cases, MAU
+breakdown); Task 2 figures and report.
 
 Colors are the validated categorical slots (blue, orange, aqua, yellow); the two
 lighter ones are under 3:1 contrast, so every mark also carries a text label.
@@ -23,7 +24,7 @@ from os4.utility import (  # noqa: E402
     weight_sensitivity,
 )
 
-OUTPUT_DIR = Path(__file__).resolve().parents[2] / "outputs"
+from os4.paths import OUTPUT_DIR  # noqa: E402  (repo outputs/, or next to the standalone executable)
 # Reports (Markdown) go in the output folder; figures, CSVs and the workbook in this subfolder.
 MEDIA_DIR = "media"
 

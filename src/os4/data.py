@@ -1,10 +1,8 @@
-"""Loaders for the assignment input tables in ``data/`` (Appendices A, C, D)."""
-
-from pathlib import Path
+"""Loaders for the input tables in ``data/``: Appendices A-D, the Task 3 anchors and the team's proposed SAUs and weights."""
 
 import pandas as pd
 
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+from os4.paths import DATA_DIR
 
 
 def load(name: str) -> pd.DataFrame:

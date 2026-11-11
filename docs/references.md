@@ -58,7 +58,7 @@ IEEE-style bibliography for [PLAN.md](PLAN.md). In-line tags such as [[6]](#ref-
 
 <a id="ref-24"></a>[24] FOSSGIS e.V., "OSRM routing server (bike profile)," OpenStreetMap data. [Online]. Available: https://routing.openstreetmap.de
 
-## Fleet utilization (PLAN.md L)
+## Fleet utilization (PLAN.md Q22)
 
 <a id="ref-25"></a>[25] New York City Independent Budget Office, "Citi Bike: Lessons for the Future of New York City's Bike Share," Nov. 2025. [Online]. Available: https://www.ibo.nyc.gov/assets/ibo/downloads/pdf/infrastructure/2025/2025-november-citi-bike-lessons-for-the-future-of-nycs-bike-share.pdf (Citi Bike averaged 3.3 trips per bike per day in 2024, the most of the U.S. systems compared.)
 

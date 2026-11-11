@@ -74,9 +74,9 @@ def road_wait_min(fleet: Fleet, scenario: Scenario) -> float:
 
 
 def bike_self_delivery_min(fleet: Fleet, scenario: Scenario) -> float:
-    """Time for the nearest idle bike to ride itself to the passenger (Q18).
+    """Wait for an e-bike [min] (PLAN.md Q18).
 
-    Default: bikes return to the Kendall hub after each trip (their L4 empty
+    Bikes return to the Kendall hub after each trip (their L4 empty
     ride), so a waiting rider gets the next returning bike and the same
     headway/queue model applies as for road vehicles.
     """

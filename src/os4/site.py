@@ -3,7 +3,8 @@
 ``write_site`` copies the HTML/CSS/JS in ``site_template/`` to ``outputs/site/``
 and writes the model results next to it as ``data/*.js`` files that assign
 plain JSON to ``window.OS4``. Pages load them with ``<script src>``, so the
-site opens straight from disk (``file://``) with no fetch, server or CDN.
+site opens straight from disk (``file://``) with no fetch or server (plan.html loads KaTeX from a CDN, only
+to render display math).
 
 The tradespace can run to millions of rows, so the browser gets every
 road-only and bike-only architecture, every Pareto-front point, and a seeded,
@@ -585,8 +586,8 @@ def _report_note(source: str) -> str:
             "<code>python -m os4</code>.</p>")
 
 
-DOCS_DIR = Path(__file__).resolve().parents[2] / "docs"
-# Team documents shown read-only: source file -> (page, nav entry it highlights).
+from os4.paths import DOCS_DIR  # noqa: E402  (repo docs/, or bundled in the standalone executable)
+# Team documents shown read-only: source file -> page name (also the nav entry it highlights).
 DOC_PAGES = {"PLAN.md": "plan.html", "references.md": "references.html"}
 DOC_LINKS = {'href="references.md': 'href="references.html', 'href="PLAN.md': 'href="plan.html',
              'href="../outputs/': 'href="report_'}

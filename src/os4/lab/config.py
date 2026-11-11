@@ -22,7 +22,7 @@ SCHEMA_VERSION = 1
 BATTERY_CASES = ("fixed", "removable")
 
 # Every editable scenario field: key, form group, label, unit, PLAN.md question, and input limits.
-# kind: "num" (number), "opt" (number or off: None), "list" (comma-separated numbers), "autonomy", "demand".
+# kind: "num" (number), "opt" (number or off: None), "list" (comma-separated numbers), "autonomy", "demand", "speeds".
 FIELDS = [
     {"key": "demand", "group": "Demand", "label": "Trips per hour by 2-hour bin", "kind": "demand", "q": 5},
     # Speeds: the form shows a choice per vehicle kind (kind "speeds"); these are the values behind it.

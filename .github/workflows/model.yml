@@ -1,7 +1,9 @@
 # Runs the tests and the model on every push/PR and uploads outputs/ (xlsx, CSVs, figures, site)
 # as a downloadable artifact. Pushes to main also publish the results explorer (outputs/site)
 # to GitHub Pages. Pushing a tag like v1.0-os4 also publishes a GitHub Release with the outputs
-# attached, which is the copy to submit.
+# attached, which is the copy to submit. The executable job builds the standalone os4 executable
+# (scripts/build_exe.py) on Linux, macOS and Windows, smoke-tests it, uploads it, and attaches it to
+# tagged releases.
 name: model
 
 on:
@@ -54,6 +56,67 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             outputs/*.md outputs/media/* \
             --title "OS4 model $GITHUB_REF_NAME" --generate-notes
+
+  executable:
+    needs: build # the release must exist before the executables are attached to it
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x64
+          - os: macos-latest
+            name: macos-arm64
+          - os: windows-latest
+            name: windows-x64
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write # only used by the release step on tags
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --extra build
+
+      - name: Build
+        run: uv run python scripts/build_exe.py
+
+      - name: Smoke test (Task 1, Task 2 and the Lab's help from the executable)
+        run: |
+          exe=dist/os4; [ "$RUNNER_OS" = Windows ] && exe=dist/os4.exe
+          cd "$RUNNER_TEMP"
+          "$GITHUB_WORKSPACE/$exe" --only task1 task2 --out smoke --no-progress
+          test -f smoke/task1_cases.md && test -f smoke/task2_model.md
+          "$GITHUB_WORKSPACE/$exe" lab --help
+
+      - name: Package
+        run: |
+          mkdir -p package
+          if [ "$RUNNER_OS" = Windows ]; then
+            7z a "package/os4-${{ matrix.name }}.zip" ./dist/os4.exe
+          else
+            tar -czf "package/os4-${{ matrix.name }}.tar.gz" -C dist os4
+          fi
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: os4-${{ matrix.name }}-${{ github.sha }}
+          path: package/*
+          if-no-files-found: error
+
+      - name: Attach to release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" package/* --clobber
 
   pages:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
