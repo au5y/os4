@@ -3,6 +3,10 @@
 Runs every step by default; ``--only`` / ``--skip`` pick steps, ``--out`` changes the output folder and
 ``--no-progress`` hides the progress bars. ``python -m os4 --help`` lists them. ``python -m os4 lab [...]``
 starts the Model Lab instead (same as ``python -m os4.lab``), so the standalone executable can run both.
+
+The standalone executable launched with no arguments (e.g. double-clicked) opens the Model Lab in the browser,
+where weights and inputs can be edited; ``os4 run [options]`` (or any option, e.g. ``os4 --only task1``) runs
+the batch model as ``python -m os4`` does.
 """
 
 import argparse
@@ -26,7 +30,7 @@ STEPS = ("task1", "task2", "task3", "sensitivity", "site", "excel")
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="python -m os4", description="Run the OS4 model and write its outputs. "
-                                     "'python -m os4 lab --help' describes the Model Lab.")
+                                     "'python -m os4 lab --help' describes the Model Lab. 'run' before the options is optional.")
     parser.add_argument("--only", nargs="+", choices=STEPS, metavar="STEP",
                         help=f"run only these steps (choices: {', '.join(STEPS)})")
     parser.add_argument("--skip", nargs="+", choices=STEPS, default=[], metavar="STEP",
@@ -39,9 +43,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> None:
     argv = sys.argv[1:] if argv is None else list(argv)
-    if argv[:1] == ["lab"]:
+    if argv[:1] == ["lab"] or (FROZEN and not argv):
         from os4.lab.__main__ import main as lab_main
-        return lab_main(argv[1:])
+        return lab_main(argv[1:] if argv else ["--open"])
+    if argv[:1] == ["run"]:
+        argv = argv[1:]
     for stream in (sys.stdout, sys.stderr):  # a Windows console may not encode every character in the tables
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(errors="replace")
@@ -91,8 +97,6 @@ def main(argv: list[str] | None = None) -> None:
         print(f"  wrote {export_model(scenario, out / 'media' / 'os4_model.xlsx')}")
 
     print(f"\nDone. Outputs are in {out.resolve()}")
-    if FROZEN and sys.platform == "win32" and not argv and sys.stdin and sys.stdin.isatty():
-        input("Press Enter to close this window.")  # a double-clicked .exe would otherwise close at once
 
 
 if __name__ == "__main__":

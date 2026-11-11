@@ -1,7 +1,7 @@
 # Runs the tests and the model on every push/PR and uploads outputs/ (xlsx, CSVs, figures, site)
 # as a downloadable artifact. Pushes to main also publish the results explorer (outputs/site)
 # to GitHub Pages. Pushing a tag like v1.0-os4 also publishes a GitHub Release with the outputs
-# attached, which is the copy to submit. The executable job builds the standalone os4 executable
+# attached (and the input CSVs as os4-inputs.zip), which is the copy to submit. The executable job builds the standalone os4 executable
 # (scripts/build_exe.py) on Linux, macOS and Windows, smoke-tests it, uploads it, and attaches it to
 # tagged releases.
 name: model
@@ -53,8 +53,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          zip -qr os4-inputs.zip data  # the input CSVs the outputs were generated from
           gh release create "$GITHUB_REF_NAME" \
-            outputs/*.md outputs/media/* \
+            os4-inputs.zip outputs/*.md outputs/media/* \
             --title "OS4 model $GITHUB_REF_NAME" --generate-notes
 
   executable:

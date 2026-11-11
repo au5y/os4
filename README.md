@@ -23,6 +23,8 @@ The assignment asks for a tradespace exploration of an autonomous, battery-elect
 | 5 | 20% | Concept recommendation | Not started | slides |
 | 6 | 10% | Life-cycle / extensibility memo | Not started | slides |
 
+**Final baseline:** the standard weekday demand inputs and outputs are frozen at tag `v1.1-weekday-final`; its [Release](https://github.com/au5y/os4/releases/tag/v1.1-weekday-final) holds the inputs, outputs and executables ([PLAN.md Q28](docs/PLAN.md#q28)).
+
 **Due:** Thursday, November 12, 2026, 10:00am. The slides go to Canvas as a single PDF; the model (this code plus `outputs/media/os4_model.xlsx`) is submitted separately as a ZIP.
 
 Every modeling decision and open question is in [`docs/PLAN.md`](docs/PLAN.md) (questions are numbered **Q#**; code that depends on one is tagged with its number). The main ones so far:
@@ -233,13 +235,16 @@ Figures on GitHub Pages only change when the edit is merged into `main`.
 
 The model also runs as a single executable with nothing else installed (no Python, no uv): it bundles Python, the dependencies, `data/` and `docs/`. Download it from the latest [Release](https://github.com/au5y/os4/releases) (tagged versions) or from the `os4-<platform>-<sha>` artifact of any CI run (Actions → model), unpack it, and run it from a terminal:
 
-```bash
-./os4                          # Windows: os4.exe. Same as python -m os4; writes outputs/ next to the executable
-./os4 --only task1 --out DIR   # same options as python -m os4 (see ./os4 --help)
-./os4 lab                      # the Model Lab (below) on http://127.0.0.1:8411
-```
+**Open it like an app:** double-click `os4` (`os4.exe` on Windows), or run `./os4` with no options. It starts the [Model Lab](#model-lab-local-optional) and opens it in your browser, with the same look as the results explorer: pick a preset, edit the **utility weights** (or any other input), press **Calculate** and see the tradespace, Pareto front and Task 2 architectures under your weights. A console window stays open while it runs; close it to stop. Edited weights are what-if runs; the frozen results use the Appendix A weights ([PLAN.md Q28](docs/PLAN.md#q28)).
 
-On Windows you can also double-click `os4.exe`; the window stays open until you press Enter. On macOS, a downloaded executable is blocked the first time: right-click → Open, or run `xattr -d com.apple.quarantine os4`. The single file unpacks itself to a temporary folder on every run, so it starts a few seconds slower than `python -m os4`.
+**Batch run, as `python -m os4`:**
+
+```bash
+./os4 run                      # Windows: os4.exe run. Tasks 1-3; writes outputs/ next to the executable
+./os4 --only task1 --out DIR   # any option implies a batch run (see ./os4 --help)
+./os4 lab --port 8500          # the Lab without opening a browser, with its options (./os4 lab --help)
+```
+On macOS, a downloaded executable is blocked the first time: right-click → Open, or run `xattr -d com.apple.quarantine os4`. The single file unpacks itself to a temporary folder on every run, so it starts a few seconds slower than `python -m os4`.
 
 To build it yourself (for the operating system you build on):
 
@@ -278,6 +283,6 @@ uv run python -m os4.lab          # or: uv run os4-lab, uv run python -m os4 lab
 
 ## Continuous integration
 
-`.github/workflows/model.yml` runs on every pull request and push to `main`: install with uv, run the tests, run the model, and upload `outputs/` as the `os4-outputs-<sha>` artifact (kept 90 days). Pushes to `main` also publish `outputs/site` to GitHub Pages. Pushing a tag such as `v1.0-os4` creates a GitHub Release with the workbook, CSVs, figures and reports attached: use that for the copy we submit. A second job builds the [standalone executable](#standalone-executable) on Linux, macOS and Windows, runs Tasks 1–2 with it as a smoke test, uploads each as an `os4-<platform>-<sha>` artifact and, on tags, attaches them to the Release.
+`.github/workflows/model.yml` runs on every pull request and push to `main`: install with uv, run the tests, run the model, and upload `outputs/` as the `os4-outputs-<sha>` artifact (kept 90 days). Pushes to `main` also publish `outputs/site` to GitHub Pages. Pushing a tag such as `v1.0-os4` creates a GitHub Release with the workbook, CSVs, figures, reports and the input CSVs (`os4-inputs.zip`) attached: use that for the copy we submit. A second job builds the [standalone executable](#standalone-executable) on Linux, macOS and Windows, runs Tasks 1–2 with it as a smoke test, uploads each as an `os4-<platform>-<sha>` artifact and, on tags, attaches them to the Release.
 
 Generated files are never committed (`outputs/` is git-ignored); rebuild them with `uv run python -m os4`.

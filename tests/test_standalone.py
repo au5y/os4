@@ -57,3 +57,39 @@ def test_every_text_read_and_write_names_its_encoding():
                     and not any(k.arg == "encoding" for k in node.keywords)):
                 missing.append(f"{path.relative_to(ROOT)}:{node.lineno}")
     assert not missing
+
+
+def test_executable_with_no_arguments_opens_the_lab(monkeypatch):
+    import os4.__main__ as entry
+    import os4.lab.__main__ as lab_entry
+    calls = []
+    monkeypatch.setattr(entry, "FROZEN", True)
+    monkeypatch.setattr(lab_entry, "main", lambda argv: calls.append(argv))
+    entry.main([])
+    assert calls == [["--open"]]
+
+
+def test_run_prefix_runs_the_batch_model(tmp_path):
+    main(["run", "--only", "task1", "--out", str(tmp_path), "--no-progress"])
+    assert (tmp_path / "task1_cases.md").exists()
+
+
+def test_lab_open_falls_back_to_a_free_port(monkeypatch):
+    import socket
+
+    import os4.lab.__main__ as lab_entry
+    opened, served = [], []
+    monkeypatch.setattr(lab_entry.webbrowser, "open", opened.append)
+    monkeypatch.setattr(lab_entry.threading, "Timer", lambda _t, f, args: type("T", (), {"start": lambda s: f(*args)})())
+
+    def fake_serve_forever(self):
+        served.append(self.server_address[1])
+        raise KeyboardInterrupt
+    monkeypatch.setattr(lab_entry.serve.__globals__["ThreadingHTTPServer"], "serve_forever", fake_serve_forever)
+    with socket.socket() as busy:
+        busy.bind(("127.0.0.1", 0))
+        busy.listen()
+        taken = busy.getsockname()[1]
+        lab_entry.main(["--open", "--port", str(taken), "--no-cache"])
+    assert served and served[0] != taken
+    assert opened == [f"http://127.0.0.1:{served[0]}"]
