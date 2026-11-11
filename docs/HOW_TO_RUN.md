@@ -26,9 +26,18 @@ This ZIP holds the model, its input data and its formulas. The slides, with our 
 
 ## 3. Run the model
 
-The model needs Python 3.10 or newer. Pick one option.
+Pick one option. Option A needs nothing installed; Options B and C run the source code and need Python 3.10 or newer (uv installs it for you).
 
-### Option A: uv (recommended; macOS, Windows or Linux)
+### Option A: the standalone executable (no Python at all)
+
+Download `os4-macos-arm64`, `os4-windows-x64` or `os4-linux-x64` from the Release page
+https://github.com/au5y/os4/releases/tag/v1.1-weekday-final, then unpack it.
+
+- **Double-click `os4`** (`os4.exe` on Windows) to open the Model Lab in your browser (Section 4).
+- **Run `./os4 run`** in a terminal for the same batch run as `python -m os4`. It writes `outputs/` next to the executable.
+- **macOS:** the app isn't signed by Apple, so the first launch shows "Apple can't verify". Run `xattr -d com.apple.quarantine os4` in Terminal, or go to System Settings → Privacy & Security → Open Anyway.
+
+### Option B: uv (recommended for running from source; macOS, Windows or Linux)
 
 [uv](https://docs.astral.sh/uv/) installs the right Python and the exact dependency versions from `uv.lock`.
 
@@ -42,7 +51,7 @@ uv run python -m os4         # run Tasks 1-3; writes everything to outputs/
 uv run pytest -q             # optional: run the tests (~1 min)
 ```
 
-### Option B: plain Python and pip
+### Option C: plain Python and pip
 
 ```bash
 python -m venv .venv
@@ -50,15 +59,6 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 python -m os4
 ```
-
-### Option C: the standalone executable (no Python at all)
-
-Download `os4-macos-arm64`, `os4-windows-x64` or `os4-linux-x64` from the Release page
-https://github.com/au5y/os4/releases/tag/v1.1-weekday-final, then unpack it.
-
-- **Double-click `os4`** (`os4.exe` on Windows) to open the Model Lab in your browser (Section 4).
-- **Run `./os4 run`** in a terminal for the same batch run as `python -m os4`. It writes `outputs/` next to the executable.
-- **macOS:** the app isn't signed by Apple, so the first launch shows "Apple can't verify". Run `xattr -d com.apple.quarantine os4` in Terminal, or go to System Settings → Privacy & Security → Open Anyway.
 
 ### What a run produces
 
