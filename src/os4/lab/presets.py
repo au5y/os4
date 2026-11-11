@@ -28,36 +28,36 @@ def _demand(base: pd.DataFrame, scale_hours=(), factor: float = 1.0, keep_hours=
 def presets() -> list[dict]:
     """Every preset: ``{id, name, group, description, assumptions, config}``.
 
-    The lab's default speeds are the posted 20 mph limit for road vehicles and the Appendix B formula for
-    e-bikes; "Task 3 report settings" keeps the model's own choices (21 km/h achieved cap, Appendix B e-bike formula).
+    Every preset uses the model's e-bikes (18 km/h assist, removable batteries with spares, PLAN.md Q6/Q15) and
+    the OS3A reweight (Q10, editable). "Standard weekday demand" caps road vehicles at the posted 20 mph limit;
+    "Task 3 report settings" keeps the model's 21 km/h achieved cap.
     """
     report = primary_scenario()
-    base = replace(report, speed_limit_kmh=POSTED_LIMIT_KMH, bike_assisted_speed_kmh=None)
+    base = replace(report, speed_limit_kmh=POSTED_LIMIT_KMH)
     out = [{
         "id": "standard", "group": "Baseline", "name": "Standard weekday demand",
         "description": "The primary scenario: on-demand last-mile service from Kendall, scored over Appendix B's "
                        "full weekday and sized for the 8:00–14:00 peak (PLAN.md Q1), with the lab's default speeds.",
         "assumptions": ["Appendix B demand as given (1,790 trips/day)",
                         "Road vehicles capped at the posted 20 mph limit (32.2 km/h)",
-                        "E-bikes at the Appendix B formula speed (700·P/W)", "Riders-per-day ceilings on (Q22)"],
+                        "E-bikes at the 18 km/h assist, removable batteries (Q6, Q15)", "Riders-per-day ceilings on (Q22)"],
         "scenario": base,
     }, {
         "id": "report", "group": "Baseline", "name": "Task 3 report settings",
         "description": "Exactly what the Task 3 report runs: the standard weekday scenario with the model's own "
                        "speed choices.",
         "assumptions": ["Road vehicles capped at the 21 km/h achieved speed (Q4)",
-                        "E-bikes at the Appendix B formula speed (Q6)", "Riders-per-day ceilings on (Q22)"],
+                        "E-bikes at the 18 km/h assist, removable batteries (Q6, Q15)", "Riders-per-day ceilings on (Q22)"],
         "scenario": replace(report, name="Task 3 report settings"),
     }]
 
     s1, red_line = weekday_scenario(), red_line_scenario()
     out.append({
-        "id": "weekday_s1", "group": "Tasks 4–5", "name": "Scenario 1: standard weekday (18 km/h e-bikes)",
-        "description": "Scenario 1 of Tasks 4–5 (PLAN.md Q30): the Task 3 report settings with e-bikes at the "
-                       "18 km/h assist, as on the Task 3 slides.",
+        "id": "weekday_s1", "group": "Tasks 4–5", "name": "Scenario 1: standard weekday",
+        "description": "Scenario 1 of Tasks 4–5: the Task 3 report settings.",
         "assumptions": ["Appendix B demand as given (1,790 trips/day)", "Road vehicles capped at 21 km/h (Q4)",
-                        "E-bikes at an 18 km/h assist (Q30)", "Riders-per-day ceilings on (Q22)"],
-        "scenario": replace(s1, name="Scenario 1: standard weekday (18 km/h e-bikes)"),
+                        "E-bikes at the 18 km/h assist, removable batteries (Q6, Q15)", "Riders-per-day ceilings on (Q22)"],
+        "scenario": replace(s1, name="Scenario 1: standard weekday"),
     })
     out.append({
         "id": "red_line", "group": "Tasks 4–5", "name": "Scenario 2: Red Line disruption (Task 4)",
@@ -68,7 +68,7 @@ def presets() -> list[dict]:
                         f"Road cap {RED_LINE_ROAD_CAP_KMH:g} km/h (arterial roads; team estimate)",
                         "Outside the boundary Table 1 requires L4/L5: A4 and A5 only",
                         "Table 1 outside-boundary goals: 20-min wait, 20-min travel",
-                        "E-bikes at an 18 km/h assist (Q30)"],
+                        "E-bikes at the 18 km/h assist, removable batteries (Q6, Q15)"],
         "scenario": replace(red_line, name="Scenario 2: Red Line disruption (Task 4)"),
     })
 
@@ -85,7 +85,7 @@ def presets() -> list[dict]:
         "assumptions": [f"Average road trip {network.avg_trip_km:g} km: mean of the three links, including "
                         "Lechmere–Central (3.3 km)", f"Average bike trip {network.bike_trip_km:g} km",
                         "PLACEHOLDER: empty return 0.33 of a trip (was 1.0)", "Appendix B demand as given",
-                        "Lab default speeds: posted 20 mph limit, Appendix B e-bike formula"],
+                        "Road cap at the posted 20 mph limit; e-bikes at the 18 km/h assist"],
         "scenario": network,
     })
 
@@ -113,7 +113,7 @@ def presets() -> list[dict]:
                         f"Volume threshold scaled to that window: {rush.min_daily_volume:g} trips",
                         "No off-peak minimum; riders-per-day ceilings off (they are daily measures)",
                         "The volume utility is still on Appendix A's trips/day scale, so the MAU ceiling is lower",
-                        "Lab default speeds: posted 20 mph limit, Appendix B e-bike formula"],
+                        "Road cap at the posted 20 mph limit; e-bikes at the 18 km/h assist"],
         "scenario": rush,
     })
 

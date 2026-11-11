@@ -1,12 +1,14 @@
 """Task 4: a second operating scenario, the Red Line disruption (PLAN.md Q29), against the standard weekday.
 
 Scenario 1 is the standard weekday and Scenario 2 the Red Line closure (``scenario.weekday_scenario`` and
-``scenario.red_line_scenario``), both with e-bikes at the 18 km/h assist (PLAN.md Q30) and fixed e-bike
-batteries. Both tradespaces use the same design vector, fleet grid, Table 1 thresholds, riders-per-day
-ceilings and Appendix A weights, so they compare directly.
+``scenario.red_line_scenario``). Both use the model's inputs everywhere: e-bikes at the 18 km/h assist (PLAN.md
+Q6) on removable batteries with spare packs (Q15), and the same design vector, fleet grid, Table 1 thresholds and
+riders-per-day ceilings, so the two tradespaces compare directly. ``mau`` is the decision MAU, the team's OS3A
+reweight (Q10); ``mau_appendix_a`` is reported for comparison.
 
-The Task 3 picks are scored in both scenarios. Their road vehicles are A3, which Table 1 does not allow
-outside the boundary, so in Scenario 2 each is replaced by its minimum-change "A4 twin" (same chassis,
+The Task 3 picks (the best-value road-only front point, the knee and the best bike-only front point, from
+``task3_picks``) and the Task 3 reference are scored in both scenarios. Road vehicles that are A3, which Table 1
+does not allow outside the boundary, are replaced in Scenario 2 by their minimum-change "A4 twin" (same chassis,
 battery, charger and motor, autonomy A4: +$20,000 and +30 kg per vehicle).
 
 ``write_task4`` writes ``outputs/task4_red_line.md`` with its figures in ``outputs/media/``.
@@ -19,32 +21,21 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from os4.fleet import Fleet, cycle_time_min
-from os4.model import architecture_table, evaluate
+from os4.model import REFERENCE_VARIANT, architecture_table, evaluate, reference_architecture
 from os4.plots import GRID, INK, INK_2, OUTPUT_DIR, SERIES, SURFACE, _md_table, _style, media_dir, media_link
 from os4.scenario import Scenario, primary_scenario, red_line_scenario, weekday_scenario
 from os4.tradespace import FLEET_TYPES, _cost_axis, _describe, pareto_front, tradespace
 from os4.vehicle import all_variants, get_variant
 
 KNEE_MAU = 0.94  # same knee rule as Task 3: the first Pareto point with MAU >= 0.94
-OS3A = "mau_os3a_reweight"
-BUS, BIKE = "C8-P1-G3-M4-A3", "B1-E1-G2-K1"
-# The Task 3 picks (Task 3-2 slide) and the Scenario 2 knee: (road variant, n road, bike variant, n bike).
-PICKS = {
-    "Pareto 1: 2 buses": (BUS, 2, None, 0),
-    "Pareto 2 (knee): 2 buses + 20 e-bikes": (BUS, 2, BIKE, 20),
-    "Pareto 3: 125 e-bikes": (None, 0, BIKE, 125),
-    "Reference: 6 small shuttles": ("C4-P2-G3-M2-A3", 6, None, 0),
-    "Scenario 2 knee: 6 A4 buses + 30 e-bikes": (BUS.replace("-A3", "-A4"), 6, BIKE, 30),
-}
-
-
-def fixed_batteries(scenario: Scenario) -> Scenario:
-    return replace(scenario, bike_spare_options=(0.0,))
+APPX = "mau_appendix_a"  # the Appendix A MAU, for comparison
+BUS = "C8-P1-G3-M4-A3"  # the C8 bus used to explain cycle times
+S2_KNEE = "Scenario 2 knee"
 
 
 def scenarios() -> dict[str, Scenario]:
-    """Scenario 1 and Scenario 2, with fixed e-bike batteries (Appendix B as given)."""
-    return {"s1": fixed_batteries(weekday_scenario()), "s2": fixed_batteries(red_line_scenario())}
+    """Scenario 1 and Scenario 2."""
+    return {"s1": weekday_scenario(), "s2": red_line_scenario()}
 
 
 def a4_twin(variant_id: str | None, scenario: Scenario) -> str | None:
@@ -73,35 +64,68 @@ def on_front(row: dict, front: pd.DataFrame, utility: str = "mau") -> bool:
     return not better.any()
 
 
+def _ids(row) -> tuple:
+    road = row["road_variant"] if isinstance(row["road_variant"], str) else None
+    bike = row["bike_variant"] if isinstance(row["bike_variant"], str) else None
+    return road, int(row["n_road"]), bike, int(row["n_bike"])
+
+
+def task3_picks(front: pd.DataFrame) -> dict[str, tuple]:
+    """Three Pareto architectures from the Scenario 1 (Task 3) front, one of each kind:
+
+    - **Pareto 1, road-only:** the road-only front point with the most MAU per dollar;
+    - **Pareto 2, the knee:** the first front point with MAU >= 0.94;
+    - **Pareto 3, bike-only:** the cheapest bike-only front point.
+    """
+    road = front[front["fleet_type"] == "road-only"]
+    bikes = front[front["fleet_type"] == "bike-only"]
+    picks = {}
+    if len(road):
+        picks["Pareto 1 (road-only)"] = _ids(road.loc[(road["mau"] / road["fleet_cost_usd"]).idxmax()])
+    picks["Pareto 2 (knee)"] = _ids(knee(front))
+    if len(bikes):
+        picks["Pareto 3 (bike-only)"] = _ids(bikes.iloc[0])
+    return picks
+
+
 def run() -> dict:
     """Score both tradespaces and the picks; everything the report, the figures and Task 5 need."""
     out = {}
     for key, scenario in scenarios().items():
         df = tradespace(scenario, label=f"Task 4: {key}")
-        front, front_os3a = pareto_front(df), pareto_front(df, OS3A)
+        front, front_appx = pareto_front(df), pareto_front(df, APPX)
         counts = front["fleet_type"].value_counts()
         out[key] = {
-            "scenario": scenario, "feasible": len(df), "front": front, "front_os3a": front_os3a,
+            "scenario": scenario, "feasible": len(df), "front": front, "front_appx": front_appx,
             "front_types": {t: int(counts.get(t, 0)) for t in FLEET_TYPES},
-            "knee": knee(front), "knee_os3a": knee(front_os3a, OS3A),
+            "knee": knee(front), "knee_appx": knee(front_appx, APPX),
             "cheapest": df.loc[df["fleet_cost_usd"].idxmin()], "max_mau": float(df["mau"].max()),
             "min_mau": float(df["mau"].min()),
             "sample": df.sample(min(len(df), 60_000), random_state=0)[["fleet_cost_usd", "mau", "fleet_type"]],
         }
         del df
-    out["picks"] = pick_table(out)
+    s1 = out["s1"]["scenario"]
+    picks = task3_picks(out["s1"]["front"])
+    ref = reference_architecture(s1)
+    picks[f"Reference: {ref.n_road} small shuttles"] = (REFERENCE_VARIANT, ref.n_road, None, 0)
+    picks[S2_KNEE] = _ids(out["s2"]["knee"])
+    out["pick_ids"] = picks
+    out["picks"] = pick_table(out, picks)
     out["task2"] = task2_in_scenario2(out["s2"]["scenario"])
     s2 = out["s2"]["scenario"]
-    out["s2_roads_only"] = score(PICKS["Scenario 2 knee: 6 A4 buses + 30 e-bikes"][0], 6, None, 0, s2)
-    slow = fixed_batteries(replace(red_line_scenario(), bike_assisted_speed_kmh=None))
+    k2 = out["s2"]["knee"]
+    out["s2_roads_only"] = score(k2["road_variant"], int(k2["n_road"]), None, 0, s2) if k2["n_road"] else None
+    slow = replace(red_line_scenario(), bike_assisted_speed_kmh=None)
     out["s2_formula_bikes_knee"] = knee(pareto_front(tradespace(slow, label="Task 4: s2, formula bikes")))
+    fixed = replace(red_line_scenario(), bike_spare_options=(0.0,))
+    out["s2_fixed_knee"] = knee(pareto_front(tradespace(fixed, label="Task 4: s2, fixed batteries")))
     return out
 
 
-def pick_table(results: dict) -> pd.DataFrame:
+def pick_table(results: dict, picks: dict) -> pd.DataFrame:
     """Each pick in both scenarios (Scenario 2 as its A4 twin where A3 isn't allowed)."""
     rows = []
-    for name, (road, n_road, bike, n_bike) in PICKS.items():
+    for name, (road, n_road, bike, n_bike) in picks.items():
         row = {"architecture": name}
         for key in ("s1", "s2"):
             scenario, front = results[key]["scenario"], results[key]["front"]
@@ -109,7 +133,7 @@ def pick_table(results: dict) -> pd.DataFrame:
             r = score(twin, n_road, bike, n_bike, scenario)
             r["architecture"] = name
             row[key] = r | {"as_built": twin == road, "on_front": on_front(r, front),
-                            "on_front_os3a": on_front(r, results[key]["front_os3a"], OS3A)}
+                            "on_front_appx": on_front(r, results[key]["front_appx"], APPX)}
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -184,7 +208,7 @@ def plot_fronts(results: dict, path: Path, stars: dict | None = None,
     ax.set_xlim(0.15, 3.0)
     ax.set_ylim(0.15, 1.02)
     ax.set_xlabel("fleet cost ($M, vehicle capital cost, log scale)", fontsize=9, color=INK_2)
-    ax.set_ylabel("multi-attribute utility (Appendix A weights)", fontsize=9, color=INK_2)
+    ax.set_ylabel("multi-attribute utility (OS3A reweight)", fontsize=9, color=INK_2)
     ax.set_title(title, loc="left", fontsize=13, color=INK, fontweight="bold")
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.11), ncol=1, frameon=False, fontsize=8.5)
     fig.tight_layout()
@@ -193,7 +217,7 @@ def plot_fronts(results: dict, path: Path, stars: dict | None = None,
     return path
 
 
-def plot_mau_change(picks: pd.DataFrame, path: Path, utility: str = OS3A) -> Path:
+def plot_mau_change(picks: pd.DataFrame, path: Path, utility: str = "mau") -> Path:
     """Dumbbell: each pick's MAU in Scenario 1 and Scenario 2 (A4 twin where needed)."""
     fig, ax = plt.subplots(figsize=(10, 5.0), facecolor=SURFACE)
     _style(ax)
@@ -211,7 +235,7 @@ def plot_mau_change(picks: pd.DataFrame, path: Path, utility: str = OS3A) -> Pat
     ax.set_yticks(range(len(names)), names, fontsize=9)
     ax.set_xlim(0, 1.05)
     ax.set_ylim(-0.7, len(names) - 0.3)
-    ax.set_xlabel(f"MAU ({'OS3A reweight' if utility == OS3A else 'Appendix A'} weights)", fontsize=9, color=INK_2)
+    ax.set_xlabel(f"MAU ({'OS3A reweight' if utility == 'mau' else 'Appendix A'} weights)", fontsize=9, color=INK_2)
     ax.scatter([], [], s=60, color=SERIES[0], label="Scenario 1: standard weekday")
     ax.scatter([], [], s=60, color=SERIES[1], label="Scenario 2: Red Line closure")
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2, frameon=False, fontsize=8.5)
@@ -250,6 +274,12 @@ def _pick_rows(picks: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _same_parts(a: pd.Series, b: pd.Series) -> bool:
+    """True if two fleets use the same road vehicle (ignoring autonomy) and the same e-bike."""
+    strip = lambda v: v.rsplit("-", 1)[0] if isinstance(v, str) else None  # noqa: E731
+    return strip(a["road_variant"]) == strip(b["road_variant"]) and a["bike_variant"] == b["bike_variant"]
+
+
 def write_task4(out_dir: Path = OUTPUT_DIR, results: dict | None = None) -> list[Path]:
     results = results or run()
     media = media_dir(out_dir)
@@ -257,19 +287,52 @@ def write_task4(out_dir: Path = OUTPUT_DIR, results: dict | None = None) -> list
             plot_mau_change(results["picks"], media / "task4_mau_change.png")]
     s1, s2 = results["s1"], results["s2"]
     sc1, sc2 = s1["scenario"], s2["scenario"]
-    k1, k2, k2o = s1["knee"], s2["knee"], s2["knee_os3a"]
+    k1, k2, k1a, k2a = s1["knee"], s2["knee"], s1["knee_appx"], s2["knee_appx"]
     picks = results["picks"].set_index("architecture")
-    p2 = picks.loc["Pareto 2 (knee): 2 buses + 20 e-bikes"]
-    new = picks.loc["Scenario 2 knee: 6 A4 buses + 30 e-bikes"]
-    old = [picks.loc[n]["s2"] for n in picks.index if not n.startswith("Scenario 2")]
+    new = picks.loc[S2_KNEE]
+    t3 = picks.loc["Pareto 2 (knee)"]
+    old = [picks.loc[n]["s2"] for n in picks.index if n != S2_KNEE]
+    survivors = [n for n in picks.index if n != S2_KNEE and picks.loc[n]["s2"]["meets_thresholds"]]
+    a3 = [n for n in picks.index if n != S2_KNEE and not picks.loc[n]["s2"]["as_built"]]
     roads = results["s2_roads_only"]
-    slow = results["s2_formula_bikes_knee"]
+    slow, fixed = results["s2_formula_bikes_knee"], results["s2_fixed_knee"]
     peak1, peak2 = sc1.peak_demand_per_h, sc2.peak_demand_per_h
-    day1, day2 = sc1.demand["trips_per_hour"].sum() * sc1.demand_bin_h, sc2.demand["trips_per_hour"].sum() * sc2.demand_bin_h
+    day = lambda sc: sc.demand["trips_per_hour"].sum() * sc.demand_bin_h  # noqa: E731
     bus = all_variants(sc2).set_index("variant_id").loc[BUS.replace("-A3", "-A4")]
     bus1 = all_variants(sc1).set_index("variant_id").loc[BUS]
     cyc1, cyc2 = cycle_time_min(bus1, sc1), cycle_time_min(bus, sc2)
     types = lambda r: " / ".join(str(r["front_types"][t]) for t in FLEET_TYPES)  # noqa: E731
+    failing = [o for o in old if not o["meets_thresholds"]]
+
+    findings = []
+    if failing:
+        findings.append(
+            f"- **{len(failing)} of {len(old)} Task 3 architectures fail Table 1 in Scenario 2** "
+            f"({', '.join(n for n in picks.index if n != S2_KNEE and not picks.loc[n]['s2']['meets_thresholds'])}). "
+            f"Even with A4 where needed they serve only {min(o['peak_throughput'] for o in failing):.0f}–"
+            f"{max(o['peak_throughput'] for o in failing):.0f} of {peak2:.0f} trips/h at the peak and fall to MAU "
+            f"{min(o['mau'] for o in failing):.2f}–{max(o['mau'] for o in failing):.2f}.")
+    for n in survivors:
+        o = picks.loc[n]["s2"]
+        findings.append(f"- **{n} still passes Table 1** ({_describe(pd.Series(o))}, {_money(o['fleet_cost_usd'])}, "
+                        f"MAU {o['mau']:.3f}, {'on the front' if o['on_front'] else 'dominated'}): bike-only fleets "
+                        "need no A4 upgrade, and a large enough one carries the peak, but at a high price.")
+    findings.append(
+        f"- **The new knee is {_describe(k2)}, {_money(k2['fleet_cost_usd'])}, MAU {k2['mau']:.3f}** "
+        f"(Appendix A {k2[APPX]:.3f}): {k2['passenger_volume']:,.0f} trips/day, the full {k2['peak_throughput']:.0f}/h "
+        f"peak, a {k2['wait_time']:.1f}-min wait, availability {k2['availability']:.2f} and a "
+        f"{k2['travel_time']:.1f}-min ride.")
+    if roads is not None:
+        findings.append(
+            f"- **E-bikes matter even more here:** {_describe(pd.Series(roads))} alone scores {roads['mau']:.3f} "
+            f"(a {roads['wait_time']:.0f}-min wait); the {int(k2['n_bike'])} e-bikes add "
+            f"{k2['mau'] - roads['mau']:+.2f} for {_money(k2['fleet_cost_usd'] - roads['fleet_cost_usd'])}.")
+    findings += [
+        f"- **The ceiling rises to {s2['max_mau']:.2f}:** Scenario 2 demand is above the top of the Appendix A "
+        "volume and peak scales, so extra vehicles keep paying off further up the cost axis.",
+        f"- **Nothing under {_money(s2['cheapest']['fleet_cost_usd'])} passes Table 1** in Scenario 2 "
+        f"({_describe(s2['cheapest'])}); the lowest feasible MAU is {s2['min_mau']:.3f} (dashed line).",
+    ]
 
     lines = [
         "# Task 4: Second operating scenario, Red Line disruption",
@@ -277,25 +340,24 @@ def write_task4(out_dir: Path = OUTPUT_DIR, results: dict | None = None) -> list
         "Scenario 2 (PLAN.md Q29): the Red Line is down, and riders at Kendall need a road link to Park St / South "
         "Station, outside our system boundary. We picked it because our OS3A interviewee called the Red Line \"the "
         "weakest link\" and Cambridge has Red Line closures planned for 2026 [[21]](../docs/references.md#ref-21). "
-        "Both scenarios run e-bikes at the 18 km/h assist (PLAN.md Q30) with fixed e-bike batteries, and keep the same "
-        "design vector, fleet grid, Table 1 thresholds, riders-per-day ceilings and Appendix A weights, so the two "
-        "tradespaces compare directly.",
+        "Both scenarios use the model's inputs everywhere: e-bikes at the 18 km/h assist (PLAN.md Q6) with removable "
+        "batteries and 0.5–3 spare packs per bike (Q15). They keep the same design vector, fleet grid, Table 1 "
+        "thresholds and riders-per-day ceilings, so the two tradespaces compare directly. **MAU is the team's OS3A "
+        "reweight (Q10)**; the Appendix A MAU is shown for comparison.",
         "",
         "## What changes in Scenario 2",
         "",
         _md_table(pd.DataFrame([
             {"input": "Trip length (road / bike)", "Scenario 1": f"{sc1.avg_trip_km:g} / {sc1.bike_trip_km:g} km",
              "Scenario 2": f"{sc2.avg_trip_km:g} / {sc2.bike_trip_km:g} km (Kendall to Park St / South Station)"},
-            {"input": "Demand", "Scenario 1": f"{day1:,.0f} trips/day, peak {peak1:.0f}/h",
-             "Scenario 2": f"{day2:,.0f} trips/day, peak {peak2:.0f}/h (peak ×1.5, 8:00–14:00)"},
+            {"input": "Demand", "Scenario 1": f"{day(sc1):,.0f} trips/day, peak {peak1:.0f}/h",
+             "Scenario 2": f"{day(sc2):,.0f} trips/day, peak {peak2:.0f}/h (peak ×1.5, 8:00–14:00)"},
             {"input": "Road speed cap", "Scenario 1": f"{sc1.speed_limit_kmh:g} km/h",
              "Scenario 2": f"{sc2.speed_limit_kmh:g} km/h (arterial roads)"},
             {"input": "Autonomy allowed", "Scenario 1": ", ".join(sc1.allowed_autonomy),
              "Scenario 2": ", ".join(sc2.allowed_autonomy) + " (Table 1: L4 or higher outside the boundary)"},
             {"input": "Wait / travel goals", "Scenario 1": f"{sc1.goal_wait_min:g} / {sc1.goal_travel_min:g} min",
              "Scenario 2": f"{sc2.goal_wait_min:g} / {sc2.goal_travel_min:g} min (Table 1, outside the boundary)"},
-            {"input": "E-bike speed", "Scenario 1": f"{sc1.bike_assisted_speed_kmh:g} km/h assist",
-             "Scenario 2": f"{sc2.bike_assisted_speed_kmh:g} km/h assist"},
         ])),
         "",
         f"A C8 bus round trip goes from {cyc1:.1f} to {cyc2:.1f} min, so each vehicle moves about "
@@ -317,28 +379,15 @@ def write_task4(out_dir: Path = OUTPUT_DIR, results: dict | None = None) -> list
         "",
         "## How the Task 3 architectures do in Scenario 2",
         "",
-        "None of the Task 3 picks can run as built: their road vehicles are A3, and A3 isn't allowed once trips "
-        "leave the boundary. For a fair test each A3 vehicle is swapped for its A4 twin (+$20,000 per vehicle), "
-        "with everything else unchanged.",
+        "The Task 3 picks are three Pareto architectures from the Scenario 1 front (the road-only point with the most "
+        "MAU per dollar, the knee, the cheapest bike-only point) and the Task 3 reference. "
+        + (f"{', '.join(a3)} use A3 road vehicles, which aren't allowed once trips leave the boundary, so for a fair "
+           "test each A3 vehicle is swapped for its A4 twin (+$20,000 per vehicle), with everything else unchanged."
+           if a3 else ""),
         "",
         _md_table(_pick_rows(results["picks"])),
         "",
-        f"- **None of the Task 3 picks survives.** Even as A4 twins they serve only "
-        f"{min(o['peak_throughput'] for o in old):.0f}–{max(o['peak_throughput'] for o in old):.0f} of "
-        f"{peak2:.0f} trips/h at the peak, fail Table 1 and fall to MAU "
-        f"{min(o['mau'] for o in old):.2f}–{max(o['mau'] for o in old):.2f}. Bike-only doesn't rescue it: a 5 km "
-        "ride at 18 km/h takes about 17 min.",
-        f"- **The new knee is {_describe(k2)}, {_money(k2['fleet_cost_usd'])}, MAU {k2['mau']:.3f}**: "
-        f"{k2['passenger_volume']:,.0f} trips/day, the full {k2['peak_throughput']:.0f}/h peak, a "
-        f"{k2['wait_time']:.1f}-min wait, availability {k2['availability']:.2f} and a {k2['travel_time']:.1f}-min ride. "
-        "It uses the same C8 bus and B1 e-bike as the Task 3 knee, just more of them, at A4.",
-        f"- **E-bikes matter even more here:** {_describe(pd.Series(roads))} alone scores {roads['mau']:.3f} "
-        f"(a {roads['wait_time']:.0f}-min wait); the 30 e-bikes add {k2['mau'] - roads['mau']:+.2f} for "
-        f"{_money(k2['fleet_cost_usd'] - roads['fleet_cost_usd'])}.",
-        f"- **The ceiling rises to {s2['max_mau']:.2f}:** Scenario 2 demand is above the top of the Appendix A "
-        "volume and peak scales, so extra vehicles keep paying off further up the cost axis.",
-        f"- **Nothing under {_money(s2['cheapest']['fleet_cost_usd'])} passes Table 1** in Scenario 2 "
-        f"({_describe(s2['cheapest'])}); the lowest feasible MAU is {s2['min_mau']:.3f} (dashed line).",
+        *findings,
         "",
         "### The Task 2 architectures in Scenario 2",
         "",
@@ -350,25 +399,28 @@ def write_task4(out_dir: Path = OUTPUT_DIR, results: dict | None = None) -> list
         "",
         "- **The two scenarios are limited by different things.** On a normal weekday demand caps volume and peak "
         "throughput, so cost decides the ranking; in a closure, capacity is the limit.",
-        "- **The reference drops the most:** 8-seat shuttles give the least capacity per dollar, the same reason it "
-        "was dominated in Task 3.",
-        f"- **The new knee holds up in both:** MAU {new['s2'][OS3A]:.3f} in Scenario 2 and {new['s1'][OS3A]:.3f} on a "
-        f"normal weekday (OS3A weights), but on a weekday it is overbuilt: the Task 3 knee gets "
-        f"{p2['s1'][OS3A]:.3f} for {_money(p2['s1']['fleet_cost_usd'])}.",
+        f"- **The Scenario 2 knee in both:** MAU {new['s2']['mau']:.3f} in Scenario 2 and {new['s1']['mau']:.3f} on a "
+        f"normal weekday, but on a weekday it is overbuilt: the Task 3 knee gets {t3['s1']['mau']:.3f} for "
+        f"{_money(t3['s1']['fleet_cost_usd'])}.",
         f"- **Two different best answers:** {_money(k1['fleet_cost_usd'])} for a weekday vs. "
-        f"{_money(k2['fleet_cost_usd'])} for a closure, a {k2['fleet_cost_usd'] / k1['fleet_cost_usd']:.1f}× gap. "
-        "Our resolution (PLAN.md Q31, Task 5): buy the weekday knee with A4 buses, and add a leased surge kit of "
-        "the same buses and e-bikes during closure weeks, which are announced weeks ahead "
-        "[[21]](../docs/references.md#ref-21).",
+        f"{_money(k2['fleet_cost_usd'])} for a closure, a {k2['fleet_cost_usd'] / k1['fleet_cost_usd']:.1f}× gap"
+        + ("." if _same_parts(k1, k2) else
+           f", and the two knees use different vehicles ({_describe(k1)} vs. {_describe(k2)}).")
+        + " Our resolution (PLAN.md Q31, Task 5): own a weekday fleet built from the closure knee's A4 bus and "
+        "e-bike, and add a leased surge kit of the same vehicles during closure weeks, which are announced weeks "
+        "ahead [[21]](../docs/references.md#ref-21).",
         "",
         "### Sensitivity",
         "",
-        f"- **OS3A weights:** the Scenario 2 knee is {_describe(k2o)}, {_money(k2o['fleet_cost_usd'])}, "
-        f"MAU {k2o[OS3A]:.3f}; the Scenario 1 knee is {_describe(s1['knee_os3a'])}.",
+        f"- **Appendix A weights (comparison):** the knees become {_describe(k1a)} "
+        f"({_money(k1a['fleet_cost_usd'])}, Appendix A MAU {k1a[APPX]:.3f}) on a weekday and {_describe(k2a)} "
+        f"({_money(k2a['fleet_cost_usd'])}, {k2a[APPX]:.3f}) in a closure.",
         f"- **E-bikes at the Appendix B formula speed:** the Scenario 2 knee becomes {_describe(slow)}, "
         f"{_money(slow['fleet_cost_usd'])}, MAU {slow['mau']:.3f}.",
-        "- **Not in the model:** we count capital cost only (PLAN.md Q21). Running six buses with attendants costs "
-        "far more than running two, which this comparison doesn't show.",
+        f"- **Fixed e-bike batteries (Appendix B as given):** the Scenario 2 knee becomes {_describe(fixed)}, "
+        f"{_money(fixed['fleet_cost_usd'])}, MAU {fixed['mau']:.3f}.",
+        "- **Not in the model:** we count capital cost only (PLAN.md Q21). Running more buses with attendants costs "
+        "far more than running few, which this comparison doesn't show.",
         "",
     ]
     path = out_dir / "task4_red_line.md"

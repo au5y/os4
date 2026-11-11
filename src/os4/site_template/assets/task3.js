@@ -6,7 +6,7 @@
 
   const caseKeys = Object.keys(OS4).filter((k) => k.startsWith("task3_")).sort();
   if (!caseKeys.length) return;
-  const LEAD = ["fleet_type", "road_variant", "n_road", "bike_variant", "n_bike", "battery", "fleet_cost_usd", "mau", "mau_os3a_reweight"];
+  const LEAD = ["fleet_type", "road_variant", "n_road", "bike_variant", "n_bike", "battery", "fleet_cost_usd", "mau", "mau_appendix_a"];
   const HIDE = ["road_chassis", "bike_frame"];
   const TYPE_ORDER = { "road-only": 0, "bike-only": 1, mixed: 2 };
 

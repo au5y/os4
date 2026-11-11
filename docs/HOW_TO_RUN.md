@@ -1,7 +1,7 @@
 # OS4 Model: How to Run It
 
 **EM.411 Opportunity Set #4, H2 Team 13:** Sanjay Bisht, Yonis Aliyow, Austin Miller, Robert Wright
-**Model version:** tag `v1.2-final-draft` (Tasks 1–5); the standard weekday baseline is frozen at tag `v1.1-weekday-final`
+**Model version:** tag `v1.2-final-draft` (Tasks 1–5, the frozen final inputs and outputs; PLAN.md Q28)
 **GitHub repository:** https://github.com/au5y/os4 (source, tagged versions, releases; see Section 7)
 **Results explorer (GitHub Pages):** https://au5y.github.io/os4/
 
@@ -65,7 +65,7 @@ python -m os4
 
 ### What a run produces
 
-A full run takes about 2–3 minutes and a couple of GB of memory. It scores about 1.7 million architectures with fixed e-bike batteries and 4.2 million with removable ones. Key tables print as it goes. Task 1 should print:
+A full run takes about 3–4 minutes and a couple of GB of memory. It scores about 1.75 million feasible weekday architectures (e-bikes at 18 km/h with removable batteries; MAU = the team's OS3A reweight, Appendix A for comparison), the fixed-battery comparison case, and the two Task 4 scenarios. Key tables print as it goes. Task 1 (Cases A–C with the Appendix A weights, the assignment's check) should print:
 
 ```
 case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  rank
@@ -99,7 +99,7 @@ This opens a local page at http://127.0.0.1:8411. To use it:
 2. Edit any input: the **utility weights**, demand, speeds, trip lengths, requirement thresholds or the fleet grid.
 3. Press **Calculate**.
 
-The page shows the tradespace, the Pareto front and the five Task 2 architectures under your inputs. Edited weights are what-if runs only; the submitted results use the Appendix A weights.
+The page shows the tradespace, the Pareto front and the five Task 2 architectures under your inputs. The page starts from the OS3A reweight (the weights every submitted result uses) and lets you edit them; edited weights are what-if runs only.
 
 ## 5. Where the formulas are
 

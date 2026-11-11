@@ -29,14 +29,14 @@ How the team's model works, and every decision and assumption behind it. Sources
 | [Q13](#q13) | Energy and fleet size as attributes | [Q27](#q27) | Load factor |
 | [Q14](#q14) | Architectures and fleet grid | [Q28](#q28) | Final standard weekday baseline |
 | | | [Q29](#q29) | Task 4 scenario: Red Line disruption |
-| | | [Q30](#q30) | E-bike speed in Tasks 4–5 |
+| | | [Q30](#q30) | E-bike inputs in Tasks 4–5 |
 | | | [Q31](#q31) | Task 5 recommended concept |
 
 ---
 
 ## 1. Operating scenario
 
-> **Final (2026-11-11):** the standard weekday demand inputs and outputs are frozen at tag `v1.1-weekday-final` on `main` ([Q28](#q28)).
+> **Final (2026-11-11):** the inputs and outputs are frozen at tag `v1.2-final-draft` on `main` ([Q28](#q28)), with e-bikes at 18 km/h ([Q6](#q6)), removable batteries with spare packs ([Q15](#q15)) and the OS3A reweight as the MAU ([Q10](#q10)).
 
 The primary scenario, **standard weekday demand**, is a weekday on-demand last-mile service from a hub at Kendall T to Lechmere and Central, using small road EVs and/or e-bikes. It lives in `scenario.primary_scenario()`, separate from the design vector, so later tasks can rerun the same architectures under a different scenario.
 
@@ -95,7 +95,7 @@ Google Maps was not checked (no API key). Lechmere–Central would break the 7-m
 
 #### <a id="q6"></a>Q6. How fast do e-bikes go?
 
-**Answer (Decision, Austin, 2026-11-07):** **the Appendix B formula speed, 700 · motor kW / total kg,** as the assignment gives it. Even if it is unrealistic, and a rider who pedals would add speed, we ran against the given constraints. A fixed 18 km/h assist is the sensitivity case.
+**Answer (Decision, Austin, 2026-11-11):** **a fixed 18 km/h assist, in every task** (`scenario.ASSISTED_BIKE_KMH`): what a rider who pedals reaches. The Appendix B formula speed, 700 · motor kW / total kg, is a sensitivity only (`task3_speed_sensitivity.md`, and the Task 4 report). This replaces the earlier decision (Austin, 2026-11-07) to run the formula speed as given, which the frozen `v1.1-weekday-final` results used ([Q28](#q28)).
 
 **Discussion.** With a 100 kg rider the formula gives 0.9–8.1 km/h, slower than walking for most variants, so a Kendall bike trip takes 12–101 min. A realistic assisted speed is 18 km/h: the low end of 18–20 km/h, under the 20 mph class 1/2 assist cap, and in line with the OS3A interview [[14]](references.md#ref-14) (South Station to Draper, 2–2.5 mi, in a reliable 13–15 min, about 15–18 km/h door to door; an e-bike saves only about 3 min because of traffic and red lights). The model used 18 km/h until 2026-11-07; it was dropped because it departs from the given equations.
 
@@ -217,7 +217,7 @@ Every check runs in `tests/test_utility.py`: table points, clamping to [0, 1], m
 
 #### <a id="q10"></a>Q10. Should the team re-weight the Appendix A attributes?
 
-**Answer (From OS3A):** yes, as a second weight set, `os3a_reweight`: volume 0.10, throughput 0.25, wait 0.35, availability 0.30. Task 3 plots both weight sets. In code: `data/mau_weights_proposed.csv`.
+**Answer (From OS3A; Decision, Austin, 2026-11-11):** yes: `os3a_reweight`, volume 0.10, throughput 0.25, wait 0.35, availability 0.30, **is the MAU for every decision from Task 2 on** (fronts, knees, picks, the concept; `mau` in the code, `utility.DECISION_WEIGHTS`). The Appendix A weights score Task 1's Cases A–C (the assignment's check against Table 4) and are shown everywhere else for comparison only (`mau_appendix_a`). The Model Lab starts from the OS3A weights and keeps them editable. In code: `data/mau_weights_proposed.csv`.
 
 **Discussion.**
 
@@ -280,9 +280,9 @@ Appendix B as given, for every feasible variant: total weight (+100 kg per passe
 
 #### <a id="q15"></a>Q15. How can e-bikes reach useful availability?
 
-**Answer (Decision, team, 2026-11-01; Deviation from Appendix B):** model both pathways: fixed batteries (Appendix B as given) and removable batteries swapped at the hub, with k spare packs per bike. This is our candidate for the rubric's "Above & Beyond: Excellency in Modeling".
+**Answer (Decision, Austin, 2026-11-11; Deviation from Appendix B):** **every e-bike has a removable battery** swapped at the hub, with a varying number of on-hand spare packs per bike, k = 0.5, 1, 1.5, 2 or 3 (pooled; `scenario.REMOVABLE_SPARE_OPTIONS`); the tradespace picks the k worth buying. Fixed batteries (Appendix B as given) are a comparison case only. This replaces the earlier decision (team, 2026-11-01) to carry both pathways as equals. This is our candidate for the rubric's "Above & Beyond: Excellency in Modeling".
 
-**Discussion.** **At a realistic 18 km/h, fixed-battery e-bike availability is 0.14–0.42 under Appendix B,** far below the 0.75 benchmark: small batteries (0.5–3 kWh) and slow chargers mean bikes charge much longer than they ride. At the Appendix B formula speed the model uses ([Q6](#q6)) it is 0.36–0.91, because a bike at 1–8 km/h barely drains its pack. **Assumption:** the formula assumes a vehicle rides nonstop until its battery is empty. Real bikes sit idle most of the day and could charge then, so it understates bike availability.
+**Discussion.** **At a realistic 18 km/h, fixed-battery e-bike availability is 0.14–0.42 under Appendix B,** far below the 0.75 benchmark: small batteries (0.5–3 kWh) and slow chargers mean bikes charge much longer than they ride. At the Appendix B formula speed (the sensitivity case, [Q6](#q6)) it is 0.36–0.91, because a bike at 1–8 km/h barely drains its pack. **Assumption:** the formula assumes a vehicle rides nonstop until its battery is empty. Real bikes sit idle most of the day and could charge then, so it understates bike availability.
 
 With removable batteries, a bike swaps packs in 5 min (**Assumption**) instead of charging in place, with k spare packs per bike pooled across the fleet (0.5, 1, 1.5, 2 or 3). Availability = min( U/(U+s), (1+k)·U/(U+s+C+0.25) ): the bike is limited either by the swap itself or by the supply of charged packs. Each spare adds its battery and a charger slot to the bike's cost. A B2-E1-G2-K2 bike goes from 0.82 availability at $4,500 to 0.98 at $5,050 with 0.5 spares (at 18 km/h: 0.42 to 0.90 with 1.5 spares, $6,150). **Decision (team, 2026-11-01):** swap labor is not counted ([Q21](#q21)), stated as a limitation.
 
@@ -371,13 +371,15 @@ Architectures that fail a screen are dropped before scoring.
 
 **Answer (Decision, Austin, 2026-11-01):**
 
-| # | Fleet | Cost | MAU (Appendix A) |
-| --- | --- | --- | --- |
-| 1 | 24 × C2-P2-G3-M2-A3 (small cars) | $1,435,200 | 0.961 |
-| 2 | 4 × C6-P4-G3-M3-A3 (large shuttles) | $350,600 | 0.946 |
-| 3 | 120 × B2-E1-G2-K3 (bike-only) | $564,000 | 0.958 |
-| 4 | 8 × C2-P2-G3-M2-A3 + 165 × B2-E1-G2-K3 (mixed) | $1,253,900 | 0.962 |
-| 5 | 6 × C4-P5-G3-M2-A5 (A5, long range) | $784,800 | 0.893 |
+| # | Fleet | Cost | MAU (OS3A reweight) | MAU (Appendix A) |
+| --- | --- | --- | --- | --- |
+| 1 | 24 × C2-P2-G3-M2-A3 (small cars) | $1,435,200 | 0.965 | 0.961 |
+| 2 | 4 × C6-P4-G3-M3-A3 (large shuttles) | $350,600 | 0.949 | 0.946 |
+| 3 | 120 × B2-E1-G2-K3-S0.5 (bike-only, removable batteries) | $630,000 | 0.966 | 0.962 |
+| 4 | 8 × C2-P2-G3-M2-A3 + 80 × B2-E1-G2-K3-S0.5 (mixed) | $898,400 | 0.966 | 0.962 |
+| 5 | 6 × C4-P5-G3-M2-A5 (A5, long range) | $784,800 | 0.891 | 0.893 |
+
+**Revised (Austin, 2026-11-11):** with every e-bike on a removable battery at the 18 km/h assist ([Q6](#q6), [Q15](#q15)), fleets 3 and 4 use the same bike with the fewest spares offered (0.5 per bike, `-S0.5`), re-sized to the smallest feasible count in steps of 5: 3 stays at 120 bikes (the riders-per-bike ceiling), 4 drops to 8 cars + 80 bikes.
 
 **Discussion.** Fleets 1 and 4 (originally 12 × C2, and 8 × C2 + 60 × B2) failed the utilization ceilings ([Q22](#q22)) and were sized up with the same vehicles. **Revised (Austin, 2026-11-07):** at the Appendix B bike speed ([Q6](#q6)) the B2-K2 bike rides at 2.75 km/h, so 150 of them miss Table 1 and 8 cars + 115 of them break the car ceiling (45 rides per car per day). Fleets 3 and 4 switched to the K3 motor (8 km/h) and were re-sized to the smallest feasible count. Their bike trips take 12 min, missing the 7-minute travel goal ([Q11](#q11)).
 
@@ -401,23 +403,23 @@ Architectures that fail a screen are dropped before scoring.
 
 ## 4. Task 3: tradespace
 
-`tradespace.py` scores every architecture on the [Q14](#q14) grid: about 1.7 million feasible with fixed batteries and 4.2 million with removable batteries. Dominated vehicle variants are pruned first (e.g. a bigger motor with no speed gain), so every road vehicle in the space is A3. Both battery cases are plotted with the Appendix A MAU and with `os3a_reweight`.
+`tradespace.py` scores every architecture on the [Q14](#q14) grid, with e-bikes at the 18 km/h assist ([Q6](#q6)) on removable batteries ([Q15](#q15)): 1,754,320 feasible architectures (1,052,974 with fixed batteries, the comparison case). Dominated vehicle variants are pruned first (e.g. a bigger motor with no speed gain), so every road vehicle in the space is A3. The MAU is the OS3A reweight ([Q10](#q10)); the Appendix A MAU is plotted for comparison.
 
-| Case | Front (road / bike / mixed) | Cheapest feasible | First front point with MAU ≥ 0.94 |
+| Case | Front (road / bike / mixed) | Cheapest feasible | First front point with MAU ≥ 0.94 (OS3A) |
 | --- | --- | --- | --- |
-| Fixed batteries | 3 / 4 / 310 | $182,200 | 3 × C7 + 10 × B1-K3, 0.942 at $275,950 |
-| Removable batteries | 3 / 12 / 385 | $182,200 | 3 × C7 + 10 × B1-K3, 0.942 at $275,950 |
+| Removable batteries (the model) | 5 / 18 / 437 | $182,200 | 3 × C7-P2-G3-M3-A3 + 5 × B1-E1-G1-K1-S0.5, 0.941 at $272,200 |
+| Fixed batteries (comparison) | 3 / 12 / 387 | $182,200 | 2 × C8-P1-G3-M4-A3 + 20 × B1-E1-G2-K1, 0.943 at $259,200 |
 
 #### <a id="q26"></a>Q26. What is the Task 3 reference architecture?
 
-**Answer (Decision, Austin):** **6 × C4-P2-G3-M2-A3** small on-demand shuttles, $430,800, MAU 0.932 (`model.reference_architecture`), chosen from design reasoning before reading the tradespace, as Task 3 asks.
+**Answer (Decision, Austin):** **6 × C4-P2-G3-M2-A3** small on-demand shuttles, $430,800, MAU 0.933 (OS3A; 0.932 Appendix A) (`model.reference_architecture`), chosen from design reasoning before reading the tradespace, as Task 3 asks.
 
 **Discussion.**
 - C4 (8 seats) is the "small on-demand EV shuttles from a central hub" MIT P&T asked for [[15]](references.md#ref-15), and avoids half-empty large shuttles.
 - A3 is the minimum inside the boundary ([Q7](#q7)); M2 is the smallest motor that reaches the speed cap ([Q4](#q4)); G3 is the fastest charger, for availability; P2 is the smallest pack that covers a service day (about 18 h × 21 km/h ≈ 380 km).
 - Fleet size from load management at the peak [[5]](references.md#ref-5): f ≥ 150 / (0.90 × 8 × 0.75) = 27.8 departures/h, so N = 27.8 × 11 min / 60 / 0.904 = 5.6 → 6. X = 0.90 is the textbook example's value.
 
-On the tradespace the reference is **dominated:** 2 × C8 + 15 × B1-K3 reach the same MAU for $256,700. The model can't see why the reference chose 8 seats: every road vehicle runs at the fixed 0.75 load factor, so a larger vehicle is always more capacity per dollar.
+On the tradespace the reference is **dominated:** 2 × C8-P2 + 15 × B1-S0.5 reach the same MAU for $255,950. The model can't see why the reference chose 8 seats: every road vehicle runs at the fixed 0.75 load factor, so a larger vehicle is always more capacity per dollar.
 
 #### <a id="q27"></a>Q27. How sensitive is the front to the road load factor?
 
@@ -427,23 +429,24 @@ On the tradespace the reference is **dominated:** 2 × C8 + 15 × B1-K3 reach th
 
 ### Findings
 
-- **The MAU levels off once demand is met.** Served throughput caps at 150 trips/h (U = 0.90) and volume at 1,790 trips/day (U = 0.916), and service availability is near 1 for almost every fleet that meets the thresholds. The Appendix A ceiling is 0.962 (0.967 with `os3a_reweight`). Past the knee, architectures differ only by seconds of wait, so the practical choice is the cheapest fleet that meets demand.
+- **The MAU levels off once demand is met.** Served throughput caps at 150 trips/h (U = 0.90) and volume at 1,790 trips/day (U = 0.916), and service availability is near 1 for almost every fleet that meets the thresholds. The OS3A ceiling is 0.967 (0.962 with the Appendix A weights). Past the knee, architectures differ only by seconds of wait, so the practical choice is the cheapest fleet that meets demand.
 - **Both fronts are mostly small mixed fleets:** 1–3 buses or shuttles plus bikes.
-- **MIT shuttles are dominated:** 3 × C7 + 25 × B1-K3 match their MAU for $346,450, vs. $373,250.
-- **Bikes on the front use the K3 motor** (312 of 314 front points with bikes): at the Appendix B speed ([Q6](#q6)) the fastest bike (about 8 km/h) carries the most riders per hour. The cheapest bike-only fleet on the fixed-battery front, 150 × B1-K3 at $555,000 (MAU 0.961), takes 12 min per trip.
+- **MIT shuttles are dominated:** 3 × C7 + 25 × B1-S0.5 match their MAU for $347,700, vs. $373,250.
+- **Bikes on the front use cheap motors and spare packs:** at the 18 km/h assist the motor no longer sets the speed, so the K1/K2 motors win (338 / 117 of 455 front points with bikes), and most carry 1.5 spare packs per bike (313). The cheapest bike-only fleet on the front, 125 × B1-E1-G2-K1-S0.5 at $493,750 (MAU 0.966), takes 5.3 min per trip.
 
 ### Final baseline
 
 #### <a id="q28"></a>Q28. Are the standard weekday demand inputs and outputs final?
 
-**Answer (Decision, Austin, 2026-11-11):** yes. The standard weekday demand scenario (`scenario.primary_scenario()`), its inputs in `data/` and every output `python -m os4` writes from them are frozen at tag **`v1.1-weekday-final`** on `main`. That tag's GitHub Release is the saved copy: the inputs (`os4-inputs.zip`, the `data/` CSVs), the outputs (reports, CSVs, figures, `os4_model.xlsx`) and the standalone executables. A later change to this scenario, the equations or `data/` needs a new decision here and a new tag.
+**Answer (Decision, Austin, 2026-11-11; regenerated the same day):** yes. The standard weekday demand scenario (`scenario.primary_scenario()`), its inputs in `data/` and every output `python -m os4` writes from them are frozen at tag **`v1.2-final-draft`** on `main`, under the final model inputs: e-bikes at the 18 km/h assist ([Q6](#q6)), removable batteries with spare packs ([Q15](#q15)) and the OS3A reweight as the MAU ([Q10](#q10)). That tag's GitHub Release is the saved copy: the inputs (`os4-inputs.zip`, the `data/` CSVs), the outputs (reports, CSVs, figures, `os4_model.xlsx`) and the standalone executables. The first freeze, `v1.1-weekday-final`, used the Appendix B formula speed and the Appendix A MAU; it is kept for the record and superseded. A later change to this scenario, the equations or `data/` needs a new decision here and a new tag.
 
-**Discussion.** The frozen results, as the reports give them:
-- **Task 1:** MAU A 0.613, B 0.639, C 0.651; C ranks first.
-- **Task 2** ([Q24](#q24)): 24 × C2 cars $1,435,200, MAU 0.961; 4 × C6 shuttles $350,600, 0.946; 120 × B2-K3 bikes $564,000, 0.958; 8 × C2 + 165 × B2-K3 $1,253,900, 0.962; 6 × C4-A5 long-range $784,800, 0.893.
-- **Task 3:** 1,684,991 feasible architectures with fixed e-bike batteries and 4,215,800 with removable ones; fronts 3 / 4 / 310 and 3 / 12 / 385 (road / bike / mixed); cheapest feasible $182,200; first front point with MAU ≥ 0.94 is 3 × C7-P1-G3-M3-A3 + 10 × B1-E1-G2-K3, 0.942 at $275,950; Appendix A ceiling 0.962.
-- **Reference and anchors** ([Q23](#q23), [Q26](#q26)): reference 6 × C4-P2-G3-M2-A3, $430,800, MAU 0.932; EZRide-level 2 × C8, $191,200, 0.834; MBTA-bus-level 1 × C8, $95,600, 0.365; MIT shuttles 5 × C6, $373,250, 0.954.
-- **Not decided by this freeze:** the Task 4 scenario, since decided in [Q29](#q29) (Tasks 4–5 run e-bikes at 18 km/h, [Q30](#q30)). Weights edited in the Model Lab or the standalone executable's browser page are what-if runs; the frozen MAUs use the Appendix A weights (and `os3a_reweight` where reported).
+**Discussion.** The frozen results, as the reports give them (MAU = OS3A reweight, Appendix A in parentheses):
+- **Task 1:** Appendix A MAU A 0.613, B 0.639, C 0.651 (the assignment's check); C ranks first under both weight sets.
+- **Task 2** ([Q24](#q24)): 24 × C2 cars $1,435,200, MAU 0.965; 4 × C6 shuttles $350,600, 0.949; 120 × B2-K3-S0.5 bikes $630,000, 0.966; 8 × C2 + 80 × B2-K3-S0.5 $898,400, 0.966; 6 × C4-A5 long-range $784,800, 0.891.
+- **Task 3:** 1,754,320 feasible architectures (1,052,974 with fixed batteries, comparison); front 5 / 18 / 437 (road / bike / mixed); cheapest feasible $182,200; first front point with MAU ≥ 0.94 is 3 × C7-P2-G3-M3-A3 + 5 × B1-E1-G1-K1-S0.5, 0.941 at $272,200; ceiling 0.967.
+- **Reference and anchors** ([Q23](#q23), [Q26](#q26)): reference 6 × C4-P2-G3-M2-A3, $430,800, MAU 0.933 (dominated); EZRide-level 2 × C8, $191,200, 0.831; MBTA-bus-level 1 × C8, $95,600, 0.346; MIT shuttles 5 × C6, $373,250, 0.958 (dominated).
+- **Tasks 4–5:** see [Q29](#q29) and [Q31](#q31).
+- Weights edited in the Model Lab or the standalone executable's browser page are what-if runs; the frozen MAUs use the OS3A reweight, with Appendix A for comparison.
 
 ---
 
@@ -457,13 +460,13 @@ The model runs Tasks 4–5 with `python -m os4` (steps `task4` and `task5`; `src
 
 **Discussion.** Our OS3A interviewee called the Red Line "the weakest link," and Cambridge has Red Line closures planned for 2026 [[21]](references.md#ref-21), so we wanted to test the system on the day it matters most. It is not just "more demand": trips leave the boundary, so every A3 road vehicle we picked in Task 3 is not allowed as built, and trips are about three times longer (a C8 round trip goes from 11.0 to 26.4 min). The design vector, fleet grid, Table 1 thresholds, riders-per-day ceilings ([Q22](#q22)) and Appendix A weights are the same in both runs, so the two tradespaces compare directly.
 
-Results (`outputs/task4_red_line.md`): 1,004,532 feasible architectures and a front of 347 (3 road-only, 0 bike-only, 344 mixed); nothing under $462,400 (4 × C8-A4) passes Table 1. The knee (first front point with MAU ≥ 0.94) is **6 × C8-P1-G3-M4-A4 + 30 × B1-E1-G2-K1, $795,600, MAU 0.944**: all 2,240 trips/day, the full 225/h peak, a 5.0-min wait, availability 0.85, a 13-min ride. None of the Task 3 picks survives: as A4 twins (+$20,000 per road vehicle, everything else unchanged) they serve 69–93 of 225 trips/h at the peak, fail Table 1 and fall to MAU 0.22–0.33. Of the Task 2 architectures, #1, #2 and #4 are A3 (not allowed); #3 and #5 fail Table 1.
+Results (`outputs/task4_red_line.md`, MAU = OS3A reweight): 1,852,174 feasible architectures and a front of 432 (1 road-only, 10 bike-only, 421 mixed); nothing under $462,400 (4 × C8-A4) passes Table 1. The knee (first front point with MAU ≥ 0.94) is **5 × C8-P1-G3-M4-A4 + 35 × B1-E1-G2-K1-S1.5, $754,750, MAU 0.941** (Appendix A 0.949): all 2,240 trips/day, the full 225/h peak, a 2.8-min wait, availability 0.84, a 13.6-min ride. None of the Task 3 picks (the best-value road-only front point, the knee, the cheapest bike-only front point and the reference) survives: as A4 twins where needed (+$20,000 per road vehicle, everything else unchanged) they serve 69–120 of 225 trips/h at the peak, fail Table 1 and fall to MAU 0.21–0.46. Of the Task 2 architectures, #1, #2 and #4 are A3 (not allowed); #3 and #5 fail Table 1.
 
-#### <a id="q30"></a>Q30. How fast do e-bikes go in Tasks 4–5?
+#### <a id="q30"></a>Q30. Which e-bike inputs do Tasks 4–5 use?
 
-**Answer (Decision, team, 2026-11-11):** at the **18 km/h assist** in both scenarios (`scenario.ASSISTED_BIKE_KMH`; `weekday_scenario()` is Scenario 1), the setting the Task 3 slides use. The Task 3 report itself keeps the Appendix B formula speed ([Q6](#q6)) as its baseline and the frozen results ([Q28](#q28)) are unchanged; the 18 km/h case is its "E-bike assist at 18 km/h" sensitivity.
+**Answer (Decision, Austin, 2026-11-11):** the model's own, as in every task: the 18 km/h assist ([Q6](#q6)) and removable batteries with 0.5–3 spare packs per bike ([Q15](#q15)); the MAU is the OS3A reweight ([Q10](#q10)).
 
-**Discussion.** At the formula speed (1–8 km/h with a rider) a 5 km ride would take at least 37 min, which no rider would accept, so the Red Line comparison only makes sense with realistic bikes (OS3A interview: 15–18 km/h door to door). With 18 km/h bikes Scenario 1 has 1,052,974 feasible architectures and a 403-point front; its knee is **2 × C8-P1-G3-M4-A3 + 20 × B1-E1-G2-K1, $259,200, MAU 0.942**. As a check, with formula-speed bikes the Scenario 2 knee becomes 7 × C8-A4 + 10 × B1-K3, $846,200, MAU 0.945: the same bus-heavy answer.
+**Discussion.** At the formula speed (1–8 km/h with a rider) a 5 km ride would take at least 37 min, so the Red Line comparison only makes sense with realistic bikes. As checks (`task4_red_line.md`): with formula-speed bikes the Scenario 2 knee becomes 6 × C8-A4 + 30 × B1-K3-S1, $837,600, MAU 0.941; with fixed batteries, 6 × C8-A4 + 35 × B1-K1, $812,600, 0.943; with the Appendix A weights, 1 × C8-A4 + 125 × B1-K1-S1.5, $746,850, 0.941. Every variation still needs A4 road vehicles and a fleet several times the weekday one.
 
 ---
 
@@ -471,13 +474,13 @@ Results (`outputs/task4_red_line.md`): 1,004,532 feasible architectures and a fr
 
 #### <a id="q31"></a>Q31. Which concept do we recommend, and how do we resolve the conflict between the two scenarios?
 
-**Answer (Decision, team, 2026-11-11):** **a fleet that scales for closures.** Own a **base fleet of 2 × C8-P1-G3-M4-A4 buses + 20 × B1-E1-G2-K1 e-bikes ($299,200)** for every weekday, and add a **surge kit of 4 buses + 10 e-bikes (+$496,400, leased or shared)** during Red Line closures, which makes the Scenario 2 knee (**6 + 30, $795,600**). An attendant rides every bus until Massachusetts allows driverless operation.
+**Answer (Decision, team, 2026-11-11; regenerated under the final inputs):** **a fleet that scales for closures, built from the closure knee's vehicles.** Own a **base fleet of 3 × C8-P1-G3-M4-A4 buses ($346,800)** for every weekday, and add a **surge kit of 2 buses + 35 × B1-E1-G2-K1-S1.5 e-bikes (+$407,950, leased or shared)** during Red Line closures, which makes the Scenario 2 knee (**5 + 35, $754,750**). The rule (`task5.base_fleet`): the base fleet is the cheapest fleet of the closure knee's bus and e-bike, no larger than the knee, that passes Table 1 on a weekday with MAU ≥ 0.94. An attendant rides every bus until Massachusetts allows driverless operation.
 
-**Discussion.** The two scenarios give two different best answers, $259,200 for a weekday and $795,600 for a closure (3.1×), because they are limited by different things: on a weekday demand caps the MAU, so cost decides; in a closure capacity is the limit. Both knees use the same bus and the same e-bike, so we buy the weekday knee with A4 buses (+$20,000 each): it is legal for trips into Boston and can grow into the closure knee. On paper its A3 twin, the Task 3 knee, beats it (MAU 0.9421 vs. 0.9419 for $40,000 less); we accept that as the price of a fleet that scales. Buying the full fleet outright would score 0.961 on a weekday, only +0.019 for 2.7× the money, with four buses idle most of the year. **Decision rule:** weight each scenario by how often it happens; closures are announced weeks ahead [[21]](references.md#ref-21), so a leased surge kit works, and if closures became frequent or unplanned we would buy more of the fleet outright.
+**Discussion.** The two scenarios give two different best answers, $272,200 for a weekday (3 × C7-A3 + 5 e-bikes) and $754,750 for a closure (2.8×), with different vehicles, because they are limited by different things: on a weekday demand caps the MAU, so cost decides; in a closure capacity is the limit and A3 isn't allowed. Building the weekday fleet from the closure knee's A4 bus costs $74,600 more than the weekday knee for +0.004 MAU (0.945 vs. 0.941), and in return the same fleet grows into the closure knee instead of being replaced. Buying the full fleet outright would score 0.966 on a weekday, only +0.021 for 2.2× the money. **Decision rule:** weight each scenario by how often it happens; closures are announced weeks ahead [[21]](references.md#ref-21), so a leased surge kit works, and if closures became frequent or unplanned we would buy more of the fleet outright.
 
-Checks (`outputs/task5_recommendation.md`): base fleet in Scenario 1, 1,790 trips/day, 150/h (capacity 236), 1.3-min wait, availability 0.937, 5.1-min ride, MAU 0.942 (0.943 OS3A); full fleet in Scenario 2, MAU 0.944 (0.937 OS3A). With the OS3A weights the weekday knee doesn't move and the closure knee needs 5 more e-bikes (6 + 35, $812,600). In a winter run (`scenario.winter_scenario()`: road cap 18 km/h, bikes 12 km/h, battery range ×0.75) the base fleet still passes Table 1 at MAU 0.919.
+Checks (`outputs/task5_recommendation.md`): base fleet in Scenario 1, 1,790 trips/day, 150/h (capacity 294), 3.9-min wait, availability 0.974, 5.0-min ride, MAU 0.945 (Appendix A 0.942); full fleet in Scenario 2, MAU 0.941 (0.949). In a winter run (`scenario.winter_scenario()`: road cap 18 km/h, bikes 12 km/h, battery range ×0.75) the base fleet still passes Table 1 at MAU 0.926.
 
-What we rule out: A5, road packs P5–P7, e-bike packs E2/E3 and the B3 frame never appear on either front; small shuttles are dominated on a weekday (our reference and the MIT shuttles), and the reference fails Table 1 in a closure even as A4; bike-only fleets drop off the closure front; slow road chargers drop out (every closure front point uses G3); and A3, though it wins on weekdays, can never serve the closure. Limits: capital cost only ([Q21](#q21)), so attendant wages, the biggest operating cost, are outside the model; a fixed 75% load factor that flatters big buses ([Q27](#q27)); and our own Scenario 2 estimates.
+What we rule out: A5 and road packs P5–P7 never appear on either front; small shuttles are dominated on a weekday (our reference and the MIT shuttles), and the reference fails Table 1 in a closure even as A4; and A3, though it wins on weekdays, can never serve the closure. Limits: capital cost only ([Q21](#q21)), so attendant wages and battery-swap labor are outside the model; a fixed 75% load factor that flatters big buses ([Q27](#q27)); and our own Scenario 2 estimates.
 
 ---
 

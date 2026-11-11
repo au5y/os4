@@ -16,6 +16,7 @@ import pandas as pd  # noqa: E402
 
 from os4.utility import (  # noqa: E402
     ATTRIBUTES,
+    DECISION_WEIGHTS,
     compare_weight_sets,
     evaluate_cases,
     load_weights,
@@ -209,13 +210,15 @@ ARCH_COLUMNS = {
     "road_cost_usd": "road vehicle cost",
     "bike_cost_usd": "bike cost",
     "fleet_cost_usd": "fleet cost",
-    "mau": "MAU",
+    "mau": "MAU (OS3A reweight)",
+    "mau_appendix_a": "MAU (Appendix A)",
 }
 
 
 def plot_architectures(table: pd.DataFrame, path: Path) -> Path:
-    """Two small multiples: each architecture's MAU split by weighted attribute, and its fleet cost."""
-    weights = load_weights()
+    """Two small multiples: each architecture's MAU (OS3A reweight, PLAN.md Q10) split by weighted attribute, and
+    its fleet cost."""
+    weights = load_weights(DECISION_WEIGHTS)
     table = table.sort_values("mau").reset_index(drop=True)
     fig, (ax_u, ax_c) = plt.subplots(1, 2, figsize=(11, 3.9), facecolor=SURFACE, sharey=True,
                                      gridspec_kw={"width_ratios": [3, 2]})
@@ -233,7 +236,7 @@ def plot_architectures(table: pd.DataFrame, path: Path) -> Path:
     ax_u.set_yticks(y, table["architecture"], fontsize=9, color=INK)
     ax_u.set_xlim(0, 1.12)
     ax_u.set_xlabel("multi-attribute utility  U = Σ kᵢ·uᵢ", fontsize=9, color=INK_2)
-    ax_u.set_title("MAU, split by weighted attribute", loc="left", fontsize=11, color=INK, fontweight="bold")
+    ax_u.set_title("MAU (OS3A reweight), split by weighted attribute", loc="left", fontsize=11, color=INK, fontweight="bold")
     ax_u.legend(loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2, frameon=False, fontsize=8)
 
     _style(ax_c)
@@ -321,11 +324,10 @@ def _swap_table(variants: pd.DataFrame, base: str = "B2-E1-G2-K2") -> pd.DataFra
 
 
 def _bike_availability_note(variants: pd.DataFrame, scenario) -> str:
-    """Why e-bike availability depends on speed: the hand-calculation bike worked through Appendix B at the
-    model's speed, and the charger power against the power drawn while riding, which sets the ceiling."""
+    """Why e-bikes need removable batteries at the model's speed: the hand-calculation bike with a fixed battery
+    worked through Appendix B at the 18 km/h assist, and the charger power against the power drawn while riding."""
     from dataclasses import replace
 
-    from os4.speed_sensitivity import ASSISTED_KMH
     from os4.vehicle import CHARGE_OVERHEAD_H, bike_variants
 
     def power(b: pd.DataFrame) -> pd.DataFrame:
@@ -333,45 +335,43 @@ def _bike_availability_note(variants: pd.DataFrame, scenario) -> str:
         b["battery_kwh"] = b["range_km"] * b["wh_per_km"] / 1000
         b["charger_kw"] = b["battery_kwh"] / b["charge_time_h"]
         b["riding_kw"] = b["wh_per_km"] * b["speed_kmh"] / 1000
-        b["ceiling"] = b["charger_kw"] / (b["charger_kw"] + b["riding_kw"])
         return b.set_index("variant_id", drop=False)
 
-    bikes = power(variants[(variants["kind"] == "bike") & (variants["spares_per_bike"] == 0)])
-    assisted = power(bike_variants(replace(scenario, bike_assisted_speed_kmh=ASSISTED_KMH, bike_spare_options=(0.0,))))
+    fixed = power(bike_variants(replace(scenario, bike_spare_options=(0.0,))))
+    formula = power(bike_variants(replace(scenario, bike_assisted_speed_kmh=None, bike_spare_options=(0.0,))))
     road = variants[(variants["kind"] == "road") & variants["speed_capped"] & (variants["charger"] == "G3")]
-    b = bikes.loc["B2-E1-G2-K2"]
-    fast = assisted.loc[b["variant_id"]]
+    swap = variants[(variants["kind"] == "bike")]
+    b = fixed.loc["B2-E1-G2-K2"]
+    slow = formula.loc[b["variant_id"]]
     steps = pd.DataFrame([
         ("Power consumption", "nominal + 0.1 × (total − chassis weight)", f"{b['wh_per_km']:.1f} Wh/km"),
         ("Range", "battery Wh / consumption", f"{b['battery_kwh'] * 1000:.0f} / {b['wh_per_km']:.1f} = "
                                               f"{b['range_km']:.1f} km"),
-        ("Speed", "700 × motor kW / total kg", f"{b['speed_kmh']:.2f} km/h"),
+        ("Speed", f"{scenario.bike_assisted_speed_kmh:g} km/h assist (Q6)", f"{b['speed_kmh']:.2f} km/h"),
         ("Up-time", "range / speed", f"{b['range_km']:.1f} / {b['speed_kmh']:.2f} = {b['uptime_h']:.2f} h"),
         ("Down-time", "battery kWh / charger kW + 0.25 h",
          f"{b['battery_kwh']:g} / {b['charger_kw']:g} + {CHARGE_OVERHEAD_H:g} = {b['downtime_h']:.2f} h"),
         ("Availability", "up / (up + down)", f"{b['uptime_h']:.2f} / ({b['uptime_h']:.2f} + "
                                              f"{b['downtime_h']:.2f}) = {b['availability']:.3f}"),
-    ], columns=["step (Appendix B)", "equation", b["variant_id"]])
+    ], columns=["step (Appendix B, fixed battery)", "equation", b["variant_id"]])
     return (
-        "### Why e-bike availability depends on speed\n\n"
-        "The model runs e-bikes at the Appendix B formula speed, 700 × motor kW / total kg, as the assignment gives "
-        f"it (Q6). With a 100 kg rider that is {bikes['speed_kmh'].min():.1f}–{bikes['speed_kmh'].max():.1f} km/h, "
-        "slower than walking for most variants: unrealistic, since a rider who pedals goes faster, but we ran "
-        "against the given constraints. The hand-calculation bike, worked through:\n\n"
+        "### Why e-bikes need removable batteries\n\n"
+        f"The model runs e-bikes at a {scenario.bike_assisted_speed_kmh:g} km/h assist (Q6), what a rider who "
+        "pedals reaches, instead of the Appendix B formula (700 × motor kW / total kg, "
+        f"{formula['speed_kmh'].min():.1f}–{formula['speed_kmh'].max():.1f} km/h with a 100 kg rider, slower than "
+        "walking for most variants). The hand-calculation bike with a fixed battery, worked through:\n\n"
         f"{_md_table(steps)}\n"
         "Leaving out the 0.25 h overhead, availability is at most charger power / (charger power + power drawn "
-        f"while riding), and riding power is Wh/km × km/h. At {b['speed_kmh']:.2f} km/h {b['variant_id']} draws "
-        f"only {b['riding_kw']:.2f} kW against its {b['charger']} charger's {b['charger_kw']:g} kW, so availability "
-        f"is high ({b['availability']:.2f}). At a realistic {ASSISTED_KMH:g} km/h assist it would draw "
-        f"{fast['riding_kw']:.2f} kW, drain faster than it charges and reach only {fast['availability']:.2f}: "
-        f"fixed-battery bikes would be {assisted['availability'].min():.2f}–{assisted['availability'].max():.2f} "
-        f"available instead of {bikes['availability'].min():.2f}–{bikes['availability'].max():.2f}. The slow formula "
-        "speed buys availability with long trips: each bike carries few riders per hour, and a Kendall trip takes "
-        f"{60 * scenario.bike_trip_km / bikes['speed_kmh'].max():.0f}–"
-        f"{60 * scenario.bike_trip_km / bikes['speed_kmh'].min():.0f} min. The G3 road charger is 60 kW against a few "
-        f"kW of driving, which is why capped road variants on G3 reach {road['availability'].min():.2f}–"
-        f"{road['availability'].max():.2f}. `task3_speed_sensitivity.md` reruns the tradespace at the "
-        f"{ASSISTED_KMH:g} km/h assist.\n\n"
+        f"while riding), and riding power is Wh/km × km/h. At {b['speed_kmh']:.0f} km/h {b['variant_id']} draws "
+        f"{b['riding_kw']:.2f} kW against its {b['charger']} charger's {b['charger_kw']:g} kW, so with a fixed "
+        f"battery it is only {b['availability']:.2f} available (at the formula speed it would be "
+        f"{slow['availability']:.2f}, because it barely moves). Fixed-battery bikes are "
+        f"{fixed['availability'].min():.2f}–{fixed['availability'].max():.2f} available at the assist, which is why "
+        f"every e-bike in the model has a removable battery with spare packs (Q15): those reach "
+        f"{swap['availability'].min():.2f}–{swap['availability'].max():.2f}. The G3 road charger is 60 kW against a "
+        f"few kW of driving, which is why capped road variants on G3 reach {road['availability'].min():.2f}–"
+        f"{road['availability'].max():.2f}. `task3_speed_sensitivity.md` reruns the tradespace at the formula speed "
+        "and with fixed batteries.\n\n"
     )
 
 
@@ -433,7 +433,10 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
     arch_png = plot_architectures(table, media / "task2_architectures.png")
     var_png = plot_variants(variants, scenario, media / "task2_variants.png")
     bikes = variants[variants["kind"] == "bike"]
-    fixed_avail = bikes.loc[bikes["spares_per_bike"] == 0, "availability"]
+    from dataclasses import replace as _replace
+
+    from os4.vehicle import bike_variants as _bike_variants
+    fixed_avail = _bike_variants(_replace(scenario, bike_spare_options=(0.0,)))["availability"]
     swap_avail = bikes.loc[bikes["spares_per_bike"] > 0, "availability"]
 
     shown = table[list(ARCH_COLUMNS)].rename(columns=ARCH_COLUMNS).copy()
@@ -443,7 +446,11 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
     inputs = pd.DataFrame([
         ("Road average-speed cap", f"{scenario.speed_limit_kmh:g} km/h", "Q4: 20 mph posted; signals hold peak speed near 13 mph"),
         ("E-bike speed", "700·P/W" if scenario.bike_assisted_speed_kmh is None else
-         f"{scenario.bike_assisted_speed_kmh:g} km/h", "Q6: Appendix B formula as given (1–8 km/h with a rider)"),
+         f"{scenario.bike_assisted_speed_kmh:g} km/h", "Q6: assist a rider who pedals reaches (OS3A interview)"),
+        ("E-bike batteries", "removable, " + ", ".join(f"{k:g}" for k in scenario.bike_spare_options if k > 0)
+         + " spare packs per bike", "Q15: every e-bike swaps packs at the hub"),
+        ("Utility", "OS3A reweight (volume 0.10, peak 0.25, wait 0.35, availability 0.30); Appendix A for comparison",
+         "Q10"),
         ("Trip length (road / bike)", f"{scenario.avg_trip_km:g} / {scenario.bike_trip_km:g} km", "Q3: Kendall links measured on OSRM (Q2)"),
         ("Empty return (deadhead)", f"{scenario.deadhead_fraction:g} × trip", "Q3: vehicles return to Kendall empty"),
         ("Dwell / load factor", f"{scenario.dwell_s:g} s / {scenario.load_factor:g} (road vehicles)", "Appendix B"),
@@ -484,14 +491,14 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"{_md_table(shown)}\n"
         "## Vehicle variants\n\n"
         f"![Availability vs. cost and uncapped road speeds]({media_link(var_png)})\n\n"
-        f"Fixed-battery e-bikes (Appendix B as given, at the formula speed) are {fixed_avail.min():.2f}–"
-        f"{fixed_avail.max():.2f} available: the slowest bikes barely drain their packs. With removable "
-        f"batteries (below) they reach up to {swap_avail.max():.2f}, depending on spare packs per bike. Most road "
+        f"With fixed batteries (Appendix B as given) e-bikes at the assist would be only {fixed_avail.min():.2f}–"
+        f"{fixed_avail.max():.2f} available; with removable batteries and spare packs (below, the model) they reach "
+        f"{swap_avail.min():.2f}–{swap_avail.max():.2f}, depending on spare packs per bike. Most road "
         "variants hit the speed cap, so motors above M2 rarely add speed.\n\n"
         f"{_bike_availability_note(variants, scenario)}"
-        "## Removable e-bike batteries (team proposal)\n\n"
-        "Appendix B allows changes to its equations with a justification. We add a removable-battery option for "
-        "e-bikes: when a pack runs flat the bike swaps it in "
+        "## Removable e-bike batteries (PLAN.md Q15)\n\n"
+        "Appendix B allows changes to its equations with a justification. Every e-bike in the model has a "
+        "removable battery: when a pack runs flat the bike swaps it in "
         f"{scenario.bike_swap_h * 60:g} min (assumed) instead of charging in place, and the flat pack charges off "
         "the bike. The fleet buys k spare packs per bike, pooled (k = 0.5 is one spare per two bikes):\n\n"
         "- **Availability** = min( U / (U + s), (1 + k) · U / (U + s + C + 0.25) ), with U = up-time (range / speed), "
@@ -502,8 +509,8 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "and charger; `prune_variants` keeps only the spare counts worth buying "
         f"(options {', '.join(f'{k:g}' for k in scenario.bike_spare_options)}).\n\n"
         f"{_md_table(_swap_table(variants))}\n"
-        "Not counted: swap labor and swap-station space (operating cost, Q21). Task 3 shows the tradespace with and "
-        "without this option.\n\n"
+        "Not counted: swap labor and swap-station space (operating cost, Q21). Task 3 also shows the tradespace with "
+        "fixed batteries, for comparison.\n\n"
         "## Hand-calculation check\n\n"
         "Worked by hand from Appendix B and asserted in `tests/test_vehicle.py` and `tests/test_fleet.py`:\n\n"
         f"{_md_table(hand)}\n"

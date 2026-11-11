@@ -53,8 +53,8 @@ DECIMALS = 4
 
 ID_COLUMNS = ("road_variant", "n_road", "bike_variant", "n_bike")
 CASE_LABELS = {
-    "fixed": "Fixed e-bike batteries (Appendix B as given)",
-    "removable": "With removable e-bike batteries (team proposal)",
+    "fixed": "Fixed e-bike batteries (Appendix B as given; comparison)",
+    "removable": "Removable e-bike batteries with spare packs (the model)",
 }
 PROPOSED_LABELS = {
     "travel_time": ("In-boundary travel time, average Kendall trip", "minutes"),
@@ -82,8 +82,8 @@ COLUMN_LABELS = {
     "road_trips_per_vehicle_day": "riders per road vehicle per day",
     "bike_trips_per_vehicle_day": "riders per bike per day",
     "fleet_cost_usd": "fleet cost",
-    "mau": "MAU (Appendix A)",
-    "mau_os3a_reweight": "MAU (OS3A reweight, proposed)",
+    "mau": "MAU (OS3A reweight)",
+    "mau_appendix_a": "MAU (Appendix A, comparison)",
     "meets_thresholds": "meets thresholds",
     "meets_bike_ceiling": "bike ceiling (≤ 15 riders/bike/day)",
     "meets_car_ceiling": "car ceiling (≤ 25 rides/car/day)",
@@ -115,10 +115,11 @@ def arch_id(row) -> str:
 
 
 def battery_cases(scenario: Scenario) -> dict[str, tuple[str, Scenario]]:
-    """The two Task 3 cases, as in ``tradespace.write_task3``: fixed batteries only, and the scenario as given."""
+    """The two Task 3 cases, as in ``tradespace.write_task3``: the scenario as given (removable batteries), and
+    fixed batteries for comparison."""
     return {
-        "fixed": (CASE_LABELS["fixed"], replace(scenario, bike_spare_options=(0.0,))),
         "removable": (CASE_LABELS["removable"], scenario),
+        "fixed": (CASE_LABELS["fixed"], replace(scenario, bike_spare_options=(0.0,))),
     }
 
 

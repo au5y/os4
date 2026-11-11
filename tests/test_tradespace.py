@@ -23,7 +23,7 @@ COMPARED = ["fleet_capacity_per_h", "passenger_volume", "peak_throughput", "wait
             "vehicle_availability", "travel_time", "bike_share", "trips_per_vehicle_day",
             "road_trips_per_vehicle_day", "bike_trips_per_vehicle_day", "car_trips_per_vehicle_day",
             "fleet_cost_usd",
-            "mau", "mau_os3a_reweight"]
+            "mau", "mau_appendix_a"]
 
 
 @pytest.fixture(scope="module")

@@ -33,7 +33,7 @@ def test_empty_fleet_scores_low_but_finite():
 
 
 def test_hand_calc_check_rows():
-    assert list(hand_calc_check(primary_scenario())["variant_id"]) == ["C2-P2-G3-M2-A3", "B2-E1-G2-K2"]
+    assert list(hand_calc_check(primary_scenario())["variant_id"]) == ["C2-P2-G3-M2-A3", "B2-E1-G2-K2-S0.5"]
 
 
 def test_reference_is_sized_by_load_management():

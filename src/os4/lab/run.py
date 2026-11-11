@@ -89,42 +89,51 @@ def _sizes(segments) -> list[int]:
     return [n for n in progressive_grid([tuple(s) for s in segments]) if n > 0]
 
 
+def _mixed_max(cfg: dict) -> tuple[int, int] | None:
+    m = cfg.get("mixed_max")
+    return None if not m else (int(m[0]), int(m[1]))
+
+
 def estimate(config: dict) -> dict:
-    """How many architectures ``config`` would score: road-only + bike-only + mixed over its fleet grid,
-    after the same variant pruning ``tradespace`` does."""
+    """How many architectures ``config`` would score: road-only + bike-only + mixed over its fleet grid (mixed
+    fleets capped by ``mixed_max`` if set), after the same variant pruning ``tradespace`` does."""
     cfg = validate(config)
     variants = prune_variants(all_variants(to_scenario(cfg)))
     r, b = int((variants["kind"] == "road").sum()), int((variants["kind"] == "bike").sum())
-    nr, nb = len(_sizes(cfg["grid"]["road"])), len(_sizes(cfg["grid"]["bike"]))
-    return {"road_variants": r, "bike_variants": b, "road_sizes": nr, "bike_sizes": nb,
-            "architectures": r * nr + b * nb + r * nr * b * nb}
+    road, bike = _sizes(cfg["grid"]["road"]), _sizes(cfg["grid"]["bike"])
+    m = _mixed_max(cfg)
+    mr = len([n for n in road if m is None or n <= m[0]])
+    mb = len([n for n in bike if m is None or n <= m[1]])
+    return {"road_variants": r, "bike_variants": b, "road_sizes": len(road), "bike_sizes": len(bike),
+            "architectures": r * len(road) + b * len(bike) + r * mr * b * mb}
 
 
 def limit_grid(config: dict, limit: int = DEFAULT_LIMIT) -> tuple[dict, dict | None]:
-    """Trim ``config``'s fleet grid to at most ``limit`` architectures by dropping the largest fleet sizes (the
-    flat tail of the front), alternating between road and bikes; returns the config and a note, or the config
-    unchanged and ``None`` if it already fits. Raises ``ValueError`` if even the core sizes don't fit."""
+    """Keep a run to at most ``limit`` architectures by capping the fleet sizes of **mixed** architectures (the
+    flat, expensive tail of the front), alternating between road and bikes. Road-only and bike-only fleets keep
+    the full grid, so large bike-only fleets (e.g. the 120+ bikes the riders-per-day ceiling needs) are always
+    scored. Returns the config (with ``mixed_max`` set) and a note, or the config unchanged and ``None`` if it
+    already fits. Raises ``ValueError`` if even the core sizes don't fit."""
     cfg = validate(config)
-    est = estimate(cfg)
+    est = estimate({**cfg, "mixed_max": None})
     if est["architectures"] <= limit:
-        return cfg, None
+        return {**cfg, "mixed_max": None}, None
     r, b = est["road_variants"], est["bike_variants"]
     road, bike = _sizes(cfg["grid"]["road"]), _sizes(cfg["grid"]["bike"])
-    total = lambda: r * len(road) + b * len(bike) + r * len(road) * b * len(bike)  # noqa: E731
+    single = r * len(road) + b * len(bike)
+    total = lambda: single + r * len(road) * b * len(bike)  # noqa: E731
     while total() > limit:
         spare_road, spare_bike = len(road) - CORE_SIZES["road"], len(bike) - CORE_SIZES["bike"]
         if spare_road <= 0 and spare_bike <= 0:
             raise ValueError(f"even the smallest fleets give {total():,} architectures, over {limit:,}")
         # Drop from the list with more sizes beyond its core, so both tails shrink together.
         (road if spare_road * len(bike) >= spare_bike * len(road) and spare_road > 0 else bike).pop()
-    clip = lambda segs, top: [[a, min(e, top), s] for a, e, s in segs if a <= top]  # noqa: E731
-    trimmed = {**cfg, "grid": {"road": clip(cfg["grid"]["road"], road[-1]), "bike": clip(cfg["grid"]["bike"], bike[-1])}}
-    return trimmed, {"from": est["architectures"], "to": total(), "road_max": road[-1], "bike_max": bike[-1],
-                     "limit": limit}
+    return {**cfg, "mixed_max": [road[-1], bike[-1]]}, {"from": est["architectures"], "to": total(),
+                                                       "road_max": road[-1], "bike_max": bike[-1], "limit": limit}
 
 
 def _rescore(df: pd.DataFrame, weights: dict) -> pd.DataFrame:
-    """Recompute ``mau`` with the config's weights (``model.evaluate`` always uses Appendix A)."""
+    """Recompute ``mau`` with the config's weights (``model.evaluate`` uses the OS3A reweight, PLAN.md Q10)."""
     if df is None or df.empty:
         return df
     return df.assign(mau=sum(w * sau(a, df[a].to_numpy(dtype=float)) for a, w in weights.items()))
@@ -142,7 +151,8 @@ def _calculate(cfg: dict, progress) -> dict:
     weights = cfg["weights"]
     n_road = progressive_grid([tuple(s) for s in cfg["grid"]["road"]])
     n_bike = progressive_grid([tuple(s) for s in cfg["grid"]["bike"]])
-    df = tradespace(scenario, n_road, n_bike, label="lab", weights=weights, progress=progress)
+    df = tradespace(scenario, n_road, n_bike, label="lab", weights=weights, progress=progress,
+                    mixed_max=_mixed_max(cfg))
 
     markers, marker_note = _safe(reference_and_anchor_table, scenario)
     markers = _rescore(markers, weights)
@@ -230,7 +240,8 @@ def render_figures(config: dict, progress=None, cache_dir: Path | None = None) -
     scenario = to_scenario(cfg)
     n_road = progressive_grid([tuple(s) for s in cfg["grid"]["road"]])
     n_bike = progressive_grid([tuple(s) for s in cfg["grid"]["bike"]])
-    df = tradespace(scenario, n_road, n_bike, label="lab figures", weights=cfg["weights"], progress=progress)
+    df = tradespace(scenario, n_road, n_bike, label="lab figures", weights=cfg["weights"], progress=progress,
+                    mixed_max=_mixed_max(cfg))
     if df.empty:
         raise ValueError("no architecture meets the Table 1 thresholds and ceilings, so there is nothing to plot")
     markers = _rescore(_safe(reference_and_anchor_table, scenario)[0], cfg["weights"])

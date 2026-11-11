@@ -17,12 +17,12 @@ from os4.fleet import (
     vehicle_availability,
     vehicle_capacity_per_h,
 )
-from os4.scenario import primary_scenario
+from os4.scenario import appendix_b_scenario
 from os4.vehicle import all_variants, get_variant, road_variants
 
 @pytest.fixture
 def scenario():
-    return primary_scenario()
+    return appendix_b_scenario()
 
 
 @pytest.fixture

@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 
-from os4.scenario import primary_scenario
+from os4.scenario import appendix_b_scenario
 from os4.vehicle import VARIANT_COLUMNS, all_variants, bike_variants, get_variant, road_variants
 
 def test_variant_counts():
-    scenario = primary_scenario()
+    scenario = appendix_b_scenario()
     bikes = bike_variants(scenario)
     assert (bikes["spares_per_bike"] == 0).sum() == 30
     assert len(bikes) == 30 * len(scenario.bike_spare_options)
@@ -14,11 +14,11 @@ def test_variant_counts():
 
 
 def test_variant_columns():
-    assert list(all_variants(primary_scenario()).columns) == VARIANT_COLUMNS
+    assert list(all_variants(appendix_b_scenario()).columns) == VARIANT_COLUMNS
 
 
 def test_variants_are_finite_and_sane():
-    df = all_variants(primary_scenario())
+    df = all_variants(appendix_b_scenario())
     numeric = df.select_dtypes("number")
     assert np.isfinite(numeric.to_numpy()).all()
     assert (numeric >= 0).all().all()
@@ -26,7 +26,7 @@ def test_variants_are_finite_and_sane():
 
 
 def test_speed_never_exceeds_limit():
-    scenario = primary_scenario()
+    scenario = appendix_b_scenario()
     assert (road_variants(scenario)["speed_kmh"] <= scenario.speed_limit_kmh + 1e-9).all()
 
 
@@ -46,14 +46,14 @@ HAND_CALC = {
 
 @pytest.mark.parametrize("variant_id", HAND_CALC)
 def test_hand_calc_variants(variant_id):
-    row = get_variant(variant_id, primary_scenario())
+    row = get_variant(variant_id, appendix_b_scenario())
     for col, expected in HAND_CALC[variant_id].items():
         assert row[col] == pytest.approx(expected, rel=1e-4), col
 
 
 def test_battery_limit_is_inclusive():
     # C1 is 1350 kg, so the 450 kg P4 battery sits exactly at the 1/3 limit and is allowed.
-    ids = set(road_variants(primary_scenario())["variant_id"])
+    ids = set(road_variants(appendix_b_scenario())["variant_id"])
     assert "C1-P4-G1-M1-A3" in ids
     assert "C1-P5-G1-M1-A3" not in ids
 
@@ -61,14 +61,14 @@ def test_battery_limit_is_inclusive():
 def test_removable_battery_hand_calc():
     # B2-E1-G2-K2 with 1 spare per bike: U = 5.04477 h (formula speed), C = 0.8333 h, swap s = 5 min.
     # min(U/(U+s), 2U/(U+s+C+0.25)) = min(0.98375, 1.6243); cost 4500 + 1 x (600 battery + 500 charger).
-    row = get_variant("B2-E1-G2-K2-S1", primary_scenario())
+    row = get_variant("B2-E1-G2-K2-S1", appendix_b_scenario())
     assert row["availability"] == pytest.approx(0.98375, rel=1e-4)
     assert row["cost_usd"] == pytest.approx(5600)
     assert row["uptime_h"] / (row["uptime_h"] + row["downtime_h"]) == pytest.approx(row["availability"])
 
 
 def test_spares_raise_availability_up_to_the_swap_limit():
-    bikes = bike_variants(primary_scenario())
+    bikes = bike_variants(appendix_b_scenario())
     b2 = bikes[bikes["variant_id"].str.startswith("B2-E1-G2-K2")].sort_values("spares_per_bike")
     assert b2["availability"].is_monotonic_increasing
     assert b2["cost_usd"].is_monotonic_increasing

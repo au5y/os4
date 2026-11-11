@@ -16,7 +16,7 @@ import pandas as pd
 
 from os4.scenario import Scenario, primary_scenario
 from os4.tradespace import BIKE_SEGMENTS, ROAD_SEGMENTS
-from os4.utility import ATTRIBUTES, load_weights
+from os4.utility import ATTRIBUTES, DECISION_WEIGHTS, load_weights
 
 SCHEMA_VERSION = 1
 BATTERY_CASES = ("fixed", "removable")
@@ -90,15 +90,16 @@ ACHIEVED_CAP_KMH = 21.0
 ASSISTED_KMH = 18.0
 
 
-def from_scenario(scenario: Scenario, name: str | None = None, battery_case: str = "fixed",
+def from_scenario(scenario: Scenario, name: str | None = None, battery_case: str = "removable",
                   weights: dict[str, float] | None = None, grid: dict | None = None) -> dict:
-    """The config for ``scenario`` (default: Appendix A weights, the Task 3 fleet grid)."""
+    """The config for ``scenario`` (default: removable batteries and the decision weights, the OS3A reweight,
+    PLAN.md Q10/Q15; the Task 3 fleet grid). Weights stay editable in the lab."""
     loads = dict(scenario.bike_load_factors)
     return {
         "schema_version": SCHEMA_VERSION,
         "name": name or scenario.name,
         "battery_case": battery_case,
-        "weights": dict(weights or load_weights()),
+        "weights": dict(weights or load_weights(DECISION_WEIGHTS)),
         "grid": grid or {"road": [list(s) for s in ROAD_SEGMENTS], "bike": [list(s) for s in BIKE_SEGMENTS]},
         "scenario": {
             "demand": [[int(h), float(t)] for h, t in scenario.demand[["hour", "trips_per_hour"]].to_numpy()],
@@ -154,6 +155,9 @@ def validate(config: dict) -> dict:
     if set(weights) - set(ATTRIBUTES) or not weights or abs(sum(weights.values()) - 1) > 1e-6:
         raise ValueError(f"weights must cover attributes from {ATTRIBUTES} and sum to 1")
     out["weights"] = weights
+    m = out.get("mixed_max")
+    if m is not None and not (isinstance(m, (list, tuple)) and len(m) == 2 and all(int(x) > 0 for x in m)):
+        raise ValueError("mixed_max must be null or [road, bike] fleet-size caps for mixed fleets")
     for kind in ("road", "bike"):
         segs = out["grid"].get(kind) or []
         if not segs or not all(len(s) == 3 and 0 < s[0] <= s[1] and s[2] > 0 for s in segs):
@@ -178,8 +182,6 @@ def to_scenario(config: dict) -> Scenario:
     if len(demand) == 1:  # a single bin: one hour wide
         demand = pd.concat([demand, pd.DataFrame({"hour": [demand["hour"].iloc[0] + 1], "trips_per_hour": [0.0]})])
     spares = tuple(float(k) for k in s["bike_spare_options"]) if c["battery_case"] == "removable" else (0.0,)
-    if 0.0 not in spares:
-        spares = (0.0, *spares)
     return replace(
         primary_scenario(),
         name=c["name"],

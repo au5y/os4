@@ -25,11 +25,11 @@ from os4.fleet import (
     vehicle_capacity_per_h,
 )
 from os4.scenario import Scenario
-from os4.utility import load_weights, mau, sau, weighted_mau
+from os4.utility import DECISION_WEIGHTS, load_weights, mau, sau, weighted_mau
 from os4.vehicle import get_variant
 
 # One road and one bike variant to work by hand (tests/test_vehicle.py checks them).
-HAND_CALC_VARIANTS = ("C2-P2-G3-M2-A3", "B2-E1-G2-K2")
+HAND_CALC_VARIANTS = ("C2-P2-G3-M2-A3", "B2-E1-G2-K2-S0.5")
 
 # PLAN.md Q26 (decided): the Task 3 reference architecture, chosen from design
 # reasoning rather than from the tradespace. C4: the "small on-demand EV shuttles from a central hub"
@@ -97,8 +97,9 @@ def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
     and range, the four MoPs (``passenger_volume``, ``peak_throughput``,
     ``wait_time``, ``availability``), their SAUs, ``mau``, and ``fleet_cost_usd``.
 
-    Also reports the proposed attributes (``travel_time`` and ``bike_share``, not weighted) and
-    ``mau_os3a_reweight`` so Task 3 can compare weightings (PLAN.md Q10).
+    ``mau`` uses the decision weights, the team's OS3A reweight (PLAN.md Q10); ``mau_appendix_a`` is the
+    Appendix A MAU, reported for comparison. Also reports the proposed attributes (``travel_time`` and
+    ``bike_share``, not weighted).
     """
     mops = {
         "passenger_volume": daily_passenger_volume(fleet, scenario),
@@ -127,8 +128,8 @@ def evaluate(fleet: Fleet, scenario: Scenario) -> dict:
     row |= mops | proposed
     for a, x in (mops | proposed).items():
         row[f"u_{a}"] = float(sau(a, x))
-    row["mau"] = float(mau(**mops))
-    row["mau_os3a_reweight"] = float(weighted_mau(mops, load_weights("os3a_reweight")))
+    row["mau"] = float(weighted_mau(mops, load_weights(DECISION_WEIGHTS)))
+    row["mau_appendix_a"] = float(mau(**mops))
     row["fleet_cost_usd"] = fleet_cost_usd(fleet)
     row |= requirement_flags(pd.DataFrame([row]), scenario).iloc[0].to_dict()
     return row
@@ -155,13 +156,18 @@ def representative_architectures(scenario: Scenario) -> dict[str, Fleet]:
     2.75 km/h: 150 of them miss Table 1, and 8 cars + 115 of them break the car ceiling. Fleets 3 and 4
     switched to the K3 motor (8 km/h) and were re-sized to the smallest feasible count: 3 to 120 bikes,
     4 to 8 cars + 165 bikes.
+
+    With every e-bike on a removable battery and the 18 km/h assist (PLAN.md Q6, Q15, revised 2026-11-11),
+    fleets 3 and 4 use the same bike with the fewest spares offered (0.5 per bike, ``-S0.5``), re-sized to the
+    smallest feasible count in steps of 5: 3 stays at 120 bikes (the 15 riders-per-bike ceiling), 4 drops to
+    8 cars + 80 bikes.
     """
     v = lambda vid: get_variant(vid, scenario)  # noqa: E731
     return {
         "1 small cars (C2)": Fleet(road=v("C2-P2-G3-M2-A3"), n_road=24),
         "2 large shuttles (C6)": Fleet(road=v("C6-P4-G3-M3-A3"), n_road=4),
-        "3 bike-only (B2)": Fleet(bike=v("B2-E1-G2-K3"), n_bike=120),
-        "4 mixed cars + bikes": Fleet(road=v("C2-P2-G3-M2-A3"), n_road=8, bike=v("B2-E1-G2-K3"), n_bike=165),
+        "3 bike-only (B2)": Fleet(bike=v("B2-E1-G2-K3-S0.5"), n_bike=120),
+        "4 mixed cars + bikes": Fleet(road=v("C2-P2-G3-M2-A3"), n_road=8, bike=v("B2-E1-G2-K3-S0.5"), n_bike=80),
         "5 A5 long-range (C4)": Fleet(road=v("C4-P5-G3-M2-A5"), n_road=6),
     }
 

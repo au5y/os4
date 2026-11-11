@@ -88,6 +88,12 @@ class Scenario:
         return float(self.demand["trips_per_hour"].max())
 
 
+# PLAN.md Q6: the e-bike assist speed used in every task.
+ASSISTED_BIKE_KMH = 18.0
+# PLAN.md Q15: spare packs per bike for removable batteries (0 = a fixed battery, comparison only).
+REMOVABLE_SPARE_OPTIONS = (0.5, 1.0, 1.5, 2.0, 3.0)
+
+
 def primary_scenario() -> Scenario:
     """Standard weekday demand (Q1): on-demand last-mile service from Kendall, scored over
     Appendix B's full weekday and sized for its 8:00-14:00 peak.
@@ -112,9 +118,12 @@ def primary_scenario() -> Scenario:
         # returns carry a passenger; run it as a sensitivity.
         deadhead_fraction=1.0,
         demand=load("demand_mit_kendall"),
-        # Q6 (Decision, Austin, 2026-11-07): the Appendix B formula speed (700·P/W), as the assignment
-        # gives it, even though it is unrealistic; the 18 km/h assist is a sensitivity.
-        bike_assisted_speed_kmh=None,
+        # Q6 (Decision, Austin, 2026-11-11): e-bikes ride at a fixed 18 km/h assist in every task; the
+        # Appendix B formula speed (700·P/W, 1-8 km/h with a rider) is a sensitivity only.
+        bike_assisted_speed_kmh=ASSISTED_BIKE_KMH,
+        # Q15 (Decision, Austin, 2026-11-11): every e-bike has a removable battery with on-hand spare
+        # packs, 0.5 to 3 per bike (pooled); fixed batteries (Appendix B as given) are a comparison only.
+        bike_spare_options=REMOVABLE_SPARE_OPTIONS,
         # Class 1/2 e-bike assist cap, 20 mph.
         bike_speed_limit_kmh=32.0,
         # Q3: both Kendall bike links are 1.6 km.
@@ -124,8 +133,6 @@ def primary_scenario() -> Scenario:
     )
 
 
-# PLAN.md Q30: Tasks 4-5 run e-bikes at a fixed 18 km/h assist (the Task 3 sensitivity case, Q6).
-ASSISTED_BIKE_KMH = 18.0
 # PLAN.md Q29: the Red Line scenario's own assumptions (team estimates, not given data).
 RED_LINE_TRIP_KM = 5.0          # Kendall to Park St / South Station
 RED_LINE_PEAK_FACTOR = 1.5      # peak demand x1.5 as Red Line riders move to us
@@ -133,11 +140,17 @@ RED_LINE_PEAK_HOURS = (8, 10, 12)  # the 8:00-14:00 peak bins
 RED_LINE_ROAD_CAP_KMH = 25.0    # arterial roads into Boston
 
 
+def appendix_b_scenario() -> Scenario:
+    """The standard weekday with Appendix B's e-bikes as given: the formula speed and fixed batteries (plus
+    every spare-pack option). Used to check the Appendix B equations by hand and as a comparison case; the
+    model's own inputs are ``primary_scenario`` (PLAN.md Q6, Q15)."""
+    return replace(primary_scenario(), name="Appendix B e-bikes (formula speed, fixed or removable batteries)",
+                   bike_assisted_speed_kmh=None, bike_spare_options=(0.0, *REMOVABLE_SPARE_OPTIONS))
+
+
 def weekday_scenario() -> Scenario:
-    """Scenario 1 for Tasks 4-5 (PLAN.md Q30): the standard weekday with e-bikes at the 18 km/h assist,
-    the scenario the Task 3 slides use (the "E-bike assist at 18 km/h" sensitivity case)."""
-    return replace(primary_scenario(), name="Scenario 1: standard weekday (18 km/h e-bikes)",
-                   bike_assisted_speed_kmh=ASSISTED_BIKE_KMH)
+    """Scenario 1 for Tasks 4-5: the standard weekday (``primary_scenario``) under its Task 4 name."""
+    return replace(primary_scenario(), name="Scenario 1: standard weekday")
 
 
 def red_line_scenario() -> Scenario:
