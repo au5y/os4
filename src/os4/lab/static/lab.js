@@ -83,7 +83,7 @@
       box.classList.remove("over");
       box.textContent = e.limited
         ? "Full grid: " + millions(e.limited.from) + " architectures. With the limit this run scores " + millions(e.limited.to) +
-          " (road fleets up to " + e.limited.road_max + ", bikes up to " + e.limited.bike_max + ")."
+          " (mixed fleets up to " + e.limited.road_max + " road vehicles and " + e.limited.bike_max + " bikes; road-only and bike-only fleets use the full grid)."
         : "This run scores " + millions(e.architectures) + " architectures.";
     } catch (err) {
       box.classList.add("over");
@@ -404,7 +404,7 @@
       card("Front meeting goals", Math.round(s.front_travel_ok * 100) + "% travel", Math.round(s.front_wait_ok * 100) + "% wait goal"),
     ]));
     if (r.limited) out.append(U.el("div", { class: "banner lab-limited", text: "Limited to " + millions(r.limited.limit) + " architectures: the full grid was " + millions(r.limited.from) +
-      ", so this run kept road fleets up to " + r.limited.road_max + " and bike fleets up to " + r.limited.bike_max + " (" + millions(r.limited.to) + " scored). Untick the limit next to Calculate to run the full grid." }));
+      ", so this run kept mixed fleets up to " + r.limited.road_max + " road vehicles and " + r.limited.bike_max + " bikes; road-only and bike-only fleets use the full grid (" + millions(r.limited.to) + " scored). Untick the limit next to Calculate to run the full grid." }));
     if (r.notes.length) out.append(U.el("ul", { class: "lab-notes" }, r.notes.map((n) => U.el("li", { text: n }))));
     const chart = chartBlock([{ label: r.name, front: r.front, color: U.css("--accent") }], r.scatter, r.markers, { filters: true, tags: r.tags || [] });
     out.append(chart);

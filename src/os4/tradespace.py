@@ -47,7 +47,7 @@ from os4.plots import (  # noqa: E402
 )
 from os4.data import load  # noqa: E402
 from os4.scenario import Scenario  # noqa: E402
-from os4.utility import ATTRIBUTES, load_weights, sau  # noqa: E402
+from os4.utility import ATTRIBUTES, COMPARISON_WEIGHTS, DECISION_WEIGHTS, load_weights, sau  # noqa: E402
 from os4.vehicle import all_variants, get_variant  # noqa: E402
 
 
@@ -154,10 +154,11 @@ def tradespace(
     label: str = "tradespace",
     weights: dict[str, float] | None = None,
     progress=None,
+    mixed_max: tuple[int, int] | None = None,
 ) -> pd.DataFrame:
     """Score every road-only, bike-only and mixed architecture on the fleet-size grids.
 
-    One row per architecture with the same MoPs, MAUs (``mau``, ``mau_os3a_reweight``), requirement flags and
+    One row per architecture with the same MoPs, MAUs (``mau``, ``mau_appendix_a``), requirement flags and
     cost as ``model.evaluate`` (no per-attribute SAU or per-vehicle columns), computed with numpy in chunks of ``CHUNK_ROWS``. With
     ``screen``, architectures that miss a Table 1 threshold
     (``model.meets_thresholds``) or a utilization ceiling (``model.meets_bike_ceiling``,
@@ -165,7 +166,9 @@ def tradespace(
     wait and utility calculations. ``df.attrs`` records
     ``grid_size``, ``screened_out`` and ``threshold_failures`` (failures per threshold and ceiling over the whole grid). ``label`` names the run
     on the progress bar; ``progress(done, total)``, if given, is called after each chunk. ``weights``
-    replaces the Appendix A weights in the ``mau`` column (e.g. a custom set from the Model Lab).
+    replaces the decision weights (OS3A reweight, PLAN.md Q10) in the ``mau`` column (e.g. a custom set from the Model Lab).
+    ``mixed_max`` = (road, bike) caps the fleet sizes of mixed architectures only (the Model Lab's run limit);
+    road-only and bike-only fleets always use the full grids.
     """
     variants = prune_variants(all_variants(scenario)) if variants is None else variants
     road = variants[variants["kind"] == "road"].reset_index(drop=True)
@@ -182,8 +185,9 @@ def tradespace(
     ):
         if len(r_idx) == 0 or len(b_idx) == 0:
             continue
-        nr_opts = nr if r_idx[0] >= 0 else np.array([0])
-        nb_opts = nb if b_idx[0] >= 0 else np.array([0])
+        mixed = r_idx[0] >= 0 and b_idx[0] >= 0 and mixed_max is not None
+        nr_opts = (nr[nr <= mixed_max[0]] if mixed else nr) if r_idx[0] >= 0 else np.array([0])
+        nb_opts = (nb[nb <= mixed_max[1]] if mixed else nb) if b_idx[0] >= 0 else np.array([0])
         blocks.append(np.array(np.meshgrid(r_idx, nr_opts, b_idx, nb_opts, indexing="ij")).reshape(4, -1))
     grid = np.concatenate(blocks, axis=1)
 
@@ -306,10 +310,10 @@ def _score_chunk(grid: np.ndarray, road: pd.DataFrame, bike: pd.DataFrame, scena
         "car_trips_per_vehicle_day": car_trips,
         "fleet_cost_usd": rp["cost"] + bp["cost"],
     })
-    weights = load_weights() if weights is None else weights
+    weights = load_weights(DECISION_WEIGHTS) if weights is None else weights
     df["mau"] = sum(w * sau(a, df[a].to_numpy()) for a, w in weights.items())
-    reweight = load_weights("os3a_reweight")
-    df["mau_os3a_reweight"] = sum(w * sau(a, df[a].to_numpy()) for a, w in reweight.items())
+    comparison = load_weights(COMPARISON_WEIGHTS)
+    df["mau_appendix_a"] = sum(w * sau(a, df[a].to_numpy()) for a, w in comparison.items())
     return pd.concat([df, requirement_flags(df, scenario)], axis=1)
 
 
@@ -724,26 +728,27 @@ def _type_rows(df: pd.DataFrame, front: pd.DataFrame, front_rw: pd.DataFrame) ->
         "architectures": [f"{counts.get(t, 0):,}" for t in FLEET_TYPES],
         "on Pareto front": [on_front.get(t, 0) for t in FLEET_TYPES],
         "best MAU": [round(df.loc[df["fleet_type"] == t, "mau"].max(), 3) for t in FLEET_TYPES],
-        "on os3a_reweight front": [on_front_rw.get(t, 0) for t in FLEET_TYPES],
+        "on Appendix A front": [on_front_rw.get(t, 0) for t in FLEET_TYPES],
     })
 
 
 def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
-    """Write the Task 3 report: the tradespace with fixed e-bike batteries (Appendix B as given) and
-    with the removable-battery option, each with its scatter, fleet-size charts and Pareto front."""
+    """Write the Task 3 report: the tradespace with removable e-bike batteries (the model, PLAN.md Q15) and,
+    for comparison, with fixed batteries (Appendix B as given), each with its scatter, fleet-size charts and
+    Pareto front. MAU is the OS3A reweight (Q10); the Appendix A MAU is plotted for comparison."""
     media = media_dir(out_dir)
     highlight = architecture_table(scenario)
     markers = reference_and_anchor_table(scenario)
     cases = {
-        "fixed": ("Fixed e-bike batteries (Appendix B as given)", replace(scenario, bike_spare_options=(0.0,))),
-        "removable": ("With removable e-bike batteries (team proposal)", scenario),
+        "removable": ("Removable e-bike batteries with spare packs (the model)", scenario),
+        "fixed": ("Fixed e-bike batteries (Appendix B as given; comparison)", replace(scenario, bike_spare_options=(0.0,))),
     }
     paths, sections, summary, frames = [], [], [], {}
     for key, (title, case) in cases.items():
         df = tradespace(case, label=f"task 3, {key} batteries")
         frames[key] = df
         front = pareto_front(df)
-        front_rw = pareto_front(df, "mau_os3a_reweight")
+        front_rw = pareto_front(df, "mau_appendix_a")
         cost0, util0 = utopia_point(df)
         front_path = media / f"task3_pareto_front_{key}.csv"
         front.round(4).to_csv(front_path, index=False)
@@ -751,7 +756,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
                               title=f"Tradespace: {title}", markers=markers)
         knee_png = plot_knee(df, media / f"task3_knee_{key}.png", markers, title=f"Knee of the front: {title}")
         png_rw = plot_tradespace(df, media / f"task3_tradespace_{key}_reweight.png", highlight,
-                                 utility="mau_os3a_reweight", title=f"OS3A reweight MAU: {title}", markers=markers)
+                                 utility="mau_appendix_a", title=f"Appendix A MAU (comparison): {title}", markers=markers)
         road_png = plot_fleet_size(df, "road", media / f"task3_fleet_size_road_{key}.png", subtitle=title)
         bike_png = plot_fleet_size(df, "bike", media / f"task3_fleet_size_bike_{key}.png", subtitle=title)
         paths += [front_path, png, knee_png, png_rw, road_png, bike_png]
@@ -785,11 +790,10 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
             f"![Fleet size by e-bike frame]({media_link(bike_png)})\n\n"
             f"### Pareto front ({len(front)} architectures)\n\n"
             f"{_md_table(_front_table(front))}\n"
-            "### With the team's OS3A weights\n\n"
-            "Scored with the `os3a_reweight` weights (volume 0.10 / peak 0.25 / wait 0.35 / availability 0.30, "
-            f"PLAN.md Q10): the same four attributes, weighted by our OS3A stakeholder priorities; "
-            f"the front has {len(front_rw)} architectures.\n\n"
-            f"![Tradespace with the OS3A reweight MAU]({media_link(png_rw)})\n\n"
+            "### With the Appendix A weights (comparison)\n\n"
+            "Scored with the given Appendix A weights (volume 0.15 / peak 0.25 / wait 0.35 / availability 0.25) "
+            f"instead of our OS3A reweight; the front has {len(front_rw)} architectures.\n\n"
+            f"![Tradespace with the Appendix A MAU]({media_link(png_rw)})\n\n"
         )
     requirements = _requirement_rows(frames["removable"], scenario)
     plateau = _mau_plateau(frames["removable"], scenario)
@@ -812,12 +816,15 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"Fleet sizes (PLAN.md Q14), steps widening as fleets grow: road {_segments_text(ROAD_SEGMENTS)}; "
         f"bikes {_segments_text(BIKE_SEGMENTS)}. "
         "Dominated vehicle variants are pruned first (`prune_variants`), so every road vehicle in the space is A3. "
-        "Peak throughput is the demand actually served (Q17) and costs are vehicle capital only (Q21).\n\n"
-        "The tradespace is run twice: with **fixed e-bike batteries** (Appendix B as given), and with the team's "
-        "**removable-battery** option, where a bike swaps packs in "
-        f"{scenario.bike_swap_h * 60:g} min and the fleet buys "
-        f"{', '.join(f'{k:g}' for k in scenario.bike_spare_options if k > 0)} spare packs per bike (each spare adds "
-        "its battery and a charger slot to the bike's cost). Pruning keeps only the spare counts worth buying.\n\n"
+        "Peak throughput is the demand actually served (Q17) and costs are vehicle capital only (Q21). "
+        "**MAU is the team's OS3A reweight** (volume 0.10 / peak 0.25 / wait 0.35 / availability 0.30, PLAN.md "
+        "Q10); the Appendix A MAU is shown for comparison. E-bikes ride at the "
+        f"**{scenario.bike_assisted_speed_kmh:g} km/h assist** (Q6).\n\n"
+        "Every e-bike has a **removable battery** (Q15): a bike swaps packs in "
+        f"{scenario.bike_swap_h * 60:g} min and the fleet keeps "
+        f"{', '.join(f'{k:g}' for k in scenario.bike_spare_options if k > 0)} spare packs on hand per bike (each "
+        "spare adds its battery and a charger slot to the bike's cost). Pruning keeps only the spare counts worth "
+        "buying. For comparison the tradespace is also run with **fixed batteries** (Appendix B as given).\n\n"
         f"{_md_table(pd.DataFrame(summary))}\n"
         f"{plateau}"
         "## Reference architecture and anchors\n\n"
@@ -847,8 +854,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         "Appendix B assumes trips average 75% full; the model keeps 0.75 as the baseline for road vehicles. "
         "E-bikes use riders per trip by seats instead (PLAN.md Q16): a 1-seat bike carries its 1 rider, a 2-seat "
         "bike 2 riders every 3 trips (4/3 riders, 67% of seats), so this sweep varies road vehicles only. The "
-        "same design space scored at 25%, 50%, 75% and 100% (the removable-battery case, which also contains "
-        "every fixed-battery option):\n\n"
+        "same design space scored at 25%, 50%, 75% and 100% (the removable-battery case):\n\n"
         f"![Pareto front by load factor]({media_link(lf_png)})\n\n"
         f"{_md_table(lf_rows)}\n"
         + "".join(sections)
@@ -857,9 +863,9 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
 
 
 def _mau_plateau(df: pd.DataFrame, scenario: Scenario) -> str:
-    """Why the Appendix A front levels off below 1: the best SAU any architecture reaches, attribute by
-    attribute. Throughput and volume count demand served (Q17), so demand caps them."""
-    weights = load_weights()
+    """Why the front levels off below 1: the best SAU any architecture reaches, attribute by attribute, under
+    the decision weights (OS3A reweight). Throughput and volume count demand served (Q17), so demand caps them."""
+    weights = load_weights(DECISION_WEIGHTS)
     best = {a: float(sau(a, df[a].to_numpy()).max()) for a in weights}
     rows = pd.DataFrame([{
         "attribute": a,
@@ -869,10 +875,10 @@ def _mau_plateau(df: pd.DataFrame, scenario: Scenario) -> str:
         "weight × SAU": round(w * best[a], 4),
     } for a, w in weights.items()])
     ceiling = sum(w * best[a] for a, w in weights.items())
-    ceiling_rw = sum(w * best[a] for a, w in load_weights("os3a_reweight").items())
+    ceiling_rw = sum(w * best[a] for a, w in load_weights(COMPARISON_WEIGHTS).items())
     return (
         "### Why the front levels off below 1\n\n"
-        "Demand caps two of the four Appendix A attributes. Peak throughput counts the demand actually served "
+        "Demand caps two of the four attributes. Peak throughput counts the demand actually served "
         f"(Q17), so no fleet scores past the {scenario.peak_demand_per_h:g} trips/h peak, and passenger volume "
         f"stops at the {scenario.demand['trips_per_hour'].sum() * scenario.demand_bin_h:,.0f} trips/day of "
         "Appendix B demand. Only wait and service availability keep improving as vehicles are added, and both "
@@ -880,7 +886,7 @@ def _mau_plateau(df: pd.DataFrame, scenario: Scenario) -> str:
         f"{_md_table(rows)}\n"
         f"Ceiling {ceiling:.3f}; the best front MAU is {df['mau'].max():.4f}. Once a fleet meets demand, extra "
         "vehicles only buy seconds of wait, so the front runs flat and the cheapest fleet that meets demand is "
-        "the practical choice. The `os3a_reweight` weights score the same four attributes, so they level off "
+        "the practical choice. The Appendix A weights score the same four attributes, so they level off "
         f"the same way (ceiling {ceiling_rw:.3f}). Past that point extra vehicles only add cost, and cost is "
         "the other axis of the tradespace, so they fall off the front without a separate fleet-size "
         "attribute.\n\n"
@@ -913,8 +919,8 @@ def _reference_vs_shuttles(markers: pd.DataFrame, scenario: Scenario) -> str:
         ("capacity (trips/h)", f"{ref['fleet_capacity_per_h']:.0f}", f"{mit['fleet_capacity_per_h']:.0f}"),
         ("wait (min)", f"{ref['wait_time']:.1f}", f"{mit['wait_time']:.1f}"),
         ("service availability", f"{ref['availability']:.3f}", f"{mit['availability']:.3f}"),
-        ("MAU (Appendix A / os3a_reweight)", f"{ref['mau']:.3f} / {ref['mau_os3a_reweight']:.3f}",
-         f"{mit['mau']:.3f} / {mit['mau_os3a_reweight']:.3f}"),
+        ("MAU (OS3A reweight / Appendix A)", f"{ref['mau']:.3f} / {ref['mau_appendix_a']:.3f}",
+         f"{mit['mau']:.3f} / {mit['mau_appendix_a']:.3f}"),
     ]
     table = pd.DataFrame(rows, columns=["", "reference", shuttles])
     return (

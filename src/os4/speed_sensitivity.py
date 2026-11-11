@@ -1,10 +1,11 @@
 """Task 3 sensitivity: vehicle speed assumptions (PLAN.md Q4 road cap, Q6 e-bike speed) and the
 riders-per-day ceilings (Q22).
 
-Changes from the model baseline, each run with fixed and with removable e-bike batteries:
+Changes from the model baseline (e-bikes at the 18 km/h assist on removable batteries, PLAN.md Q6 and Q15),
+each run with removable batteries (the model) and with fixed batteries (Appendix B as given, for comparison):
 
-- **E-bike assist at 18 km/h:** bikes ride at a fixed ``ASSISTED_KMH`` instead of the Appendix B
-  formula 700 * motor kW / total kg (1-8 km/h with a rider) that the baseline uses.
+- **E-bikes at the Appendix B formula speed:** bikes ride at 700 * motor kW / total kg (1-8 km/h with a
+  rider) instead of the fixed ``ASSISTED_KMH`` assist the model uses.
 - **Road speed at the posted limit:** road vehicles are capped at 20 mph (32.2 km/h), the posted limit
   in Kendall and Central, instead of the 21 km/h achieved-speed cap.
 - **No riders-per-day ceiling:** the Q22 utilization ceilings (bikes and small cars) are switched off,
@@ -29,19 +30,19 @@ MPH_TO_KMH = 1.609344
 POSTED_LIMIT_KMH = 20 * MPH_TO_KMH
 # Q6: a realistic assisted e-bike speed, low end of 18-20 km/h (OS3A interview: 15-18 km/h door to door).
 ASSISTED_KMH = 18.0
-BATTERY_CASES = {"fixed": "Fixed batteries", "removable": "Removable batteries"}
+BATTERY_CASES = {"removable": "Removable batteries (model)", "fixed": "Fixed batteries (Appendix B, comparison)"}
 FRONT_ZOOM_USD = 1.5e6
-COLORS = {"baseline": SERIES[0], "bike_assisted": SERIES[1], "road_posted": SERIES[2], "no_ceiling": SERIES[3],
+COLORS = {"baseline": SERIES[0], "bike_formula": SERIES[1], "road_posted": SERIES[2], "no_ceiling": SERIES[3],
           "road_posted_no_ceiling": SERIES[2]}
 
 
 def variations(scenario: Scenario) -> dict[str, tuple[str, Scenario]]:
     """Baseline, the two speed changes and the riders-per-day-ceiling variations, each as (label, scenario)."""
     return {
-        "baseline": (f"Model baseline (road cap {scenario.speed_limit_kmh:g} km/h, bikes at the Appendix B "
-                     "formula speed)", scenario),
-        "bike_assisted": (f"E-bike assist at {ASSISTED_KMH:g} km/h",
-                          replace(scenario, bike_assisted_speed_kmh=ASSISTED_KMH)),
+        "baseline": (f"Model baseline (road cap {scenario.speed_limit_kmh:g} km/h, e-bikes at "
+                     f"{scenario.bike_assisted_speed_kmh:g} km/h)", scenario),
+        "bike_formula": ("E-bikes at the Appendix B formula speed",
+                         replace(scenario, bike_assisted_speed_kmh=None)),
         "road_posted": (f"Road cap at the 20 mph posted limit ({POSTED_LIMIT_KMH:.1f} km/h)",
                         replace(scenario, speed_limit_kmh=POSTED_LIMIT_KMH)),
         "no_ceiling": ("No riders-per-day ceiling", _no_ceiling(scenario)),
@@ -115,10 +116,10 @@ def summary_table(results: dict, scenario: Scenario) -> pd.DataFrame:
 # ---------- e-bike formula speed ----------
 
 def bike_comparison(scenario: Scenario) -> pd.DataFrame:
-    """Each fixed-battery bike variant at the formula speed (baseline) and the assisted speed."""
+    """Each fixed-battery bike variant at the model's assisted speed (``*_base``) and the formula speed (``*_new``)."""
     trip = scenario.bike_trip_km
     a = bike_variants(_battery(scenario, "fixed")).set_index("variant_id")
-    b = bike_variants(_battery(variations(scenario)["bike_assisted"][1], "fixed")).set_index("variant_id")
+    b = bike_variants(_battery(variations(scenario)["bike_formula"][1], "fixed")).set_index("variant_id")
     return pd.DataFrame({
         "cost_usd": a["cost_usd"], "range_km": a["range_km"],
         "speed_base": a["speed_kmh"], "speed_new": b["speed_kmh"],
@@ -129,16 +130,16 @@ def bike_comparison(scenario: Scenario) -> pd.DataFrame:
 
 
 def plot_bike_availability(bikes: pd.DataFrame, path: Path, scenario: Scenario) -> Path:
-    """Dumbbell: each bike variant's Appendix B availability at the formula and the assisted speed."""
+    """Dumbbell: each bike variant's Appendix B availability at the assisted and the formula speed."""
     fig, ax = plt.subplots(figsize=(10, 8.5), facecolor=SURFACE)
     _style(ax)
     y = range(len(bikes))
     ax.hlines(y, bikes["availability_base"], bikes["availability_new"], color=GRID, linewidth=2, zorder=1)
-    for col, key, label in (("availability_base", "baseline", "Appendix B formula speed (model)"),
-                            ("availability_new", "bike_assisted", f"{ASSISTED_KMH:g} km/h assist")):
+    for col, key, label in (("availability_base", "baseline", f"{ASSISTED_KMH:g} km/h assist (model)"),
+                            ("availability_new", "bike_formula", "Appendix B formula speed")):
         ax.scatter(bikes[col], y, s=36, color=COLORS[key], zorder=3, label=label)
     for i, (_, row) in enumerate(bikes.iterrows()):
-        ax.text(max(row["availability_base"], row["availability_new"]) + 0.012, i, f"{row['speed_base']:.1f} km/h",
+        ax.text(max(row["availability_base"], row["availability_new"]) + 0.012, i, f"{row['speed_new']:.1f} km/h",
                 va="center", fontsize=7.5, color=INK_2)
     ax.axvline(0.75, color=INK_2, linestyle=":", linewidth=1)
     ax.text(0.752, len(bikes) - 0.4, "0.75 benchmark", fontsize=8, color=INK_2, va="top")
@@ -230,7 +231,7 @@ def plot_fronts(results: dict, keys: tuple[str, ...], path: Path, scenario: Scen
         ax.set_xlim(lo / 1e6 * 0.92, FRONT_ZOOM_USD / 1e6)
         ax.set_title(BATTERY_CASES[battery], loc="left", fontsize=11, color=INK, fontweight="bold")
         ax.set_xlabel("fleet cost ($M, vehicle capital cost, log scale)", fontsize=9, color=INK_2)
-    axes[0].set_ylabel("multi-attribute utility (Appendix A)", fontsize=9, color=INK_2)
+    axes[0].set_ylabel("multi-attribute utility (OS3A reweight)", fontsize=9, color=INK_2)
     handles, _ = axes[1].get_legend_handles_labels()
     handles += [plt.Line2D([], [], marker=TYPE_STYLE[t][1], linestyle="", color=INK_2, label=t) for t in FLEET_TYPES]
     handles.append(plt.Line2D([], [], marker="o", linestyle="", markerfacecolor="none", markeredgecolor=INK_2,
@@ -263,15 +264,15 @@ def write_speed_sensitivity(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> l
     bikes = bike_comparison(scenario)
     roads = road_comparison(scenario)
     bike_png = plot_bike_availability(bikes, media / "task3_speed_bike_availability.png", scenario)
-    bike_fronts = plot_fronts(results, ("bike_assisted",), media / "task3_speed_bike_fronts.png", scenario)
+    bike_fronts = plot_fronts(results, ("bike_formula",), media / "task3_speed_bike_fronts.png", scenario)
     road_fronts = plot_fronts(results, ("road_posted",), media / "task3_speed_road_fronts.png", scenario)
     ceiling_fronts = plot_fronts(results, ("no_ceiling", "road_posted_no_ceiling"),
                                  media / "task3_speed_ceiling_fronts.png", scenario)
 
-    base, ba, rp, nc, rpc = (results["fixed", k] for k in
-                             ("baseline", "bike_assisted", "road_posted", "no_ceiling", "road_posted_no_ceiling"))
+    base, bf, rp, nc, rpc = (results["removable", k] for k in
+                             ("baseline", "bike_formula", "road_posted", "no_ceiling", "road_posted_no_ceiling"))
     nc_check = nc["marker_check"].iloc[0]
-    rem_base, rem_nc = results["removable", "baseline"], results["removable", "no_ceiling"]
+    fix_base, fix_nc = results["fixed", "baseline"], results["fixed", "no_ceiling"]
     ref_check = rp["marker_check"].iloc[0]
     ref_status = (f"still dominated (same utility for less: {ref_check['same utility, cheapest']})"
                   if ref_check["dominated"] else "no longer dominated")
@@ -279,40 +280,38 @@ def write_speed_sensitivity(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> l
     md_path.write_text(
         "# Task 3 sensitivity: vehicle speed and utilization ceilings\n\n"
         "The model caps road vehicles at the achieved urban speed "
-        f"(**{scenario.speed_limit_kmh:g} km/h**, PLAN.md Q4), runs e-bikes at the **Appendix B formula speed** "
-        "(700 × motor kW / total kg, Q6: unrealistic, but the given constraint), and screens out fleets whose "
-        "vehicles carry more riders per day than real systems do (Q22). This page reruns the model with these "
-        "changed, every other input unchanged:\n\n"
-        f"- **E-bike assist at {ASSISTED_KMH:g} km/h:** bikes ride at a realistic assisted speed instead of the "
-        "formula.\n"
+        f"(**{scenario.speed_limit_kmh:g} km/h**, PLAN.md Q4), runs e-bikes at a **{ASSISTED_KMH:g} km/h assist** on "
+        "**removable batteries with spare packs** (Q6, Q15), and screens out fleets whose vehicles carry more riders "
+        "per day than real systems do (Q22). MAU is the team's OS3A reweight (Q10). This page reruns the model with "
+        "these changed, every other input unchanged, with removable batteries (the model) and with fixed batteries "
+        "(Appendix B as given, for comparison):\n\n"
+        "- **E-bikes at the Appendix B formula speed:** 700 × motor kW / total kg instead of the assist.\n"
         f"- **Road cap at the posted limit:** road vehicles are capped at 20 mph ({POSTED_LIMIT_KMH:.1f} km/h), the "
         "posted limit in Kendall and Central, with no allowance for signals or congestion.\n"
         "- **No riders-per-day ceiling:** the Q22 utilization ceilings are off, alone and with the 20 mph road cap.\n\n"
         f"{_md_table(summary_table(results, scenario))}\n"
-        f"## E-bike assist at {ASSISTED_KMH:g} km/h\n\n"
-        "With a 100 kg rider, the formula gives bikes "
-        f"**{bikes['speed_base'].min():.1f}–{bikes['speed_base'].max():.1f} km/h**, slower than walking for most "
-        "variants. A rider who pedals would go faster; the model keeps the formula because it is the given "
-        f"constraint, and this section shows what a realistic {ASSISTED_KMH:g} km/h assist changes. Appendix B's "
-        "up-time is range / speed, so a faster bike drains the same battery sooner and spends less of the day "
-        "\"up\". Range and charge time don't change.\n\n"
+        "## E-bikes at the Appendix B formula speed\n\n"
+        "With a 100 kg rider, the Appendix B formula gives bikes "
+        f"**{bikes['speed_new'].min():.1f}–{bikes['speed_new'].max():.1f} km/h**, slower than walking for most "
+        f"variants; a rider who pedals goes about {ASSISTED_KMH:g} km/h (OS3A interview), which is what the model uses. "
+        "Appendix B's up-time is range / speed, so a faster bike drains the same battery sooner and spends less of "
+        "the day \"up\": that is why the model gives bikes removable batteries with spare packs.\n\n"
         f"![E-bike availability at both speeds]({media_link(bike_png)})\n\n"
-        f"- Fixed-battery availability goes from **{bikes['availability_base'].min():.2f}–"
-        f"{bikes['availability_base'].max():.2f}** at the formula speed to **{bikes['availability_new'].min():.2f}–"
-        f"{bikes['availability_new'].max():.2f}** at the assist; "
-        f"{int((bikes['availability_base'] >= 0.75).sum())} of {len(bikes)} variants pass the 0.75 benchmark at the "
-        f"formula speed and {int((bikes['availability_new'] >= 0.75).sum())} at the assist. The formula's high "
-        "availability comes from bikes that barely move, not from better bikes.\n"
-        f"- **Trips get short:** a Kendall trip takes {bikes['trip_min_new'].iloc[0]:.1f} min instead of "
-        f"{bikes['trip_min_base'].min():.0f}–{bikes['trip_min_base'].max():.0f} min, so each bike carries far more "
-        "riders per hour.\n"
-        f"- **Bike-only fleets:** {base['bike_only']} pass the screens at the formula speed, {ba['bike_only']} at the "
-        f"assist; the cheapest goes from {_money(base['bike_only_cheapest'])} to {_money(ba['bike_only_cheapest'])}.\n"
-        f"- **The front:** {_change('the cheapest feasible fleet', base['cheapest'], ba['cheapest'])}, and the first "
-        f"front point with MAU ≥ 0.94 goes from {_money(base['knee'])} to {_money(ba['knee'])}.\n"
-        "- **The MAU doesn't see the slow trip.** Travel time is reported, not weighted (Q11). At the formula speed "
+        f"- Fixed-battery availability is **{bikes['availability_base'].min():.2f}–{bikes['availability_base'].max():.2f}** "
+        f"at the assist and **{bikes['availability_new'].min():.2f}–{bikes['availability_new'].max():.2f}** at the "
+        f"formula speed; {int((bikes['availability_base'] >= 0.75).sum())} of {len(bikes)} variants pass the 0.75 "
+        f"benchmark at the assist and {int((bikes['availability_new'] >= 0.75).sum())} at the formula speed. The "
+        "formula's high availability comes from bikes that barely move, not from better bikes.\n"
+        f"- **Trips get long at the formula speed:** a Kendall trip takes {bikes['trip_min_new'].min():.0f}–"
+        f"{bikes['trip_min_new'].max():.0f} min instead of {bikes['trip_min_base'].iloc[0]:.1f} min.\n"
+        f"- **Bike-only fleets:** {base['bike_only']:,} pass the screens at the assist, {bf['bike_only']:,} at the "
+        f"formula speed; the cheapest goes from {_money(base['bike_only_cheapest'])} to "
+        f"{_money(bf['bike_only_cheapest']) if bf['bike_only_cheapest'] is not None else 'none'}.\n"
+        f"- **The front:** {_change('the cheapest feasible fleet', base['cheapest'], bf['cheapest'])}, and the first "
+        f"front point with MAU ≥ 0.94 goes from {_money(base['knee'])} to {_money(bf['knee'])}.\n"
+        "- **The MAU doesn't see the slow trip.** Travel time is reported, not weighted (Q11). At the assist "
         f"{base['front']['meets_travel_goal'].mean():.0%} of the front meets the 7-minute travel goal, against "
-        f"{ba['front']['meets_travel_goal'].mean():.0%} at the assist.\n\n"
+        f"{bf['front']['meets_travel_goal'].mean():.0%} at the formula speed.\n\n"
         f"![Pareto fronts, e-bike speed]({media_link(bike_fronts)})\n\n"
         f"{_bike_md(bikes)}\n"
         "## Road cap at the 20 mph posted limit\n\n"
@@ -333,8 +332,8 @@ def write_speed_sensitivity(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> l
         "- This is the optimistic bound: real vehicles stop at signals and in traffic, which is why the model "
         "uses the achieved speed (Q4).\n\n"
         f"![Pareto fronts, road speed]({media_link(road_fronts)})\n\n"
-        "Reference and anchors, fixed batteries (model baseline → posted limit):\n\n"
-        f"{_md_table(_marker_rows(results, 'fixed', 'road_posted'))}\n"
+        "Reference and anchors (model baseline → posted limit):\n\n"
+        f"{_md_table(_marker_rows(results, 'removable', 'road_posted'))}\n"
         "## Without the riders-per-day ceiling\n\n"
         f"The Q22 ceilings screen out fleets whose vehicles would carry more than "
         f"{scenario.max_bike_trips_per_day:g} riders per bike or {scenario.max_car_trips_per_day:g} rides per small "
@@ -343,7 +342,7 @@ def write_speed_sensitivity(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> l
         "throughput and wait, not this count. Shuttles and buses were never capped. Here both ceilings are off, "
         "alone and with the 20 mph road cap.\n\n"
         f"![Pareto fronts, no ceiling]({media_link(ceiling_fronts)})\n\n"
-        "With fixed batteries:\n\n"
+        "With removable batteries (the model):\n\n"
         f"- **Bike-only fleets:** {_change('the cheapest', base['bike_only_cheapest'], nc['bike_only_cheapest'])}, "
         f"at {nc['bike_only_cheapest']['bike_trips_per_vehicle_day']:.0f} riders "
         f"per bike per day (MAU {base['bike_only_cheapest']['mau']:.3f} → {nc['bike_only_cheapest']['mau']:.3f}). "
@@ -358,13 +357,10 @@ def write_speed_sensitivity(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> l
         f"- **With the 20 mph road cap too,** the cheapest feasible fleet is {_money(rpc['cheapest'])}, the knee "
         f"{_money(rpc['knee'])}, and the cheapest small-car fleet {_money(rpc['car_only_cheapest'])} at "
         f"{rpc['car_only_cheapest']['car_trips_per_vehicle_day']:.0f} rides per car per day.\n"
-        "\nWith removable batteries:\n\n"
-        f"- **The ceiling is what keeps cheap bike fleets off the front.** Swappable packs keep bikes available, so "
-        f"without the ceiling the cheapest bike-only fleet is {_money(rem_nc['bike_only_cheapest'])} "
-        f"and the first front point with MAU ≥ 0.94 is {_money(rem_nc['knee'])}, MAU {rem_nc['knee']['mau']:.3f}, "
-        f"down from {_money(rem_base['knee'])}. That fleet needs "
-        f"{rem_nc['knee']['bike_trips_per_vehicle_day']:.0f} riders per bike per day.\n"
-        f"- The cheapest feasible fleet is {_money(rem_nc['cheapest'])}, {rem_nc['cheapest']['fleet_type']}.\n"
+        "\nWith fixed batteries (Appendix B, comparison):\n\n"
+        f"- Without the ceiling the cheapest bike-only fleet is {_money(fix_nc['bike_only_cheapest'])} "
+        f"and the first front point with MAU ≥ 0.94 is {_money(fix_nc['knee'])}, MAU {fix_nc['knee']['mau']:.3f}, "
+        f"against {_money(fix_base['knee'])} with the ceiling.\n"
         "- Without the ceiling, the cheapest bike and car fleets rely on each vehicle cycling all day with no idle "
         "time (Q18), which is the overstatement the ceiling was added to catch.\n",
         encoding="utf-8",
@@ -373,4 +369,4 @@ def write_speed_sensitivity(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> l
 
 
 def _bike_md(bikes: pd.DataFrame) -> str:
-    return "Each fixed-battery bike variant (formula → assisted speed):\n\n" + _md_table(_bike_rows(bikes))
+    return "Each fixed-battery bike variant (model's assist → formula speed):\n\n" + _md_table(_bike_rows(bikes))

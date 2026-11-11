@@ -23,6 +23,10 @@ ATTRIBUTES = ("passenger_volume", "peak_throughput", "wait_time", "availability"
 # for a scenario with longer trips (PLAN.md Q11); bike share rewards a type of fleet, not an outcome (PLAN.md Q12).
 PROPOSED_ATTRIBUTES = ("travel_time", "bike_share")
 WEIGHT_SETS = ("appendix_a", "os3a_reweight")
+# PLAN.md Q10 (Decision, Austin, 2026-11-11): every decision from Task 2 on (fronts, knees, picks) uses the
+# team's OS3A reweight; the Appendix A weights are reported next to it for comparison (``mau_appendix_a``).
+DECISION_WEIGHTS = "os3a_reweight"
+COMPARISON_WEIGHTS = "appendix_a"
 
 
 def sau_table(attribute: str) -> pd.DataFrame:

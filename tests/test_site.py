@@ -88,7 +88,7 @@ def test_sample_rows_respects_cap(frames):
     idx = sample_rows(df, mixed_cap=50)
     assert idx.is_unique
     assert set(pareto_front(df).index) <= set(idx)
-    front_mixed = sum((pareto_front(df, u)["fleet_type"] == "mixed").sum() for u in ("mau", "mau_os3a_reweight"))
+    front_mixed = sum((pareto_front(df, u)["fleet_type"] == "mixed").sum() for u in ("mau", "mau_appendix_a"))
     assert df.loc[idx, "fleet_type"].eq("mixed").sum() <= max(50, front_mixed)
     assert (df.loc[idx, "fleet_type"] != "mixed").sum() == (df["fleet_type"] != "mixed").sum()
     assert sample_rows(df, mixed_cap=50).equals(idx)  # seeded

@@ -6,7 +6,7 @@
   const T = OS4.task2;
   if (!T) return;
 
-  const LEAD = ["architecture", "id", "case", "reason", "fleet_type", "road_variant", "n_road", "bike_variant", "n_bike", "fleet_cost_usd", "mau", "mau_os3a_reweight"];
+  const LEAD = ["architecture", "id", "case", "reason", "fleet_type", "road_variant", "n_road", "bike_variant", "n_bike", "fleet_cost_usd", "mau", "mau_appendix_a"];
   const HIDE = ["road_chassis", "bike_frame"]; // shown via the variant ids
   function orderedKeys(rows) {
     const keys = [];

@@ -363,6 +363,8 @@
     ["task1.html", "Task 1 · Utility"],
     ["task2.html", "Task 2 · Model"],
     ["task3.html", "Task 3 · Tradespace"],
+    ["task4.html", "Task 4 · Red Line"],
+    ["task5.html", "Task 5 · Concept"],
     ["components.html", "Components"],
     ["reports.html", "Reports"],
     ["plan.html", "Plan"],

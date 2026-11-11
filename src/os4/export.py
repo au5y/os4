@@ -19,6 +19,7 @@ from os4.model import architecture_table, representative_architectures
 from os4.scenario import Scenario
 from os4.utility import (
     ATTRIBUTES,
+    DECISION_WEIGHTS,
     PROPOSED_ATTRIBUTES,
     WEIGHT_SETS,
     compare_weight_sets,
@@ -101,8 +102,8 @@ def _readme(wb: Workbook) -> None:
         ("Blue cells hold formulas.", None),
         ("", None),
         ("Weight sets", BOLD),
-        ("appendix_a: the given stakeholder weights (used for the Task 1 results).", None),
-        ("os3a_reweight: team proposal from our OS3A MOEs; moves weight from volume to availability.", None),
+        ("appendix_a: the given stakeholder weights (Task 1 cases; shown for comparison elsewhere).", None),
+        ("os3a_reweight: the team weights from our OS3A MOEs (PLAN.md Q10), used for every MAU from Task 2 on.", None),
     ]
     for row, (text, font) in enumerate(lines, start=1):
         cell = ws.cell(row=row, column=1, value=text)
@@ -474,7 +475,7 @@ def _architectures_sheet(wb: Workbook, scenario: Scenario, refs: dict[str, dict[
                      "availability": f"F{i}"}
         for c, a in enumerate(ATTRIBUTES, start=8):
             ws.cell(row=i, column=c, value=_sau_formula(mop_cells[a], a)).fill = FORMULA_FILL
-        terms = "+".join(f"{refs['appendix_a'][a]}*{get_column_letter(8 + k)}{i}" for k, a in enumerate(ATTRIBUTES))
+        terms = "+".join(f"{refs[DECISION_WEIGHTS][a]}*{get_column_letter(8 + k)}{i}" for k, a in enumerate(ATTRIBUTES))
         mau_cell = ws.cell(row=i, column=12, value=f"={terms}")
         mau_cell.fill = FORMULA_FILL
         mau_cell.font = BOLD

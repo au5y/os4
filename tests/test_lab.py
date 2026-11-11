@@ -52,10 +52,12 @@ def test_validate_rejects_bad_configs(bad):
 def test_every_preset_builds_and_scores():
     ps = presets()
     by_id = {p["id"]: p for p in ps}
-    assert ps[0]["id"] == "standard" and {"report", "red_line", "network", "winter", "rush"} <= set(by_id)
-    # The lab defaults to the posted limit and the Appendix B e-bike formula; "report" is the Task 3 run.
-    standard = by_id["standard"]["config"]["scenario"]
-    assert standard["road_speed_basis"] == "posted" and standard["bike_speed_basis"] == "formula"
+    assert ps[0]["id"] == "standard" and {"report", "weekday_s1", "red_line", "network", "winter", "rush"} <= set(by_id)
+    # "standard" caps roads at the posted limit; every preset runs the model's 18 km/h e-bikes (PLAN.md Q6),
+    # removable batteries (Q15) and OS3A weights (Q10); "report" is the Task 3 run.
+    standard = by_id["standard"]["config"]
+    assert standard["scenario"]["road_speed_basis"] == "posted" and standard["scenario"]["bike_speed_basis"] == "assisted"
+    assert standard["battery_case"] == "removable" and standard["weights"] == load_weights("os3a_reweight")
     assert by_id["report"]["config"] == from_scenario(primary_scenario(), "Task 3 report settings")
     for p in ps:
         result = calculate(_small(p["config"]))
@@ -67,9 +69,9 @@ def test_custom_weights_match_the_reweight_column():
     s = primary_scenario()
     grid = dict(n_road=(0, 2, 5), n_bike=(0, 20, 125))
     default = tradespace(s, **grid)
-    reweighted = tradespace(s, weights=load_weights("os3a_reweight"), **grid)
-    assert np.allclose(reweighted["mau"], default["mau_os3a_reweight"])
-    assert np.allclose(tradespace(s, weights=load_weights(), **grid)["mau"], default["mau"])
+    reweighted = tradespace(s, weights=load_weights("appendix_a"), **grid)
+    assert np.allclose(reweighted["mau"], default["mau_appendix_a"])
+    assert np.allclose(tradespace(s, weights=load_weights("os3a_reweight"), **grid)["mau"], default["mau"])
 
 
 def test_range_factor_scales_range_and_lowers_availability():
@@ -84,8 +86,8 @@ def test_range_factor_scales_range_and_lowers_availability():
 def test_baseline_run_matches_task3():
     s = calculate(next(p for p in presets() if p["id"] == "report")["config"])["summary"]
     assert s["cheapest"]["cost"] == 182_200
-    assert s["knee"]["cost"] == 275_950
-    assert s["max_mau"] == pytest.approx(0.962, abs=5e-4)
+    assert s["knee"]["cost"] == 272_200
+    assert s["max_mau"] == pytest.approx(0.967, abs=5e-4)
 
 
 def test_calculate_uses_the_disk_cache(tmp_path):
@@ -122,7 +124,7 @@ def test_server_runs_a_job(tmp_path):
 def test_speed_choice_sets_the_road_cap_and_bike_speed():
     cfg = from_scenario(primary_scenario())
     s = cfg["scenario"]
-    assert s["road_speed_basis"] == "achieved" and s["bike_speed_basis"] == "formula"
+    assert s["road_speed_basis"] == "achieved" and s["bike_speed_basis"] == "assisted"
     posted = {**cfg, "scenario": {**s, "road_speed_basis": "posted"}}
     assert to_scenario(posted).speed_limit_kmh == pytest.approx(20 * 1.609344)
     formula = {**cfg, "scenario": {**s, "bike_speed_basis": "formula"}}
@@ -141,22 +143,26 @@ def test_tags_are_scored_and_checked_against_the_front():
     knee = result["summary"]["knee"]["fleet"].replace(" × ", "×")
     tags = evaluate_tags(cfg, [{"id": knee, "label": "knee"}, {"id": "6 x C4-P2-G3-M2-A3", "label": "ref"},
                                {"id": "nonsense"}], result["front"])
-    assert tags[0]["status"] == "ok" and not tags[0]["dominated"] and tags[0]["fleet_cost_usd"] == 275_950
+    assert tags[0]["status"] == "ok" and not tags[0]["dominated"] and tags[0]["fleet_cost_usd"] == 272_200
     assert tags[1]["dominated"] and tags[1]["fleet_cost_usd"] == 430_800
     assert "cannot read" in tags[2]["status"]
     red_line = next(p for p in presets() if p["id"] == "red_line")["config"]
     assert "not available" in evaluate_tags(red_line, [{"id": "6×C4-P2-G3-M2-A3"}], [])[0]["status"]
 
 
-def test_limit_grid_trims_the_tail_to_the_limit():
-    from os4.lab.run import DEFAULT_LIMIT, estimate, limit_grid
+def test_limit_grid_caps_only_mixed_fleets():
+    from os4.lab.run import DEFAULT_LIMIT, _sizes, estimate, limit_grid
     cfg = next(p for p in presets() if p["id"] == "standard")["config"]
     assert estimate(cfg)["architectures"] > DEFAULT_LIMIT
     trimmed, note = limit_grid(cfg)
     assert note["to"] <= DEFAULT_LIMIT and estimate(trimmed)["architectures"] == note["to"]
-    assert trimmed["grid"]["road"][0] == cfg["grid"]["road"][0]  # the small fleets stay
+    assert trimmed["grid"] == validate(cfg)["grid"]  # road-only and bike-only fleets keep the full grid
+    assert trimmed["mixed_max"] == [note["road_max"], note["bike_max"]]
+    assert max(_sizes(trimmed["grid"]["bike"])) >= 150  # bike-only fleets big enough for the ceiling stay
     small = {**cfg, "grid": SMALL}
     assert limit_grid(small)[1] is None
+    result = calculate(trimmed)
+    assert "bike-only" in result["summary"]["cheapest_by_type"]  # bike-only fleets are scored under the limit
 
 
 def test_validate_caps_the_grid():

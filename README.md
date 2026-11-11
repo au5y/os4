@@ -1,6 +1,6 @@
 # Team - H2-13 OS4
 
-> **📊 Results explorer: https://au5y.github.io/os4/** — interactive Tasks 1–3 (utility curves, architecture candidates, tradespace with Pareto fronts). Rebuilt by CI on every push to `main`.
+> **📊 Results explorer: https://au5y.github.io/os4/** — interactive Tasks 1–3 (utility curves, architecture candidates, tradespace with Pareto fronts) and the Task 4–5 write-ups. Rebuilt by CI on every push to `main`.
 
 ## Authors
 - Sanjay Bisht
@@ -19,21 +19,21 @@ The assignment asks for a tradespace exploration of an autonomous, battery-elect
 | 1 | 10% | Stakeholder utility (SAU → MAU, Cases A–C) | Done: hand calcs (Yonis) and code agree; Table 4 validation; proposed weights | `utility.py` |
 | 2 | 25% | Technical system model, 5 architecture instances | Model done; five architectures picked (Q24) | `scenario.py`, `vehicle.py`, `fleet.py`, `model.py` |
 | 3 | 20% | Tradespace, Pareto frontier, reference architecture | Tradespace, fronts and reference architecture (Q26) done | `tradespace.py` |
-| 4 | 15% | Second operating scenario | Candidates are Model Lab presets; choice pending (team) | `scenario.task4_scenario` (stub) |
-| 5 | 20% | Concept recommendation | Not started | slides |
-| 6 | 10% | Life-cycle / extensibility memo | Not started | slides |
+| 4 | 15% | Second operating scenario | Done: Red Line disruption (Q29), e-bikes at 18 km/h (Q30) | `scenario.red_line_scenario`, `task4.py` |
+| 5 | 20% | Concept recommendation | Done: a fleet that scales for closures (Q31) | `task5.py` |
+| 6 | 10% | Life-cycle / extensibility memo | In the slides only | slides |
 
-**Final baseline:** the standard weekday demand inputs and outputs are frozen at tag `v1.1-weekday-final`; its [Release](https://github.com/au5y/os4/releases/tag/v1.1-weekday-final) holds the inputs, outputs and executables ([PLAN.md Q28](docs/PLAN.md#q28)).
+**Final baseline:** the inputs and outputs are frozen at tag `v1.2-final-draft` ([PLAN.md Q28](docs/PLAN.md#q28)): e-bikes at 18 km/h, removable batteries with spare packs, and the OS3A reweight as the MAU (Appendix A for comparison). Its [Release](https://github.com/au5y/os4/releases/tag/v1.2-final-draft) holds the inputs, outputs and executables. The earlier freeze `v1.1-weekday-final` (formula-speed bikes, Appendix A MAU) is superseded.
 
 **Due:** Thursday, November 12, 2026, 10:00am. The slides go to Canvas as a single PDF; the model (this code plus `outputs/media/os4_model.xlsx`) is submitted separately as a ZIP.
 
 Every modeling decision and open question is in [`docs/PLAN.md`](docs/PLAN.md) (questions are numbered **Q#**; code that depends on one is tagged with its number). The main ones so far:
 
-- **Scenario:** weekday on-demand last-mile service from a Kendall hub to Lechmere and Central; links 1.9 / 1.6 / 3.3 km measured on OpenStreetMap; road speed capped at 21 km/h (20 mph posted, signals); e-bikes at the Appendix B formula speed (700·P/W, 1–8 km/h with a rider), with an 18 km/h assist as a sensitivity.
+- **Scenario:** weekday on-demand last-mile service from a Kendall hub to Lechmere and Central; links 1.9 / 1.6 / 3.3 km measured on OpenStreetMap; road speed capped at 21 km/h (20 mph posted, signals); e-bikes at an 18 km/h assist in every task (Q6), with the Appendix B formula speed (700·P/W, 1–8 km/h with a rider) as a sensitivity.
 - **MoPs:** peak throughput is the demand actually served (Q17); availability is *service* availability, the chance the vehicles in service can carry each hour's demand (Q19); travel time is the average Kendall trip; cost is vehicle capital only (Q21).
-- **Design space:** every feasible, non-dominated Appendix C/D vehicle, road fleets 1–200 and bike fleets 5–300 with steps that widen as fleets grow (road step 1 up to 15; bikes step 5 up to 50), alone or mixed: about 1.7 million feasible architectures with fixed e-bike batteries and 4.2 million with removable ones. The reference architecture and anchors (EZRide, MBTA bus and MIT shuttle service levels, `data/anchors.csv`) are plotted on every tradespace. Table 1 thresholds (1,500 trips/day, 150/h peak, 50/h off-peak) screen architectures out before scoring.
-- **E-bike batteries:** fixed (Appendix B) and removable with spare packs (team proposal) are both kept as alternate pathways.
-- **Weights:** Appendix A for the official MAU; `os3a_reweight` (Task 1 reflection, also plotted on Task 3) as the team proposal. Travel time and bike share are reported but not weighted.
+- **Design space:** every feasible, non-dominated Appendix C/D vehicle, road fleets 1–200 and bike fleets 5–300 with steps that widen as fleets grow (road step 1 up to 15; bikes step 5 up to 50), alone or mixed: about 1.75 million feasible architectures with removable e-bike batteries (1.05 million in the fixed-battery comparison). The reference architecture and anchors (EZRide, MBTA bus and MIT shuttle service levels, `data/anchors.csv`) are plotted on every tradespace. Table 1 thresholds (1,500 trips/day, 150/h peak, 50/h off-peak) screen architectures out before scoring.
+- **E-bike batteries:** every e-bike has a removable battery with 0.5–3 on-hand spare packs per bike (Q15); fixed batteries (Appendix B as given) are shown for comparison only.
+- **Weights:** the team's `os3a_reweight` is the MAU for every decision from Task 2 on (Q10); Appendix A scores Task 1's Cases A–C and is shown elsewhere for comparison. The Model Lab starts from the OS3A weights and keeps them editable. Travel time and bike share are reported but not weighted.
 
 ## Repository layout
 
@@ -185,7 +185,7 @@ uv run python -m os4      # or: uv run os4   (without uv: python -m os4 inside t
 uv run pytest             # tests (~1 min; without uv: pytest)
 ```
 
-`python -m os4` runs Tasks 1–3, the results explorer and the Excel backup, and writes everything to `outputs/`. It takes about 2–3 minutes and a couple of GB of memory, because the two battery cases score about 1.7 and 4.2 million architectures (with a progress bar per run). Options: `--only` / `--skip` steps (`task1 task2 task3 sensitivity site excel`), `--out DIR`, `--no-progress`; see `python -m os4 --help`. It prints the key tables as it goes, for example:
+`python -m os4` runs Tasks 1–5, the results explorer and the Excel backup, and writes everything to `outputs/`. It takes about 3–4 minutes and a couple of GB of memory: it scores about 1.75 million feasible weekday architectures (plus the fixed-battery comparison case and the two Task 4 scenarios), with a progress bar per run. Options: `--only` / `--skip` steps (`task1 task2 task3 sensitivity task4 task5 site excel`), `--out DIR`, `--no-progress`; see `python -m os4 --help`. It prints the key tables as it goes, for example:
 
 ```
 Task 1 (MAU):
@@ -205,13 +205,16 @@ Markdown reports and `site/` go in `outputs/`; CSVs, figures and the workbook in
 | `task2_variants.csv`, `task2_architectures.csv` | Every feasible vehicle variant; the five architectures |
 | `task2_*.png` | MAU and cost of the five architectures; vehicle availability and speed vs. the cap |
 | `task3_tradespace.md` | Task 3 report: both battery cases, requirements table, load-factor sensitivity, Pareto fronts |
-| `task3_tradespace_*.png` | MAU vs. cost scatter with Pareto front and utopia point (Appendix A and os3a_reweight MAU, each battery case) |
+| `task3_tradespace_*.png` | MAU vs. cost scatter with Pareto front and utopia point (OS3A reweight MAU, and Appendix A for comparison; removable and fixed batteries) |
 | `task3_fleet_size_*.png` | One panel per vehicle type, colored by fleet size, against the front |
 | `task3_knee_*.png` | Zoom on the knee of each battery case's Pareto front |
 | `task3_load_factor_fronts.png` | Pareto front at 25 / 50 / 75 / 100% load factor |
 | `task3_speed_sensitivity.md` | Task 3 sensitivity against the baseline: an 18 km/h e-bike assist, the road cap at the 20 mph posted limit, and no riders-per-day ceiling |
 | `task3_speed_*.png` | E-bike availability at both speeds; Pareto fronts, baseline vs. each change (assist, posted limit, no ceiling) |
 | `task3_pareto_front_*.csv` | The Pareto front of each battery case |
+| `task4_red_line.md` | Task 4 report: Scenario 2 (Red Line disruption) vs. Scenario 1, both fronts, the Task 3 picks in each, conflict resolution |
+| `task4_fronts.png`, `task4_mau_change.png` | Both Pareto fronts with the Task 3 picks; each pick's MAU in both scenarios |
+| `task5_recommendation.md`, `task5_fronts.png` | Task 5 report: the recommended concept (base fleet + surge kit), what we rule out, realism |
 | `site/` | The results explorer (see below) |
 | `os4_model.xlsx` | Excel backup for the submission: SAU tables, weights, Cases A–C, scenario, every vehicle variant and the five architectures, all with live formulas checked against Python |
 
@@ -235,12 +238,12 @@ Figures on GitHub Pages only change when the edit is merged into `main`.
 
 The model also runs as a single executable with nothing else installed (no Python, no uv): it bundles Python, the dependencies, `data/` and `docs/`. Download it from the latest [Release](https://github.com/au5y/os4/releases) (tagged versions) or from the `os4-<platform>-<sha>` artifact of any CI run (Actions → model), unpack it, and run it from a terminal:
 
-**Open it like an app:** double-click `os4` (`os4.exe` on Windows), or run `./os4` with no options. It starts the [Model Lab](#model-lab-local-optional) and opens it in your browser, with the same look as the results explorer: pick a preset, edit the **utility weights** (or any other input), press **Calculate** and see the tradespace, Pareto front and Task 2 architectures under your weights. A console window stays open while it runs; close it to stop. Edited weights are what-if runs; the frozen results use the Appendix A weights ([PLAN.md Q28](docs/PLAN.md#q28)).
+**Open it like an app:** double-click `os4` (`os4.exe` on Windows), or run `./os4` with no options. It starts the [Model Lab](#model-lab-local-optional) and opens it in your browser, with the same look as the results explorer: pick a preset, edit the **utility weights** (or any other input), press **Calculate** and see the tradespace, Pareto front and Task 2 architectures under your weights. A console window stays open while it runs; close it to stop. It starts from the OS3A reweight; edited weights are what-if runs, and the frozen results use the OS3A reweight ([PLAN.md Q28](docs/PLAN.md#q28)).
 
 **Batch run, as `python -m os4`:**
 
 ```bash
-./os4 run                      # Windows: os4.exe run. Tasks 1-3; writes outputs/ next to the executable
+./os4 run                      # Windows: os4.exe run. Tasks 1-5; writes outputs/ next to the executable
 ./os4 --only task1 --out DIR   # any option implies a batch run (see ./os4 --help)
 ./os4 lab --port 8500          # the Lab without opening a browser, with its options (./os4 lab --help)
 ```
@@ -264,13 +267,13 @@ The build uses [PyInstaller](https://pyinstaller.org). Paths are resolved in `sr
 
 - **Task 1:** interactive SAU curves (the four Appendix A attributes) with Cases A–C, MAU under each weight set, weight sensitivity.
 - **Task 2:** the five current architectures, ~50 highlighted candidates (cheapest per chassis/frame, Pareto knee, evenly spaced front points, best MAU per dollar) each with the reason it was picked, and a filterable table of every vehicle variant.
-- **Task 3:** utility-vs-cost scatter (log cost, zoom/pan, hover, click to pin), Pareto front and utopia point, fixed vs. removable batteries, Appendix A vs. os3a_reweight MAU, color by fleet type or size, filters, and a linked table. Road-only, bike-only and front architectures are all included; mixed fleets are a seeded sample (the page says "showing X of Y").
+- **Task 3:** utility-vs-cost scatter (log cost, zoom/pan, hover, click to pin), Pareto front and utopia point, removable (the model) vs. fixed batteries, OS3A reweight vs. Appendix A MAU, color by fleet type or size, filters, and a linked table. Road-only, bike-only and front architectures are all included; mixed fleets are a seeded sample (the page says "showing X of Y").
 - **Components:** the Appendix C/D tables and how to read a variant id (`C5-P1-G3-M2-A3` = chassis C5, battery P1, charger G3, motor M2, autonomy A3). Hovering any variant id in a table decodes it.
 - **Selecting:** click ☆ on any architecture; the selection is kept in your browser and can be exported as CSV from the ★ Selected page.
 
 ## Model Lab (local, optional)
 
-An interactive version of the model for trying scenarios: pick a preset (the standard weekday scenario, the Task 3 report settings, the Task 4 candidates (Red Line disruption, point-to-point network, winter, a.m. rush only) and the Task 3 sensitivity cases), change any input (demand bins, speeds, trip lengths, autonomy, thresholds, ceilings, batteries, utility weights, fleet grid), press **Calculate** and watch the progress bar while the server scores the tradespace (the "limit runs" box, on by default, trims the grid to 1.5 million architectures). Results show the summary, the tradespace with its Pareto front, the reference and anchors, and the five Task 2 architectures under your inputs; the Task 3 figures for a run download as a zip (PNGs, config and front CSV).
+An interactive version of the model for trying scenarios: pick a preset (the standard weekday scenario, the Task 3 report settings, the Task 4 candidates (Red Line disruption, point-to-point network, winter, a.m. rush only) and the Task 3 sensitivity cases), change any input (demand bins, speeds, trip lengths, autonomy, thresholds, ceilings, batteries, utility weights, fleet grid), press **Calculate** and watch the progress bar while the server scores the tradespace (the "limit runs" box, on by default, caps the size of mixed fleets so a run stays under 1.5 million architectures; road-only and bike-only fleets always use the full grid). Results show the summary, the tradespace with its Pareto front, the reference and anchors, and the five Task 2 architectures under your inputs; the Task 3 figures for a run download as a zip (PNGs, config and front CSV).
 
 ```bash
 uv run python -m os4.lab          # or: uv run os4-lab, uv run python -m os4 lab, ./os4 lab; then open http://127.0.0.1:8411

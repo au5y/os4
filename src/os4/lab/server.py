@@ -101,12 +101,13 @@ class Lab:
         }
 
     def plan(self, config: dict, limit: bool) -> tuple[dict, dict | None, int]:
-        """The config to run (grid trimmed to ``DEFAULT_LIMIT``, 1.5 M, if ``limit``), the trimming note, and its size."""
+        """The config to run (mixed fleets capped to stay under ``DEFAULT_LIMIT``, 1.5 M, if ``limit``), the trimming
+        note, and its size."""
         cfg = validate(config)
         if limit:
             cfg, note = limit_grid(cfg, DEFAULT_LIMIT)
         else:
-            note = None
+            cfg, note = {**cfg, "mixed_max": None}, None
         size = estimate(cfg)["architectures"]
         if size > HARD_LIMIT:
             raise ValueError(f"this run would score {size:,} architectures; the most allowed is {HARD_LIMIT:,}. "
