@@ -1,4 +1,4 @@
-"""Static results explorer: a no-server website over the Task 1-3 results.
+"""Static results explorer: a no-server website over the Task 1-3 results and the Task 4-5 write-ups.
 
 ``write_site`` copies the HTML/CSS/JS in ``site_template/`` to ``outputs/site/``
 and writes the model results next to it as ``data/*.js`` files that assign

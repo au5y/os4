@@ -52,7 +52,7 @@ def test_validate_rejects_bad_configs(bad):
 def test_every_preset_builds_and_scores():
     ps = presets()
     by_id = {p["id"]: p for p in ps}
-    assert ps[0]["id"] == "standard" and {"report", "red_line", "network", "winter", "rush"} <= set(by_id)
+    assert ps[0]["id"] == "standard" and {"report", "weekday_s1", "red_line", "network", "winter", "rush"} <= set(by_id)
     # The lab defaults to the posted limit and the Appendix B e-bike formula; "report" is the Task 3 run.
     standard = by_id["standard"]["config"]["scenario"]
     assert standard["road_speed_basis"] == "posted" and standard["bike_speed_basis"] == "formula"

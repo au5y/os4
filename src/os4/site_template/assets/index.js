@@ -17,17 +17,16 @@
   const cases = Object.entries(m.cases || {});
   const tasks = [
     ["task1.html", "Task 1 · Stakeholder utility", "SAU curves, cases A–C, MAU under each weight set, weight sensitivity.", "done", null],
-    ["task2.html", "Task 2 · Technical system model", "The five Task 2 architectures, ~50 highlighted candidates to pick from, and every vehicle variant.", "in progress", null],
+    ["task2.html", "Task 2 · Technical system model", "The five Task 2 architectures, ~50 highlighted candidates to pick from, and every vehicle variant.", "done", null],
     [
       "task3.html",
       "Task 3 · Tradespace",
       "Utility vs. cost for every feasible architecture, Pareto front, battery-case and utility toggles, filters.",
-      "in progress",
+      "done",
       cases.map(([k, c]) => k + ": " + c.architectures.toLocaleString() + " architectures, " + c.front + " on the front").join(" · "),
     ],
-    [null, "Task 4 · Second operating scenario", "Placeholder.", "not started", null],
-    [null, "Task 5 · Recommendation", "Placeholder.", "not started", null],
-    [null, "Task 6 · Extensibility", "Placeholder.", "not started", null],
+    ["task4.html", "Task 4 · Second operating scenario", "The Red Line disruption against the standard weekday: both Pareto fronts, the Task 3 picks in each, and how we resolve the conflict.", "done", null],
+    ["task5.html", "Task 5 · Recommended concept", "A fleet that scales for closures: 2 A4 buses + 20 e-bikes every weekday, plus a surge kit of 4 buses + 10 e-bikes for Red Line closures.", "done", null],
   ];
   const box = document.getElementById("tasks");
   for (const [href, title, text, status, stat] of tasks) {

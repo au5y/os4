@@ -6,6 +6,7 @@ WeasyPrint is not a project dependency (it needs the Pango system library), henc
 """
 
 import argparse
+import re
 from pathlib import Path
 
 import markdown
@@ -35,6 +36,23 @@ a { color: #0b5cad; text-decoration: none; }
 """
 
 
+URL = re.compile(r"(?<![<`/])(?<!\]\()(https?://[^\s|)`,]+?)(?=[.:;]?(?:\s|$|\||\)))")
+
+
+def _autolink(lines: list[str]) -> str:
+    """Wrap bare URLs in ``<...>`` so they become links, outside code blocks and inline code."""
+    out, fenced = [], False
+    for line in lines:
+        if line.startswith("```"):
+            fenced = not fenced
+        if not fenced:
+            parts = line.split("`")
+            parts[::2] = [URL.sub(r"<\1>", part) for part in parts[::2]]
+            line = "`".join(parts)
+        out.append(line)
+    return "\n".join(out)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--src", type=Path, default=ROOT / "docs" / "HOW_TO_RUN.md")
@@ -48,7 +66,7 @@ def main() -> None:
     lines = text.splitlines()
     body_start = next(i for i, line in enumerate(lines) if line.startswith("## "))
     lines[:body_start] = [line + "  " if line.startswith("**") else line for line in lines[:body_start]]
-    html = markdown.markdown("\n".join(lines), extensions=["tables", "fenced_code"])
+    html = markdown.markdown(_autolink(lines), extensions=["tables", "fenced_code"])
     page = f"<!doctype html><html><head><meta charset='utf-8'><style>{CSS}</style></head><body>{html}</body></html>"
     args.out.parent.mkdir(parents=True, exist_ok=True)
     HTML(string=page, base_url=str(ROOT)).write_pdf(args.out)

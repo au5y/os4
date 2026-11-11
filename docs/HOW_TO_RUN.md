@@ -1,8 +1,9 @@
 # OS4 Model: How to Run It
 
 **EM.411 Opportunity Set #4, H2 Team 13:** Sanjay Bisht, Yonis Aliyow, Austin Miller, Robert Wright
-**Model version:** tag `v1.1-weekday-final` (commit `1b7f61e`), the frozen standard weekday demand baseline
-**Full repository:** https://github.com/au5y/os4 · **Results explorer:** https://au5y.github.io/os4/
+**Model version:** tag `v1.2-final-draft` (Tasks 1–5); the standard weekday baseline is frozen at tag `v1.1-weekday-final`
+**GitHub repository:** https://github.com/au5y/os4 (source, tagged versions, releases; see Section 7)
+**Results explorer (GitHub Pages):** https://au5y.github.io/os4/
 
 This ZIP holds the model, its input data and its formulas. The slides, with our answers and diagrams, are submitted separately as a PDF.
 
@@ -18,7 +19,7 @@ This ZIP holds the model, its input data and its formulas. The slides, with our 
 | `tests/` | Automated checks (129 tests): Appendix A Table 4 values, hand calculations, and agreement between the vectorized tradespace and the per-architecture model. |
 | `scripts/` | Builds the standalone executables, this PDF and the submission ZIP. |
 | `pyproject.toml`, `uv.lock` | The dependency list and exact pinned versions. |
-| `docs/PLAN.md` | Every modeling decision and assumption, numbered Q1–Q28; code that depends on one is tagged `PLAN.md Q#`. |
+| `docs/PLAN.md` | Every modeling decision and assumption, numbered Q1–Q31; code that depends on one is tagged `PLAN.md Q#`. |
 | `README.md` | Full developer documentation. |
 
 ## 2. Quickest look, no install
@@ -32,7 +33,7 @@ Pick one option. Option A needs nothing installed; Options B and C run the sourc
 
 ### Option A: the standalone executable (no Python at all)
 
-The executables are in the top-level folder of this ZIP: `os4-windows.exe` (Windows), `os4-mac` (Apple Silicon Macs, M1 or later) and `os4-linux`. Each bundles Python, the model and its data. They are also on the Release page https://github.com/au5y/os4/releases/tag/v1.1-weekday-final.
+The executables are in the top-level folder of this ZIP: `os4-windows.exe` (Windows), `os4-mac` (Apple Silicon Macs, M1 or later) and `os4-linux`. Each bundles Python, the model and its data. They are also on the Release page https://github.com/au5y/os4/releases/tag/v1.2-final-draft.
 
 - **Double-click the one for your computer** to open the Model Lab in your browser (Section 4). A console window stays open while it runs; close it to stop. It takes a few seconds to start.
 - **Run it with `run`** in a terminal for the same batch run as `python -m os4`, for example `os4-windows.exe run` or `./os4-mac run`. It writes `outputs/` next to the executable.
@@ -49,7 +50,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # From the unzipped folder:
 uv sync --extra dev          # install the dependencies (one time)
-uv run python -m os4         # run Tasks 1-3; writes everything to outputs/
+uv run python -m os4         # run Tasks 1-5; writes everything to outputs/
 uv run pytest -q             # optional: run the tests (~1 min)
 ```
 
@@ -79,6 +80,8 @@ case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  
 | `task2_model.md` | Task 2: scenario inputs, equations, the five architectures, hand-calculation check |
 | `task3_tradespace.md` | Task 3: tradespace, requirements screen, Pareto fronts, reference architecture |
 | `task3_speed_sensitivity.md` | Task 3 sensitivity: e-bike assist speed, road speed cap, riders-per-day ceiling |
+| `task4_red_line.md` | Task 4: Scenario 2 (Red Line disruption) vs. Scenario 1, both Pareto fronts, the Task 3 picks in each |
+| `task5_recommendation.md` | Task 5: the recommended concept (base fleet plus a surge kit for closures), what we rule out |
 | `media/` | Every figure (PNG), CSV and the regenerated `os4_model.xlsx` |
 | `site/index.html` | The results explorer, offline (double-click to open) |
 
@@ -105,19 +108,21 @@ The page shows the tradespace, the Pareto front and the five Task 2 architecture
 | 1 | `utility.py` | Piecewise-linear SAUs from the Appendix A tables, and the additive MAU for Cases A–C |
 | 2 | `scenario.py`, `vehicle.py`, `fleet.py`, `model.py` | The operating scenario; the Appendix B vehicle equations; the fleet MoPs (volume, peak throughput, wait time, availability); the five architectures |
 | 3 | `tradespace.py`, `speed_sensitivity.py` | The full design grid, the Table 1 requirement screen, the Pareto front and knee, and the sensitivity cases |
+| 4 | `scenario.py` (`red_line_scenario`), `task4.py` | Scenario 2, the Red Line disruption; both tradespaces; the Task 3 picks in each scenario |
+| 5 | `task5.py` | The recommended concept: base fleet, surge kit, checks and what is ruled out |
 | All | `plots.py`, `export.py`, `site.py` | Figures and reports, the Excel workbook, and the results explorer |
 
-Assumptions and deviations from the assignment are in `docs/PLAN.md`, by number. For example, Q17 defines peak throughput, Q19 defines availability, Q21 defines cost, and Q28 records the frozen baseline.
+Assumptions and deviations from the assignment are in `docs/PLAN.md`, by number. For example, Q17 defines peak throughput, Q19 defines availability, Q21 defines cost, Q28 records the frozen weekday baseline, Q29 sets the Task 4 scenario and Q31 records the Task 5 concept.
 
 ## 6. AI disclosure
 
 **Most of the code in this model was generated with an AI coding assistant**: Claude Code, running Anthropic's Claude models. Team members directed the work and made the modeling decisions. They checked the generated code and its outputs before it was merged.
 
-- **Decisions were made by people.** Every scenario choice, assumption and deviation from Appendix B is in `docs/PLAN.md` (Q1–Q28); decisions are labeled with who made them and when.
+- **Decisions were made by people.** Every scenario choice, assumption and deviation from Appendix B is in `docs/PLAN.md` (Q1–Q31); decisions are labeled with who made them and when.
 - **Results were checked by people.** Task 1 was calculated by hand (Yonis Aliyow) independently of the code, and the two agree with each other and with Appendix A Table 4. Team members reviewed the generated equations against Appendix B and corrected them where they were wrong; PLAN.md records those corrections, for example to the first draft of the wait-time equations. The Task 2 report includes a hand-calculation check of one architecture, and the Excel workbook recomputes the results with live formulas as a second implementation to compare against.
 - **Automated tests back the checks.** These include the Table 4 values, the hand calculations, and agreement between the vectorized tradespace and the per-architecture model. CI reruns them on every change.
 
-**How to verify this from the Git history.** Each commit that the assistant co-wrote ends with a `Co-Authored-By: Claude …` line. Of the 96 commits up to `v1.1-weekday-final`, 60 carry that line (dated 2026-10-29 to 2026-11-11). This count is a lower bound: a commit without the line may still contain AI-generated code. The others include the team members' own commits, such as the Task 1 hand calculations and the SAU validation table. Tagged versions mark what was frozen: `v1.0-os4` (outputs and executables) and `v1.1-weekday-final` (the submitted baseline). In a clone of the repository:
+**How to verify this from the Git history.** Each commit that the assistant co-wrote ends with a `Co-Authored-By: Claude …` line. Of the 96 commits up to `v1.1-weekday-final`, 60 carry that line (dated 2026-10-29 to 2026-11-11). This count is a lower bound: a commit without the line may still contain AI-generated code. The others include the team members' own commits, such as the Task 1 hand calculations and the SAU validation table. Tagged versions mark what was frozen: `v1.0-os4` (outputs and executables), `v1.1-weekday-final` (the standard weekday baseline) and `v1.2-final-draft` (Tasks 1–5, this submission). In a clone of the repository:
 
 ```bash
 # commits co-written with the AI assistant
@@ -126,7 +131,22 @@ git log --grep="Co-Authored-By: Claude" --oneline
 git log --invert-grep --grep="Co-Authored-By: Claude" --oneline
 # tagged, frozen versions, and what the submitted baseline contains
 git tag -n1
-git show v1.1-weekday-final --stat
+git show v1.2-final-draft --stat
 ```
 
 Pull request descriptions on GitHub (https://github.com/au5y/os4/pulls) also end with "Generated with Claude Code".
+
+## 7. The model on GitHub
+
+Everything in this ZIP comes from the team's public GitHub repository, where each version is tagged and its outputs are published.
+
+| What | Where |
+|---|---|
+| Source code, data and history | https://github.com/au5y/os4 |
+| Tagged versions | https://github.com/au5y/os4/tags: `v1.0-os4`, `v1.1-weekday-final`, `v1.2-final-draft` |
+| Releases (outputs, inputs, workbook, executables per tag) | https://github.com/au5y/os4/releases |
+| This submission's release | https://github.com/au5y/os4/releases/tag/v1.2-final-draft |
+| Modeling decisions Q1–Q31 | https://github.com/au5y/os4/blob/main/docs/PLAN.md (also https://au5y.github.io/os4/plan.html) |
+| Results explorer (GitHub Pages) | https://au5y.github.io/os4/: Tasks 1–3 interactive, Tasks 4–5 write-ups |
+| Automated runs (tests and model on every change) | https://github.com/au5y/os4/actions |
+| Pull requests (each change, with its description) | https://github.com/au5y/os4/pulls?q=is%3Apr |

@@ -1,7 +1,9 @@
-"""Model Lab presets: the Task 4 candidate scenarios and the Task 3 sensitivity cases, as configs.
+"""Model Lab presets: the Tasks 4-5 scenarios, the other Task 4 candidates and the Task 3 sensitivity cases,
+as configs.
 
-Numbers in the Task 4 presets are team placeholders (each preset lists its assumptions); edit them in the
-lab and save your own. The sensitivity presets come from ``speed_sensitivity.variations`` so they stay in
+The Tasks 4-5 presets are the model's own scenarios (``scenario.weekday_scenario`` and
+``scenario.red_line_scenario``, PLAN.md Q29-Q30). Numbers in the other candidates are placeholders (each preset
+lists its assumptions); edit them in the lab and save your own. The sensitivity presets come from ``speed_sensitivity.variations`` so they stay in
 step with ``outputs/task3_speed_sensitivity.md``.
 """
 
@@ -10,7 +12,8 @@ from dataclasses import replace
 import pandas as pd
 
 from os4.lab.config import POSTED_LIMIT_KMH, from_scenario
-from os4.scenario import primary_scenario
+from os4.scenario import (RED_LINE_PEAK_FACTOR, RED_LINE_ROAD_CAP_KMH, RED_LINE_TRIP_KM, primary_scenario,
+                          red_line_scenario, weekday_scenario)
 from os4.speed_sensitivity import variations
 
 
@@ -47,24 +50,26 @@ def presets() -> list[dict]:
         "scenario": replace(report, name="Task 3 report settings"),
     }]
 
-    peak = (8, 10, 12)
-    red_line = replace(
-        base, name="Red Line disruption: shuttle to Boston",
-        demand=_demand(base.demand, peak, 1.5),
-        avg_trip_km=5.0, bike_trip_km=5.0, speed_limit_kmh=25.0,
-        allowed_autonomy=("A4", "A5"), goal_wait_min=20.0, goal_travel_min=20.0,
-    )
+    s1, red_line = weekday_scenario(), red_line_scenario()
     out.append({
-        "id": "red_line", "group": "Task 4 candidates", "name": red_line.name,
-        "description": "Red Line service is suspended; riders at Kendall need a ride to Park St / South Station, "
-                       "outside the system boundary.",
-        "assumptions": ["PLACEHOLDER: trips about 5 km (Kendall to Park St / South Station)",
-                        "PLACEHOLDER: peak demand ×1.5 (8:00–14:00)",
-                        "PLACEHOLDER: road cap 25 km/h (mix of city streets and arterials)",
+        "id": "weekday_s1", "group": "Tasks 4–5", "name": "Scenario 1: standard weekday (18 km/h e-bikes)",
+        "description": "Scenario 1 of Tasks 4–5 (PLAN.md Q30): the Task 3 report settings with e-bikes at the "
+                       "18 km/h assist, as on the Task 3 slides.",
+        "assumptions": ["Appendix B demand as given (1,790 trips/day)", "Road vehicles capped at 21 km/h (Q4)",
+                        "E-bikes at an 18 km/h assist (Q30)", "Riders-per-day ceilings on (Q22)"],
+        "scenario": replace(s1, name="Scenario 1: standard weekday (18 km/h e-bikes)"),
+    })
+    out.append({
+        "id": "red_line", "group": "Tasks 4–5", "name": "Scenario 2: Red Line disruption (Task 4)",
+        "description": "The Task 4 scenario (PLAN.md Q29): Red Line service is suspended; riders at Kendall need a "
+                       "ride to Park St / South Station, outside the system boundary.",
+        "assumptions": [f"Trips {RED_LINE_TRIP_KM:g} km (Kendall to Park St / South Station; team estimate)",
+                        f"Peak demand ×{RED_LINE_PEAK_FACTOR:g} (8:00–14:00; team estimate)",
+                        f"Road cap {RED_LINE_ROAD_CAP_KMH:g} km/h (arterial roads; team estimate)",
                         "Outside the boundary Table 1 requires L4/L5: A4 and A5 only",
-                        "Table 1 outside-boundary wait goal: 20 min; travel-time goal 20 min (placeholder)",
-                        "E-bikes at the Appendix B formula speed (lab default)"],
-        "scenario": red_line,
+                        "Table 1 outside-boundary goals: 20-min wait, 20-min travel",
+                        "E-bikes at an 18 km/h assist (Q30)"],
+        "scenario": replace(red_line, name="Scenario 2: Red Line disruption (Task 4)"),
     })
 
     links_road = base.node_distances_km.values()
@@ -74,7 +79,7 @@ def presets() -> list[dict]:
         deadhead_fraction=0.33,
     )
     out.append({
-        "id": "network", "group": "Task 4 candidates", "name": network.name,
+        "id": "network", "group": "Other Task 4 candidates", "name": network.name,
         "description": "Trips run between all three stops, not only from Kendall, so vehicles often carry a rider "
                        "on the way back.",
         "assumptions": [f"Average road trip {network.avg_trip_km:g} km: mean of the three links, including "
@@ -86,7 +91,7 @@ def presets() -> list[dict]:
 
     winter = replace(base, name="Winter", speed_limit_kmh=18.0, bike_assisted_speed_kmh=12.0, range_factor=0.75)
     out.append({
-        "id": "winter", "group": "Task 4 candidates", "name": winter.name,
+        "id": "winter", "group": "Other Task 4 candidates", "name": winter.name,
         "description": "Snow and cold: slower streets, slower bikes, and batteries that hold less charge.",
         "assumptions": ["PLACEHOLDER: road cap 18 km/h", "PLACEHOLDER: bike assist 12 km/h",
                         "PLACEHOLDER: battery range ×0.75 (cold)", "Appendix B demand as given"],
@@ -102,7 +107,7 @@ def presets() -> list[dict]:
         max_bike_trips_per_day=None, max_car_trips_per_day=None,
     )
     out.append({
-        "id": "rush", "group": "Task 4 candidates", "name": rush.name,
+        "id": "rush", "group": "Other Task 4 candidates", "name": rush.name,
         "description": "Only the 6:00–12:00 rush: the fleet runs for the morning and is scored on it alone.",
         "assumptions": ["Appendix B demand for 6:00–12:00 only (700 trips)",
                         f"Volume threshold scaled to that window: {rush.min_daily_volume:g} trips",

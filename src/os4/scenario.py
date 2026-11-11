@@ -1,11 +1,11 @@
 """Operating scenarios: everything about *where and how* the fleet runs.
 
-Kept separate from the design vector so Tasks 3-4 can re-run the same model
-under a different scenario (e.g. a Task 4 Red Line shutdown or winter case).
-Values trace to the numbered questions (Q1-Q28) in ``docs/PLAN.md``.
+Kept separate from the design vector so Tasks 3-5 can re-run the same model
+under a different scenario: ``weekday_scenario`` and ``red_line_scenario`` are Scenarios 1 and 2 of Tasks 4-5.
+Values trace to the numbered questions (Q1-Q31) in ``docs/PLAN.md``.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import pandas as pd
 
@@ -124,6 +124,47 @@ def primary_scenario() -> Scenario:
     )
 
 
-def task4_scenario() -> Scenario:
-    """Alternate scenario for Task 4 (e.g. Red Line shutdown or winter)."""
-    raise NotImplementedError
+# PLAN.md Q30: Tasks 4-5 run e-bikes at a fixed 18 km/h assist (the Task 3 sensitivity case, Q6).
+ASSISTED_BIKE_KMH = 18.0
+# PLAN.md Q29: the Red Line scenario's own assumptions (team estimates, not given data).
+RED_LINE_TRIP_KM = 5.0          # Kendall to Park St / South Station
+RED_LINE_PEAK_FACTOR = 1.5      # peak demand x1.5 as Red Line riders move to us
+RED_LINE_PEAK_HOURS = (8, 10, 12)  # the 8:00-14:00 peak bins
+RED_LINE_ROAD_CAP_KMH = 25.0    # arterial roads into Boston
+
+
+def weekday_scenario() -> Scenario:
+    """Scenario 1 for Tasks 4-5 (PLAN.md Q30): the standard weekday with e-bikes at the 18 km/h assist,
+    the scenario the Task 3 slides use (the "E-bike assist at 18 km/h" sensitivity case)."""
+    return replace(primary_scenario(), name="Scenario 1: standard weekday (18 km/h e-bikes)",
+                   bike_assisted_speed_kmh=ASSISTED_BIKE_KMH)
+
+
+def red_line_scenario() -> Scenario:
+    """Scenario 2, the Task 4 scenario (PLAN.md Q29): the Red Line is down, so riders at Kendall need a road
+    link to Park St / South Station, outside the system boundary.
+
+    Changes from Scenario 1 (everything else, including the design vector, thresholds, ceilings and
+    weights, stays the same): 5 km road and bike trips; peak demand x1.5 (8:00-14:00); road cap 25 km/h;
+    A4/A5 only (Table 1: L4 or higher outside the boundary); Table 1's outside-boundary goals, a 20-min
+    wait and a 20-min ride.
+    """
+    base = weekday_scenario()
+    demand = base.demand.copy()
+    demand.loc[demand["hour"].isin(RED_LINE_PEAK_HOURS), "trips_per_hour"] *= RED_LINE_PEAK_FACTOR
+    return replace(
+        base, name="Scenario 2: Red Line disruption (Kendall to Park St / South Station)",
+        demand=demand, avg_trip_km=RED_LINE_TRIP_KM, bike_trip_km=RED_LINE_TRIP_KM,
+        speed_limit_kmh=RED_LINE_ROAD_CAP_KMH, allowed_autonomy=("A4", "A5"),
+        goal_wait_min=20.0, goal_travel_min=20.0,
+    )
+
+
+def winter_scenario() -> Scenario:
+    """Robustness check for the Task 5 base fleet: Scenario 1 in winter (road cap 18 km/h, bike assist
+    12 km/h, battery range x0.75), as in the Model Lab's winter preset."""
+    return replace(weekday_scenario(), name="Winter weekday", speed_limit_kmh=18.0, bike_assisted_speed_kmh=12.0,
+                   range_factor=0.75)
+
+
+task4_scenario = red_line_scenario

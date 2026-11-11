@@ -1,6 +1,6 @@
 # Team - H2-13 OS4
 
-> **📊 Results explorer: https://au5y.github.io/os4/** — interactive Tasks 1–3 (utility curves, architecture candidates, tradespace with Pareto fronts). Rebuilt by CI on every push to `main`.
+> **📊 Results explorer: https://au5y.github.io/os4/** — interactive Tasks 1–3 (utility curves, architecture candidates, tradespace with Pareto fronts) and the Task 4–5 write-ups. Rebuilt by CI on every push to `main`.
 
 ## Authors
 - Sanjay Bisht
@@ -19,9 +19,9 @@ The assignment asks for a tradespace exploration of an autonomous, battery-elect
 | 1 | 10% | Stakeholder utility (SAU → MAU, Cases A–C) | Done: hand calcs (Yonis) and code agree; Table 4 validation; proposed weights | `utility.py` |
 | 2 | 25% | Technical system model, 5 architecture instances | Model done; five architectures picked (Q24) | `scenario.py`, `vehicle.py`, `fleet.py`, `model.py` |
 | 3 | 20% | Tradespace, Pareto frontier, reference architecture | Tradespace, fronts and reference architecture (Q26) done | `tradespace.py` |
-| 4 | 15% | Second operating scenario | Candidates are Model Lab presets; choice pending (team) | `scenario.task4_scenario` (stub) |
-| 5 | 20% | Concept recommendation | Not started | slides |
-| 6 | 10% | Life-cycle / extensibility memo | Not started | slides |
+| 4 | 15% | Second operating scenario | Done: Red Line disruption (Q29), e-bikes at 18 km/h (Q30) | `scenario.red_line_scenario`, `task4.py` |
+| 5 | 20% | Concept recommendation | Done: a fleet that scales for closures (Q31) | `task5.py` |
+| 6 | 10% | Life-cycle / extensibility memo | In the slides only | slides |
 
 **Final baseline:** the standard weekday demand inputs and outputs are frozen at tag `v1.1-weekday-final`; its [Release](https://github.com/au5y/os4/releases/tag/v1.1-weekday-final) holds the inputs, outputs and executables ([PLAN.md Q28](docs/PLAN.md#q28)).
 
@@ -185,7 +185,7 @@ uv run python -m os4      # or: uv run os4   (without uv: python -m os4 inside t
 uv run pytest             # tests (~1 min; without uv: pytest)
 ```
 
-`python -m os4` runs Tasks 1–3, the results explorer and the Excel backup, and writes everything to `outputs/`. It takes about 2–3 minutes and a couple of GB of memory, because the two battery cases score about 1.7 and 4.2 million architectures (with a progress bar per run). Options: `--only` / `--skip` steps (`task1 task2 task3 sensitivity site excel`), `--out DIR`, `--no-progress`; see `python -m os4 --help`. It prints the key tables as it goes, for example:
+`python -m os4` runs Tasks 1–5, the results explorer and the Excel backup, and writes everything to `outputs/`. It takes about 2–3 minutes and a couple of GB of memory, because the two battery cases score about 1.7 and 4.2 million architectures (with a progress bar per run). Options: `--only` / `--skip` steps (`task1 task2 task3 sensitivity task4 task5 site excel`), `--out DIR`, `--no-progress`; see `python -m os4 --help`. It prints the key tables as it goes, for example:
 
 ```
 Task 1 (MAU):
@@ -212,6 +212,9 @@ Markdown reports and `site/` go in `outputs/`; CSVs, figures and the workbook in
 | `task3_speed_sensitivity.md` | Task 3 sensitivity against the baseline: an 18 km/h e-bike assist, the road cap at the 20 mph posted limit, and no riders-per-day ceiling |
 | `task3_speed_*.png` | E-bike availability at both speeds; Pareto fronts, baseline vs. each change (assist, posted limit, no ceiling) |
 | `task3_pareto_front_*.csv` | The Pareto front of each battery case |
+| `task4_red_line.md` | Task 4 report: Scenario 2 (Red Line disruption) vs. Scenario 1, both fronts, the Task 3 picks in each, conflict resolution |
+| `task4_fronts.png`, `task4_mau_change.png` | Both Pareto fronts with the Task 3 picks; each pick's MAU in both scenarios |
+| `task5_recommendation.md`, `task5_fronts.png` | Task 5 report: the recommended concept (base fleet + surge kit), what we rule out, realism |
 | `site/` | The results explorer (see below) |
 | `os4_model.xlsx` | Excel backup for the submission: SAU tables, weights, Cases A–C, scenario, every vehicle variant and the five architectures, all with live formulas checked against Python |
 
@@ -240,7 +243,7 @@ The model also runs as a single executable with nothing else installed (no Pytho
 **Batch run, as `python -m os4`:**
 
 ```bash
-./os4 run                      # Windows: os4.exe run. Tasks 1-3; writes outputs/ next to the executable
+./os4 run                      # Windows: os4.exe run. Tasks 1-5; writes outputs/ next to the executable
 ./os4 --only task1 --out DIR   # any option implies a batch run (see ./os4 --help)
 ./os4 lab --port 8500          # the Lab without opening a browser, with its options (./os4 lab --help)
 ```

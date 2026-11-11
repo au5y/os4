@@ -2,7 +2,7 @@
 
 How the team's model works, and every decision and assumption behind it. Sources are tagged in line by number, e.g. [[1]](references.md#ref-1), and listed in [references.md](references.md).
 
-**How the questions are laid out.** Every modeling question is numbered Q1–Q28 in the order it comes up, and code that depends on one is tagged with its number (e.g. `PLAN.md Q18`). Each question has a heading that states the question (with an anchor, so `[Q18](#q18)` links to it), then:
+**How the questions are laid out.** Every modeling question is numbered Q1–Q31 in the order it comes up, and code that depends on one is tagged with its number (e.g. `PLAN.md Q18`). Each question has a heading that states the question (with an anchor, so `[Q18](#q18)` links to it), then:
 
 - **Answer:** what the model does, labeled with where the answer came from:
   - **Decision (Austin, date)** or **Decision (team, date):** a choice and who made it, when that was recorded.
@@ -28,6 +28,9 @@ How the team's model works, and every decision and assumption behind it. Sources
 | [Q12](#q12) | Bike share as an attribute | [Q26](#q26) | Task 3 reference architecture |
 | [Q13](#q13) | Energy and fleet size as attributes | [Q27](#q27) | Load factor |
 | [Q14](#q14) | Architectures and fleet grid | [Q28](#q28) | Final standard weekday baseline |
+| | | [Q29](#q29) | Task 4 scenario: Red Line disruption |
+| | | [Q30](#q30) | E-bike speed in Tasks 4–5 |
+| | | [Q31](#q31) | Task 5 recommended concept |
 
 ---
 
@@ -440,20 +443,41 @@ On the tradespace the reference is **dominated:** 2 × C8 + 15 × B1-K3 reach th
 - **Task 2** ([Q24](#q24)): 24 × C2 cars $1,435,200, MAU 0.961; 4 × C6 shuttles $350,600, 0.946; 120 × B2-K3 bikes $564,000, 0.958; 8 × C2 + 165 × B2-K3 $1,253,900, 0.962; 6 × C4-A5 long-range $784,800, 0.893.
 - **Task 3:** 1,684,991 feasible architectures with fixed e-bike batteries and 4,215,800 with removable ones; fronts 3 / 4 / 310 and 3 / 12 / 385 (road / bike / mixed); cheapest feasible $182,200; first front point with MAU ≥ 0.94 is 3 × C7-P1-G3-M3-A3 + 10 × B1-E1-G2-K3, 0.942 at $275,950; Appendix A ceiling 0.962.
 - **Reference and anchors** ([Q23](#q23), [Q26](#q26)): reference 6 × C4-P2-G3-M2-A3, $430,800, MAU 0.932; EZRide-level 2 × C8, $191,200, 0.834; MBTA-bus-level 1 × C8, $95,600, 0.365; MIT shuttles 5 × C6, $373,250, 0.954.
-- **Not decided by this freeze:** the Task 4 scenario (section 5). Weights edited in the Model Lab or the standalone executable's browser page are what-if runs; the frozen MAUs use the Appendix A weights (and `os3a_reweight` where reported).
+- **Not decided by this freeze:** the Task 4 scenario, since decided in [Q29](#q29) (Tasks 4–5 run e-bikes at 18 km/h, [Q30](#q30)). Weights edited in the Model Lab or the standalone executable's browser page are what-if runs; the frozen MAUs use the Appendix A weights (and `os3a_reweight` where reported).
 
 ---
 
-## 5. Task 4: second operating scenario (candidates)
+## 5. Task 4: second operating scenario
 
-The candidates are presets in the Model Lab (`python -m os4.lab`, `src/os4/lab/presets.py`), each with its assumptions listed on the page; numbers marked PLACEHOLDER are for the team to set:
+The model runs Tasks 4–5 with `python -m os4` (steps `task4` and `task5`; `src/os4/task4.py`, `src/os4/task5.py`) and writes `outputs/task4_red_line.md` and `outputs/task5_recommendation.md`. Both scenarios are also Model Lab presets (group "Tasks 4–5"), next to the other candidates we considered (point-to-point network, winter, a.m. rush only).
 
-- **Red Line disruption, shuttle to Boston:** about 5 km trips outside the boundary, so A4/A5 only and Table 1's 20-min outside wait goal; peak demand ×1.5.
-- **Point-to-point network:** trips between all three stops (average 2.27 km road), empty return 0.33.
-- **Winter:** road cap 18 km/h, bike assist 12 km/h, battery range ×0.75 (new `Scenario.range_factor`).
-- **A.m. rush only:** demand 6:00–12:00 only, volume threshold scaled to that window, ceilings off.
+#### <a id="q29"></a>Q29. Which second operating scenario does Task 4 use?
 
-**Decision pending (team):** which candidate becomes the Task 4 scenario.
+**Answer (Decision, team, 2026-11-11):** **the Red Line disruption** (`scenario.red_line_scenario()`, "Scenario 2"): Red Line service is suspended, and riders at Kendall need a road link to Park St / South Station, outside the system boundary. Changes from Scenario 1, with everything else kept: **5 km road and bike trips**; **peak demand ×1.5** (the 8:00–14:00 bins, 150 → 225 trips/h; 2,240 trips/day); **road cap 25 km/h** (arterial roads); **A4/A5 only**, because Table 1 requires L4 or higher outside the boundary; and Table 1's outside-boundary goals, **a 20-min wait and a 20-min ride**. The 5 km, ×1.5 and 25 km/h are **Assumptions** (team estimates, not given data).
+
+**Discussion.** Our OS3A interviewee called the Red Line "the weakest link," and Cambridge has Red Line closures planned for 2026 [[21]](references.md#ref-21), so we wanted to test the system on the day it matters most. It is not just "more demand": trips leave the boundary, so every A3 road vehicle we picked in Task 3 is not allowed as built, and trips are about three times longer (a C8 round trip goes from 11.0 to 26.4 min). The design vector, fleet grid, Table 1 thresholds, riders-per-day ceilings ([Q22](#q22)) and Appendix A weights are the same in both runs, so the two tradespaces compare directly.
+
+Results (`outputs/task4_red_line.md`): 1,004,532 feasible architectures and a front of 347 (3 road-only, 0 bike-only, 344 mixed); nothing under $462,400 (4 × C8-A4) passes Table 1. The knee (first front point with MAU ≥ 0.94) is **6 × C8-P1-G3-M4-A4 + 30 × B1-E1-G2-K1, $795,600, MAU 0.944**: all 2,240 trips/day, the full 225/h peak, a 5.0-min wait, availability 0.85, a 13-min ride. None of the Task 3 picks survives: as A4 twins (+$20,000 per road vehicle, everything else unchanged) they serve 69–93 of 225 trips/h at the peak, fail Table 1 and fall to MAU 0.22–0.33. Of the Task 2 architectures, #1, #2 and #4 are A3 (not allowed); #3 and #5 fail Table 1.
+
+#### <a id="q30"></a>Q30. How fast do e-bikes go in Tasks 4–5?
+
+**Answer (Decision, team, 2026-11-11):** at the **18 km/h assist** in both scenarios (`scenario.ASSISTED_BIKE_KMH`; `weekday_scenario()` is Scenario 1), the setting the Task 3 slides use. The Task 3 report itself keeps the Appendix B formula speed ([Q6](#q6)) as its baseline and the frozen results ([Q28](#q28)) are unchanged; the 18 km/h case is its "E-bike assist at 18 km/h" sensitivity.
+
+**Discussion.** At the formula speed (1–8 km/h with a rider) a 5 km ride would take at least 37 min, which no rider would accept, so the Red Line comparison only makes sense with realistic bikes (OS3A interview: 15–18 km/h door to door). With 18 km/h bikes Scenario 1 has 1,052,974 feasible architectures and a 403-point front; its knee is **2 × C8-P1-G3-M4-A3 + 20 × B1-E1-G2-K1, $259,200, MAU 0.942**. As a check, with formula-speed bikes the Scenario 2 knee becomes 7 × C8-A4 + 10 × B1-K3, $846,200, MAU 0.945: the same bus-heavy answer.
+
+---
+
+## 6. Task 5: recommended concept
+
+#### <a id="q31"></a>Q31. Which concept do we recommend, and how do we resolve the conflict between the two scenarios?
+
+**Answer (Decision, team, 2026-11-11):** **a fleet that scales for closures.** Own a **base fleet of 2 × C8-P1-G3-M4-A4 buses + 20 × B1-E1-G2-K1 e-bikes ($299,200)** for every weekday, and add a **surge kit of 4 buses + 10 e-bikes (+$496,400, leased or shared)** during Red Line closures, which makes the Scenario 2 knee (**6 + 30, $795,600**). An attendant rides every bus until Massachusetts allows driverless operation.
+
+**Discussion.** The two scenarios give two different best answers, $259,200 for a weekday and $795,600 for a closure (3.1×), because they are limited by different things: on a weekday demand caps the MAU, so cost decides; in a closure capacity is the limit. Both knees use the same bus and the same e-bike, so we buy the weekday knee with A4 buses (+$20,000 each): it is legal for trips into Boston and can grow into the closure knee. On paper its A3 twin, the Task 3 knee, beats it (MAU 0.9421 vs. 0.9419 for $40,000 less); we accept that as the price of a fleet that scales. Buying the full fleet outright would score 0.961 on a weekday, only +0.019 for 2.7× the money, with four buses idle most of the year. **Decision rule:** weight each scenario by how often it happens; closures are announced weeks ahead [[21]](references.md#ref-21), so a leased surge kit works, and if closures became frequent or unplanned we would buy more of the fleet outright.
+
+Checks (`outputs/task5_recommendation.md`): base fleet in Scenario 1, 1,790 trips/day, 150/h (capacity 236), 1.3-min wait, availability 0.937, 5.1-min ride, MAU 0.942 (0.943 OS3A); full fleet in Scenario 2, MAU 0.944 (0.937 OS3A). With the OS3A weights the weekday knee doesn't move and the closure knee needs 5 more e-bikes (6 + 35, $812,600). In a winter run (`scenario.winter_scenario()`: road cap 18 km/h, bikes 12 km/h, battery range ×0.75) the base fleet still passes Table 1 at MAU 0.919.
+
+What we rule out: A5, road packs P5–P7, e-bike packs E2/E3 and the B3 frame never appear on either front; small shuttles are dominated on a weekday (our reference and the MIT shuttles), and the reference fails Table 1 in a closure even as A4; bike-only fleets drop off the closure front; slow road chargers drop out (every closure front point uses G3); and A3, though it wins on weekdays, can never serve the closure. Limits: capital cost only ([Q21](#q21)), so attendant wages, the biggest operating cost, are outside the model; a fixed 75% load factor that flatters big buses ([Q27](#q27)); and our own Scenario 2 estimates.
 
 ---
 

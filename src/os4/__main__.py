@@ -1,6 +1,6 @@
 """Entry point: ``python -m os4`` (or ``os4`` once installed, or the standalone ``os4`` executable).
 
-Runs every step by default; ``--only`` / ``--skip`` pick steps, ``--out`` changes the output folder and
+Runs every step (Tasks 1-5, the explorer, the Excel backup) by default; ``--only`` / ``--skip`` pick steps, ``--out`` changes the output folder and
 ``--no-progress`` hides the progress bars. ``python -m os4 --help`` lists them. ``python -m os4 lab [...]``
 starts the Model Lab instead (same as ``python -m os4.lab``), so the standalone executable can run both.
 
@@ -22,10 +22,13 @@ from os4.plots import OUTPUT_DIR, case_table, write_task1, write_task2
 from os4.scenario import primary_scenario
 from os4.site import write_site
 from os4.speed_sensitivity import write_speed_sensitivity
+from os4.task4 import run as run_task4
+from os4.task4 import write_task4
+from os4.task5 import write_task5
 from os4.tradespace import write_task3
 from os4.utility import ATTRIBUTES
 
-STEPS = ("task1", "task2", "task3", "sensitivity", "site", "excel")
+STEPS = ("task1", "task2", "task3", "sensitivity", "task4", "task5", "site", "excel")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -85,6 +88,17 @@ def main(argv: list[str] | None = None) -> None:
     if "sensitivity" in steps:
         print("\nTask 3 sensitivity (e-bike speed, road cap at the posted limit, no riders-per-day ceiling):")
         for path in write_speed_sensitivity(scenario, out):
+            print(f"  wrote {path}")
+
+    scenarios = run_task4() if {"task4", "task5"} & set(steps) else None
+    if "task4" in steps:
+        print("\nTask 4 (Red Line disruption vs. the standard weekday, e-bikes at 18 km/h):")
+        for path in write_task4(out, scenarios):
+            print(f"  wrote {path}")
+
+    if "task5" in steps:
+        print("\nTask 5 (recommended concept):")
+        for path in write_task5(out, scenarios):
             print(f"  wrote {path}")
 
     if "site" in steps:

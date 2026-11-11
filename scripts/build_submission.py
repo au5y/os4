@@ -2,8 +2,8 @@
 
     uv run --with weasyprint python scripts/build_submission.py   # -> dist/OS4_H2-13_model.zip
 
-The executables and the Excel workbook come from a GitHub Release (default: the frozen baseline,
-``v1.1-weekday-final``, PLAN.md Q28), downloaded with the ``gh`` CLI. The source is this checkout's
+The executables and the Excel workbook come from a GitHub Release (default: the submission tag,
+``v1.2-final-draft``, Tasks 1-5), downloaded with the ``gh`` CLI. The source is this checkout's
 committed files (``git archive HEAD``), so commit first. Needs ``gh``, ``git`` and ``zip`` (the
 ``zip`` tool keeps the executables' run permission, which macOS and Linux need).
 
@@ -44,7 +44,7 @@ def run(*cmd: str, **kw) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--tag", default="v1.1-weekday-final", help="release to take executables and workbook from")
+    parser.add_argument("--tag", default="v1.2-final-draft", help="release to take executables and workbook from")
     parser.add_argument("--out", type=Path, default=ROOT / "dist" / f"{NAME}.zip")
     args = parser.parse_args()
 
