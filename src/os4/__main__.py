@@ -42,6 +42,9 @@ def main(argv: list[str] | None = None) -> None:
     if argv[:1] == ["lab"]:
         from os4.lab.__main__ import main as lab_main
         return lab_main(argv[1:])
+    for stream in (sys.stdout, sys.stderr):  # a Windows console may not encode every character in the tables
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     args = parse_args(argv)
     steps = [s for s in (args.only or STEPS) if s not in args.skip]
     ts.SHOW_PROGRESS = not args.no_progress

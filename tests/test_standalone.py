@@ -45,3 +45,15 @@ def test_task1_runs_into_another_folder(tmp_path):
     main(["--only", "task1", "--out", str(tmp_path), "--no-progress"])
     assert (tmp_path / "task1_cases.md").exists()
     assert (tmp_path / "media" / "task1_sau_curves.png").exists()
+
+
+def test_every_text_read_and_write_names_its_encoding():
+    # Windows defaults to cp1252, which can't write the reports' "≤" or "×" (the Windows build failed on it).
+    import ast
+    missing = []
+    for path in (ROOT / "src").rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if (isinstance(node, ast.Call) and getattr(node.func, "attr", None) in ("write_text", "read_text")
+                    and not any(k.arg == "encoding" for k in node.keywords)):
+                missing.append(f"{path.relative_to(ROOT)}:{node.lineno}")
+    assert not missing

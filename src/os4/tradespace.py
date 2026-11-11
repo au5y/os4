@@ -852,7 +852,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"![Pareto front by load factor]({media_link(lf_png)})\n\n"
         f"{_md_table(lf_rows)}\n"
         + "".join(sections)
-    )
+    , encoding="utf-8")
     return paths + [md_path]
 
 

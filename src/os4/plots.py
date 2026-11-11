@@ -185,7 +185,7 @@ def write_task1(out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"{_md_table(weight_sets.round(3))}\n"
         "## Weight sensitivity (each weight ±0.1, others renormalized)\n\n"
         f"{_md_table(sensitivity.round(3))}"
-    )
+    , encoding="utf-8")
     return [csv_path, mau_path, sens_path, md_path, sau_png, mau_png]
 
 
@@ -509,5 +509,5 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"{_md_table(hand)}\n"
         "Full data: `media/task2_variants.csv`, `media/task2_architectures.csv`, and the Variants / Architectures "
         "sheets of `media/os4_model.xlsx` (formulas).\n"
-    )
+    , encoding="utf-8")
     return [var_path, arch_path, arch_png, var_png, md_path]
