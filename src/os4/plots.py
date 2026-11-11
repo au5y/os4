@@ -1,4 +1,5 @@
-"""Task 1 figures and tables: SAU curves with the A/B/C cases, and the MAU breakdown.
+"""Shared figure style and output paths; Task 1 figures and report (SAU curves with the A/B/C cases, MAU
+breakdown); Task 2 figures and report.
 
 Colors are the validated categorical slots (blue, orange, aqua, yellow); the two
 lighter ones are under 3:1 contrast, so every mark also carries a text label.
@@ -23,7 +24,7 @@ from os4.utility import (  # noqa: E402
     weight_sensitivity,
 )
 
-OUTPUT_DIR = Path(__file__).resolve().parents[2] / "outputs"
+from os4.paths import OUTPUT_DIR  # noqa: E402  (repo outputs/, or next to the standalone executable)
 # Reports (Markdown) go in the output folder; figures, CSVs and the workbook in this subfolder.
 MEDIA_DIR = "media"
 
@@ -184,7 +185,7 @@ def write_task1(out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"{_md_table(weight_sets.round(3))}\n"
         "## Weight sensitivity (each weight ±0.1, others renormalized)\n\n"
         f"{_md_table(sensitivity.round(3))}"
-    )
+    , encoding="utf-8")
     return [csv_path, mau_path, sens_path, md_path, sau_png, mau_png]
 
 
@@ -508,5 +509,5 @@ def write_task2(scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"{_md_table(hand)}\n"
         "Full data: `media/task2_variants.csv`, `media/task2_architectures.csv`, and the Variants / Architectures "
         "sheets of `media/os4_model.xlsx` (formulas).\n"
-    )
+    , encoding="utf-8")
     return [var_path, arch_path, arch_png, var_png, md_path]

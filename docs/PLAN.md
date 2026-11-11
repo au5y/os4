@@ -314,7 +314,7 @@ Equations follow the *Fundamentals of Transportation* extracts in the appendix [
 
 **Answer (Decision):** **service availability:** the chance that the vehicles in service can carry each 2-hour bin's demand, averaged over the day by demand. The Appendix B vehicle availability is still reported as `vehicle_availability`.
 
-**Discussion.** Each vehicle is in service with its Appendix B availability a, independently, so capacity in service has mean Σ N·a·c and variance Σ N·a·(1−a)·c² (c = one vehicle's trips/h). The probability uses the normal approximation (Excel: `NORMSDIST`). Spare vehicles raise it, so a large pool of 42%-available bikes can still serve almost every rider.
+**Discussion.** Each vehicle is in service with its Appendix B availability a, independently, so capacity in service has mean Σ N·a·c and variance Σ N·a·(1−a)·c² (c = one vehicle's trips/h). The probability uses the normal approximation (Excel: `NORMSDIST`). Spare vehicles raise it, so a large pool of bikes each available well under half the time (0.36–0.91 at the Appendix B speed, 0.14–0.42 at 18 km/h) can still serve almost every rider.
 
 #### <a id="q20"></a>Q20. How is travel time computed?
 
@@ -340,7 +340,7 @@ Architectures that fail a screen are dropped before scoring.
 **Answer (Decision, Austin, 2026-11-01):** **at most 15 riders per bike per day** and **at most 25 rides per car per day** (road chassis of 1–6 seats, C1–C3); no ceiling for shuttles and buses. The model reports riders per vehicle per day (`fleet.trips_per_vehicle_day`) and screens against the ceilings (`Scenario.max_bike_trips_per_day`, `Scenario.max_car_trips_per_day`).
 
 **Discussion.** The model lets every vehicle cycle all day, so cheap fleets can claim more rides per vehicle than any real system.
-- **Bikes:** Bluebikes run about 2.4–2.6 trips per bike per day (2024 [[28]](references.md#ref-28), [[29]](references.md#ref-29)), Citi Bike 3.3 (2024 [[25]](references.md#ref-25)) and 5.2 (2014 [[26]](references.md#ref-26)); 3–5 is typical. Citi Bike e-bikes ran about 15 a day in 2018 [[27]](references.md#ref-27), the busiest observed case.
+- **Bikes:** Bluebikes run about 2.4–2.5 trips per bike per day (2024 [[28]](references.md#ref-28), [[29]](references.md#ref-29)), Citi Bike 3.3 (2024 [[25]](references.md#ref-25)) and 5.2 (2014 [[26]](references.md#ref-26)); 3–5 is typical. Citi Bike e-bikes ran about 15 a day in 2018 [[27]](references.md#ref-27), the busiest observed case.
 - **Cars:** set at Waymo's observed rate of about 24 (250,000 paid rides a week [[32]](references.md#ref-32) on over 1,500 vehicles [[33]](references.md#ref-33), spring 2025). NYC yellow taxis ran 14.0 and Uber/Lyft 11.2 in 2024 [[31]](references.md#ref-31).
 - **Shuttles and buses:** MBTA buses carry about 300–320 weekday riders per bus [[30]](references.md#ref-30), in line with the model.
 - **Not adopted:** a utilization factor X on every architecture's capacity (the load-management ratio in the appendix).

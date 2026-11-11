@@ -1,7 +1,7 @@
 """Task 2 glue: (fleet, scenario) -> MoPs, MAU, and cost.
 
-This is the single entry point Tasks 3-6 call; swap the ``Scenario`` to
-re-evaluate the same architectures under different conditions.
+``evaluate`` is the reference implementation (``tradespace.tradespace`` is its vectorized copy for
+Task 3); swap the ``Scenario`` to re-evaluate the same architectures under different conditions.
 """
 
 import math
@@ -31,15 +31,15 @@ from os4.vehicle import get_variant
 # One road and one bike variant to work by hand (tests/test_vehicle.py checks them).
 HAND_CALC_VARIANTS = ("C2-P2-G3-M2-A3", "B2-E1-G2-K2")
 
-# F (proposed, for the group to confirm): the Task 3 reference architecture, chosen from design
+# PLAN.md Q26 (decided): the Task 3 reference architecture, chosen from design
 # reasoning rather than from the tradespace. C4: the "small on-demand EV shuttles from a central hub"
 # MIT P&T asked for [[15]](references.md#ref-15); A3: the minimum autonomy inside the boundary;
 # M2: the smallest motor that reaches the speed cap; G3: the fastest charger, for availability;
 # P2: the smallest pack that covers a service day (~18 h at 21 km/h = ~380 km).
 REFERENCE_VARIANT = "C4-P2-G3-M2-A3"
 # Fleet sized by load management at the peak load point [[5]](references.md#ref-5):
-# f >= P / (X * C_car), with X = 0.90 (the textbook example's value; choosing X is open, see
-# CLAUDE.md "Fleet sizing").
+# f >= P / (X * C_car), with X = 0.90 (the textbook example's value). X sizes only the reference, not
+# every architecture's capacity (PLAN.md Q22; CLAUDE.md "How the model uses these").
 REFERENCE_MAX_LOAD_RATIO = 0.90
 
 
@@ -142,15 +142,14 @@ def evaluate_many(fleets: list[Fleet], scenario: Scenario) -> pd.DataFrame:
 def representative_architectures(scenario: Scenario) -> dict[str, Fleet]:
     """The five architectures for the Task 2 deliverable table (Q24).
 
-    Small C2 road fleet, large C6/C7 shuttles, bike-only, mixed road + bike,
+    Small C2 road fleet, large C6 shuttles, bike-only, mixed road + bike,
     and a high-autonomy or long-range variant.
 
-    Current picks (Q24): each fleet is sized to cover the 150 trips/h
+    History (Q24): each fleet was first sized to cover the 150 trips/h
     peak with some headroom, so the table compares architectures on cost and
     utility rather than on whether they meet demand. Fleets 1 and 4 were then
     enlarged just enough to pass the utilization ceilings (PLAN.md Q22): 1 from 12
-    to 24 cars (24.9 rides per car per day), 4 from 60 to 115 bikes (24.6 rides
-    per car, 10.4 riders per bike).
+    to 24 cars (24.9 rides per car per day), 4 from 60 to 115 bikes.
 
     At the Appendix B e-bike speed (PLAN.md Q6, revised 2026-11-07) the B2-K2 bike rides at
     2.75 km/h: 150 of them miss Table 1, and 8 cars + 115 of them break the car ceiling. Fleets 3 and 4

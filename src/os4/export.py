@@ -29,7 +29,7 @@ from os4.utility import (
 )
 from os4.vehicle import all_variants
 
-OUTPUT_DIR = Path(__file__).resolve().parents[2] / "outputs"
+from os4.paths import OUTPUT_DIR  # noqa: E402
 MODEL_PATH = OUTPUT_DIR / "media" / "os4_model.xlsx"
 
 BOLD = Font(bold=True)
@@ -161,7 +161,7 @@ def _weights_sheet(wb: Workbook) -> dict[str, dict[str, str]]:
     notes = [
         "os3a_reweight: wait stays largest (OS3A MOE 4 is a direct match); weight moves from volume to",
         "availability because reliability (MOE 1) dominated the stakeholder evidence. See docs/PLAN.md Q10.",
-        "Travel time and bike share have SAU tables but no weights (PLAN.md Q11, Q13).",
+        "Travel time and bike share have SAU tables but no weights (PLAN.md Q11, Q12).",
     ]
     for i, text in enumerate(notes, start=total_row + 2):
         ws.cell(row=i, column=1, value=text).font = NOTE
@@ -254,8 +254,8 @@ def export_task1(path: Path = MODEL_PATH) -> Path:
 
 
 def export_model(scenario: Scenario, path: Path = MODEL_PATH) -> Path:
-    """Write tabs: inputs, SAU/MAU tables and test cases, vehicle variants,
-    the 5 architectures, and the hand-calc check. Returns the written path.
+    """Write the Task 1 sheets (README, SAU, Weights, Cases, Sensitivity) and the Task 2 sheets
+    (Scenario, Variants, Architectures). Returns the written path.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     wb = Workbook()

@@ -6,14 +6,16 @@ EM.411 OS4 (H2 Team 13): tradespace exploration for an autonomous surface transp
 
 ```bash
 uv sync --extra dev        # install
-uv run pytest -q           # tests (~10 s)
+uv run pytest -q           # tests (~1 min)
 uv run python -m os4       # run Tasks 1-3 and write everything to outputs/
+uv sync --extra dev --extra build && uv run python scripts/build_exe.py   # standalone executable -> dist/os4
 ```
 
 ## Layout
 
 - `data/`: assignment tables as CSV (Appendix A SAUs and weights, Appendix B demand, Appendix C/D components) plus the team's proposed SAUs and weight sets.
 - `src/os4/`: `utility.py` (Task 1 SAU/MAU), `scenario.py` (operating scenarios), `vehicle.py` (Appendix B vehicle equations), `fleet.py` (fleet performance), `model.py` (`evaluate`, five architectures, Task 3 reference architecture and anchors from `data/anchors.csv`, requirement checks), `tradespace.py` (Task 3 grid, pruning, Pareto front, knee zoom), `speed_sensitivity.py` (Task 3 sensitivity: 18 km/h e-bike assist, road cap at the posted limit, no riders-per-day ceiling), `plots.py` (figures and Markdown reports), `export.py` (Excel backup with live formulas), `site.py` + `site_template/` (static results explorer written to `outputs/site/`; vanilla JS, data as `data/*.js` globals so it opens from `file://`; it iterates over whatever tradespace columns exist; each task page has a "Write-up" section, filled from `outputs/<report>.md` through a `<!-- report:<stem> -->` slot, and an "Interactive" section).
+- `src/os4/paths.py`: `DATA_DIR`, `DOCS_DIR`, `OUTPUT_DIR` for a checkout or the PyInstaller executable (`scripts/build_exe.py` with entry point `scripts/os4_entry.py`; it bundles `data/` and `docs/`, and outputs go next to the executable). Resolve repo-root files (`data/`, `docs/`, `outputs/`) through it, never `Path(__file__).parents[2]`, or the executable breaks; files inside the package (`site_template/`, `lab/static/`) are bundled and can stay relative to `__file__`. `python -m os4 lab` dispatches to the Lab so the one executable runs both.
 - `src/os4/lab/`: the Model Lab, a local server (`python -m os4.lab`, standard library only) with presets (`presets.py`), JSON configs (`config.py`), cached runs (`run.py`) and its own page (`static/`); not part of `outputs/site` or GitHub Pages.
 - `outputs/`: generated; git-ignored. Markdown reports at the top level (also rendered into the explorer's Reports page), figures/CSVs/workbook in `outputs/media/`, the explorer in `outputs/site/`. CI (`.github/workflows/model.yml`) uploads it as an artifact on every PR and push to `main`; a `v*` tag publishes a Release.
 - `resources/`: PDFs and slides in Git LFS; `resources/rubric.md` is the grading rubric (check deliverables against it).

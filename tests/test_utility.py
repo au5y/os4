@@ -133,7 +133,7 @@ def test_sau_inverse_recovers_case_inputs():
 
 
 def test_proposed_attributes_are_unweighted():
-    # Travel time and bike share keep their SAUs but are in no weight set (PLAN.md Q11, Q13).
+    # Travel time and bike share keep their SAUs but are in no weight set (PLAN.md Q11, Q12).
     for name in WEIGHT_SETS:
         assert set(load_weights(name)) == set(ATTRIBUTES)
     assert sau("travel_time", 7) == pytest.approx(0.8)

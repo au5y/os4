@@ -10,6 +10,7 @@ import hashlib
 import io
 import json
 import re
+import sys
 import tempfile
 import zipfile
 from pathlib import Path
@@ -17,9 +18,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from os4 import __version__
 from os4.lab.config import to_scenario, validate
 from os4.fleet import Fleet
 from os4.model import architecture_table, evaluate_many, reference_and_anchor_table, requirement_flags
+from os4.paths import DATA_DIR, FROZEN
 from os4.site import _clean, columnar, records, sample_rows
 from os4.tradespace import (FLEET_TYPES, _describe, front_comparison, pareto_front, plot_fleet_size, plot_knee,
                             plot_tradespace, progressive_grid, prune_variants, tradespace)
@@ -41,9 +44,19 @@ MARKER_COLUMNS = ["architecture", "role", "road_variant", "n_road", "bike_varian
 
 
 def code_version() -> str:
-    """Hash of the model's source, so cached results expire when the code changes."""
+    """Hash of the model's source, so cached results expire when the code changes.
+
+    The standalone executable has no ``.py`` files on disk, so it hashes its version, its own size and
+    modification time, and the bundled data instead (a rebuilt executable starts a fresh cache).
+    """
     h = hashlib.sha256()
-    for path in sorted(SRC.glob("*.py")) + sorted((SRC / "lab").glob("*.py")) + sorted(SRC.parent.parent.glob("data/*.csv")):
+    if FROZEN:
+        exe = Path(sys.executable).stat()
+        h.update(f"{__version__}:{exe.st_size}:{exe.st_mtime_ns}".encode())
+        sources = sorted(DATA_DIR.glob("*.csv"))
+    else:
+        sources = sorted(SRC.glob("*.py")) + sorted((SRC / "lab").glob("*.py")) + sorted(DATA_DIR.glob("*.csv"))
+    for path in sources:
         h.update(path.read_bytes())
     return h.hexdigest()[:16]
 

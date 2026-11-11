@@ -121,9 +121,6 @@ def primary_scenario() -> Scenario:
         bike_trip_km=1.6,
         # Q7: inside the boundary, A3 is the minimum; A4/A5 stay in the design vector.
         allowed_autonomy=("A3", "A4", "A5"),
-        notes=[
-            "Q17, Q18, Q3 deadhead and Q19 use the defaults in fleet.py until the team decides.",
-        ],
     )
 
 

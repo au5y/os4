@@ -81,7 +81,9 @@ def prune_variants(variants: pd.DataFrame) -> pd.DataFrame:
     kind, a variant is dropped if another is at least as fast, carries at least
     as many passengers, is at least as available and costs no more (and is
     strictly better on one). Every fleet MoP rises with speed, pax and
-    availability, so a dominated vehicle can never make a better fleet.
+    availability, so a dominated vehicle can never make a better fleet (ignoring the PLAN.md Q22
+    ceilings, which a faster bike can break where a slower one passes, and assuming riders per trip rise
+    with seats; the bike-only front is the same with and without pruning).
     """
     keep = []
     for _, group in variants.groupby("kind", sort=False):
@@ -155,13 +157,13 @@ def tradespace(
 ) -> pd.DataFrame:
     """Score every road-only, bike-only and mixed architecture on the fleet-size grids.
 
-    One row per architecture with the same MoPs, SAUs, MAUs and cost as
-    ``model.evaluate``, computed with numpy in chunks of ``CHUNK_ROWS``. With
+    One row per architecture with the same MoPs, MAUs (``mau``, ``mau_os3a_reweight``), requirement flags and
+    cost as ``model.evaluate`` (no per-attribute SAU or per-vehicle columns), computed with numpy in chunks of ``CHUNK_ROWS``. With
     ``screen``, architectures that miss a Table 1 threshold
     (``model.meets_thresholds``) or a utilization ceiling (``model.meets_bike_ceiling``,
     ``model.meets_car_ceiling``, PLAN.md Q22) are dropped right after capacity and volume are known, before the
     wait and utility calculations. ``df.attrs`` records
-    ``screened_out`` and ``threshold_failures`` (counts over the whole grid). ``label`` names the run
+    ``grid_size``, ``screened_out`` and ``threshold_failures`` (failures per threshold and ceiling over the whole grid). ``label`` names the run
     on the progress bar; ``progress(done, total)``, if given, is called after each chunk. ``weights``
     replaces the Appendix A weights in the ``mau`` column (e.g. a custom set from the Model Lab).
     """
@@ -832,7 +834,8 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"{_reference_vs_shuttles(markers, scenario)}"
         "## Requirements (Table 1)\n\n"
         "Thresholds screen architectures out before scoring; desired goals and the availability benchmark are "
-        "flags only. Counts are over the whole grid (removable-battery case) before screening.\n\n"
+        "flags only. Threshold and ceiling counts are over the whole grid (removable-battery case) before screening; "
+        "goal and benchmark counts are over the architectures that pass.\n\n"
         f"{_md_table(requirements)}\n"
         "Travel time is the average Kendall trip (1.75 km road, 1.6 km bike; team decision): 5.0 min at the "
         f"{scenario.speed_limit_kmh:g} km/h road cap. The longest link (Lechmere–Central, "
@@ -849,7 +852,7 @@ def write_task3(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
         f"![Pareto front by load factor]({media_link(lf_png)})\n\n"
         f"{_md_table(lf_rows)}\n"
         + "".join(sections)
-    )
+    , encoding="utf-8")
     return paths + [md_path]
 
 

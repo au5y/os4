@@ -7,7 +7,7 @@ in ``mau_weights.csv`` (must sum to 1).
 Besides the Appendix A weights, ``mau_weights_proposed.csv`` holds the team's
 proposed weight set traced to our OS3A MOEs (PLAN.md Q9/Q10): ``os3a_reweight``
 re-weights the four Appendix A attributes. The ``PROPOSED_ATTRIBUTES`` have SAUs (team
-assumptions) but no weights: they are reported, not scored (PLAN.md Q11, Q13).
+assumptions) but no weights: they are reported, not scored (PLAN.md Q11, Q12).
 """
 
 from collections.abc import Mapping
@@ -19,8 +19,8 @@ from os4.data import load
 
 ATTRIBUTES = ("passenger_volume", "peak_throughput", "wait_time", "availability")
 # In-boundary travel time (Table 1: 7 min; OS3A MOE 1) and e-bike share of served trips (OS3A MOE 2).
-# Neither is in a weight set: travel time barely varies on Kendall trips and stays a pass/fail goal
-# (kept for a Task 4 scenario with longer trips); bike share is parked (PLAN.md Q11, Q13).
+# Neither is in a weight set: travel time stays a pass/fail goal (``meets_travel_goal``), with its SAU kept
+# for a scenario with longer trips (PLAN.md Q11); bike share rewards a type of fleet, not an outcome (PLAN.md Q12).
 PROPOSED_ATTRIBUTES = ("travel_time", "bike_share")
 WEIGHT_SETS = ("appendix_a", "os3a_reweight")
 

@@ -79,7 +79,7 @@ def formula_speed_kmh(motor_kw, total_kg):
 
 
 def road_speed_kmh(motor_kw, total_kg, speed_limit_kmh):
-    """Formula speed capped at the posted speed limit."""
+    """Formula speed capped at ``scenario.speed_limit_kmh`` (the achieved-speed cap, PLAN.md Q4)."""
     return np.minimum(formula_speed_kmh(motor_kw, total_kg), speed_limit_kmh)
 
 

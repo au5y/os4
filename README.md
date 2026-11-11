@@ -1,4 +1,4 @@
-# Team - H1-13 OS4
+# Team - H2-13 OS4
 
 > **📊 Results explorer: https://au5y.github.io/os4/** — interactive Tasks 1–3 (utility curves, architecture candidates, tradespace with Pareto fronts). Rebuilt by CI on every push to `main`.
 
@@ -18,8 +18,8 @@ The assignment asks for a tradespace exploration of an autonomous, battery-elect
 |------|--------|-------|--------|------|
 | 1 | 10% | Stakeholder utility (SAU → MAU, Cases A–C) | Done: hand calcs (Yonis) and code agree; Table 4 validation; proposed weights | `utility.py` |
 | 2 | 25% | Technical system model, 5 architecture instances | Model done; five architectures picked (Q24) | `scenario.py`, `vehicle.py`, `fleet.py`, `model.py` |
-| 3 | 20% | Tradespace, Pareto frontier, reference architecture | Tradespace and fronts done; reference and three picks open (F, G) | `tradespace.py` |
-| 4 | 15% | Second operating scenario | On hold | `scenario.task4_scenario` (stub) |
+| 3 | 20% | Tradespace, Pareto frontier, reference architecture | Tradespace, fronts and reference architecture (Q26) done | `tradespace.py` |
+| 4 | 15% | Second operating scenario | Candidates are Model Lab presets; choice pending (team) | `scenario.task4_scenario` (stub) |
 | 5 | 20% | Concept recommendation | Not started | slides |
 | 6 | 10% | Life-cycle / extensibility memo | Not started | slides |
 
@@ -29,7 +29,7 @@ Every modeling decision and open question is in [`docs/PLAN.md`](docs/PLAN.md) (
 
 - **Scenario:** weekday on-demand last-mile service from a Kendall hub to Lechmere and Central; links 1.9 / 1.6 / 3.3 km measured on OpenStreetMap; road speed capped at 21 km/h (20 mph posted, signals); e-bikes at the Appendix B formula speed (700·P/W, 1–8 km/h with a rider), with an 18 km/h assist as a sensitivity.
 - **MoPs:** peak throughput is the demand actually served (Q17); availability is *service* availability, the chance the vehicles in service can carry each hour's demand (Q19); travel time is the average Kendall trip; cost is vehicle capital only (Q21).
-- **Design space:** every feasible Appendix C/D vehicle, road fleets 1–200 and bike fleets 5–300 with steps that widen as fleets grow (road step 1 up to 15; bikes step 5 up to 50), alone or mixed: ~3.9 million architectures. The reference architecture and anchors (EZRide, MBTA bus and MIT shuttle service levels, `data/anchors.csv`) are plotted on every tradespace. Table 1 thresholds (1,500 trips/day, 150/h peak, 50/h off-peak) screen architectures out before scoring.
+- **Design space:** every feasible, non-dominated Appendix C/D vehicle, road fleets 1–200 and bike fleets 5–300 with steps that widen as fleets grow (road step 1 up to 15; bikes step 5 up to 50), alone or mixed: about 1.7 million feasible architectures with fixed e-bike batteries and 4.2 million with removable ones. The reference architecture and anchors (EZRide, MBTA bus and MIT shuttle service levels, `data/anchors.csv`) are plotted on every tradespace. Table 1 thresholds (1,500 trips/day, 150/h peak, 50/h off-peak) screen architectures out before scoring.
 - **E-bike batteries:** fixed (Appendix B) and removable with spare packs (team proposal) are both kept as alternate pathways.
 - **Weights:** Appendix A for the official MAU; `os3a_reweight` (Task 1 reflection, also plotted on Task 3) as the team proposal. Travel time and bike share are reported but not weighted.
 
@@ -42,10 +42,11 @@ os4/
 ├── docs/PLAN.md           Game plan, decisions (Q#), open questions, Wikibooks appendix
 ├── docs/references.md     Bibliography for the sources tagged in PLAN.md
 ├── data/                  Input tables from the assignment, as CSV
-│   ├── sau_*.csv            Appendix A SAU points (sau_travel_time, sau_bike_share: reported, not weighted)
+│   ├── sau_*.csv            Appendix A SAU points; sau_travel_time and sau_bike_share are team SAUs (reported, not weighted)
 │   ├── mau_weights.csv      Appendix A stakeholder weights
 │   ├── mau_weights_proposed.csv  Team weight set (os3a_reweight; PLAN.md Q10)
 │   ├── mau_test_cases.csv   Task 1 Cases A, B, C
+│   ├── anchors.csv          Task 3 anchors (EZRide, MBTA bus, MIT shuttle service levels)
 │   ├── demand_mit_kendall.csv  Appendix B hourly demand at MIT/Kendall
 │   ├── road_*.csv           Appendix C road vehicle components
 │   └── bike_*.csv           Appendix D e-bike components
@@ -57,11 +58,15 @@ os4/
 │   ├── fleet.py           Task 2: capacity, volume, wait, service availability, cost
 │   ├── model.py           Task 2: evaluate one architecture; the five architectures
 │   ├── tradespace.py      Task 3: pruning, vectorized tradespace, Pareto front, charts, report
+│   ├── speed_sensitivity.py  Task 3 sensitivity: 18 km/h e-bike assist, posted-limit road cap, no riders-per-day ceiling
 │   ├── plots.py           Task 1 and Task 2 figures and reports
 │   ├── export.py          Excel backup with live formulas (outputs/media/os4_model.xlsx)
 │   ├── site.py            Results explorer generator (outputs/site/)
 │   ├── site_template/     Its HTML/CSS/JS (vanilla, no build step)
-│   └── __main__.py        Entry point (`python -m os4`)
+│   ├── paths.py           Where inputs and outputs live (checkout or standalone executable)
+│   ├── lab/               Model Lab: local server, presets, configs, cached runs, its page (static/)
+│   └── __main__.py        Entry point (`python -m os4`; `python -m os4 lab` starts the Model Lab)
+├── scripts/               build_exe.py builds the standalone executable (PyInstaller); os4_entry.py is its entry point
 ├── tests/                 pytest tests
 ├── .github/workflows/     CI: tests, model run, artifacts, GitHub Pages, releases
 └── outputs/               Generated (git-ignored): Markdown reports; media/ figures, CSVs, workbook; site/ explorer
@@ -167,16 +172,18 @@ Dependencies (declared in `pyproject.toml`):
 | pandas     | Data tables, architecture enumeration      |
 | matplotlib | Utility curves and tradespace plots        |
 | openpyxl   | Exporting model tables to Excel for Canvas |
+| markdown   | Rendering the reports and docs in the results explorer |
 | pytest     | Tests (dev only)                           |
+| pyinstaller | Standalone executable (build extra only)  |
 
 ## Running
 
 ```bash
 uv run python -m os4      # or: uv run os4   (without uv: python -m os4 inside the activated venv)
-uv run pytest             # tests (~20 s; without uv: pytest)
+uv run pytest             # tests (~1 min; without uv: pytest)
 ```
 
-`python -m os4` runs Tasks 1–3, the results explorer and the Excel backup, and writes everything to `outputs/`. It takes about 1.5 minutes and a couple of GB of memory, because each battery case scores 1–2.6 million architectures (with a progress bar per run). Options: `--only` / `--skip` steps (`task1 task2 task3 sensitivity site excel`), `--out DIR`, `--no-progress`; see `python -m os4 --help`. It prints the key tables as it goes, for example:
+`python -m os4` runs Tasks 1–3, the results explorer and the Excel backup, and writes everything to `outputs/`. It takes about 2–3 minutes and a couple of GB of memory, because the two battery cases score about 1.7 and 4.2 million architectures (with a progress bar per run). Options: `--only` / `--skip` steps (`task1 task2 task3 sensitivity site excel`), `--out DIR`, `--no-progress`; see `python -m os4 --help`. It prints the key tables as it goes, for example:
 
 ```
 Task 1 (MAU):
@@ -185,6 +192,8 @@ case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  
    B                 1.0               0.50         0.61             0.6 0.639     2
    C                 0.3               0.35         0.91             0.8 0.651     1
 ```
+
+Markdown reports and `site/` go in `outputs/`; CSVs, figures and the workbook in `outputs/media/`.
 
 | Output | Contents |
 |---|---|
@@ -196,9 +205,10 @@ case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  
 | `task3_tradespace.md` | Task 3 report: both battery cases, requirements table, load-factor sensitivity, Pareto fronts |
 | `task3_tradespace_*.png` | MAU vs. cost scatter with Pareto front and utopia point (Appendix A and os3a_reweight MAU, each battery case) |
 | `task3_fleet_size_*.png` | One panel per vehicle type, colored by fleet size, against the front |
+| `task3_knee_*.png` | Zoom on the knee of each battery case's Pareto front |
 | `task3_load_factor_fronts.png` | Pareto front at 25 / 50 / 75 / 100% load factor |
-| `task3_speed_sensitivity.md` | Task 3 sensitivity: Appendix B e-bike speed, the road cap at the 20 mph posted limit, and no riders-per-day ceiling |
-| `task3_speed_*.png` | E-bike availability at both speeds; Pareto fronts, baseline vs. each speed change |
+| `task3_speed_sensitivity.md` | Task 3 sensitivity against the baseline: an 18 km/h e-bike assist, the road cap at the 20 mph posted limit, and no riders-per-day ceiling |
+| `task3_speed_*.png` | E-bike availability at both speeds; Pareto fronts, baseline vs. each change (assist, posted limit, no ceiling) |
 | `task3_pareto_front_*.csv` | The Pareto front of each battery case |
 | `site/` | The results explorer (see below) |
 | `os4_model.xlsx` | Excel backup for the submission: SAU tables, weights, Cases A–C, scenario, every vehicle variant and the five architectures, all with live formulas checked against Python |
@@ -219,6 +229,28 @@ case  u_passenger_volume  u_peak_throughput  u_wait_time  u_availability   mau  
 
 Figures on GitHub Pages only change when the edit is merged into `main`.
 
+## Standalone executable
+
+The model also runs as a single executable with nothing else installed (no Python, no uv): it bundles Python, the dependencies, `data/` and `docs/`. Download it from the latest [Release](https://github.com/au5y/os4/releases) (tagged versions) or from the `os4-<platform>-<sha>` artifact of any CI run (Actions → model), unpack it, and run it from a terminal:
+
+```bash
+./os4                          # Windows: os4.exe. Same as python -m os4; writes outputs/ next to the executable
+./os4 --only task1 --out DIR   # same options as python -m os4 (see ./os4 --help)
+./os4 lab                      # the Model Lab (below) on http://127.0.0.1:8411
+```
+
+On Windows you can also double-click `os4.exe`; the window stays open until you press Enter. On macOS, a downloaded executable is blocked the first time: right-click → Open, or run `xattr -d com.apple.quarantine os4`. The single file unpacks itself to a temporary folder on every run, so it starts a few seconds slower than `python -m os4`.
+
+To build it yourself (for the operating system you build on):
+
+```bash
+uv sync --extra dev --extra build
+uv run python scripts/build_exe.py      # -> dist/os4 (dist/os4.exe on Windows), about 60 MB
+uv run python scripts/build_exe.py --onedir   # a folder instead of one file; starts faster
+```
+
+The build uses [PyInstaller](https://pyinstaller.org). Paths are resolved in `src/os4/paths.py`: from a checkout, `data/`, `docs/` and `outputs/` are at the repository root; in the executable, `data/` and `docs/` come from the bundle and `outputs/` goes next to the executable. Rebuild after changing the code or `data/`; the executable is a snapshot.
+
 ## Results explorer
 
 **Online:** https://au5y.github.io/os4/ (published from `main` by CI).
@@ -233,19 +265,19 @@ Figures on GitHub Pages only change when the edit is merged into `main`.
 
 ## Model Lab (local, optional)
 
-An interactive version of the model for trying scenarios: pick a preset (the standard weekday scenario, the Task 4 candidates (Red Line disruption, point-to-point network, winter, a.m. rush only) and the Task 3 sensitivity cases), change any input (demand bins, speeds, trip lengths, autonomy, thresholds, ceilings, batteries, utility weights, fleet grid), press **Calculate** and watch the progress bar while the server scores the tradespace (a few seconds). Results show the summary, the tradespace with its Pareto front, the reference and anchors, and the five Task 2 architectures under your inputs.
+An interactive version of the model for trying scenarios: pick a preset (the standard weekday scenario, the Task 3 report settings, the Task 4 candidates (Red Line disruption, point-to-point network, winter, a.m. rush only) and the Task 3 sensitivity cases), change any input (demand bins, speeds, trip lengths, autonomy, thresholds, ceilings, batteries, utility weights, fleet grid), press **Calculate** and watch the progress bar while the server scores the tradespace (the "limit runs" box, on by default, trims the grid to 1.5 million architectures). Results show the summary, the tradespace with its Pareto front, the reference and anchors, and the five Task 2 architectures under your inputs; the Task 3 figures for a run download as a zip (PNGs, config and front CSV).
 
 ```bash
-uv run python -m os4.lab          # or: uv run os4-lab; then open http://127.0.0.1:8411
+uv run python -m os4.lab          # or: uv run os4-lab, uv run python -m os4 lab, ./os4 lab; then open http://127.0.0.1:8411
 ```
 
 - **Save and compare:** save configs and runs in the browser (localStorage), compare up to four saved runs (overlaid fronts, summary, and only the inputs that differ), and export/import them as JSON files.
-- **Cache:** results are cached on disk in `~/.cache/os4-lab` (`--cache-dir`, `--no-cache`), keyed by the config and the model's code, so re-opening a run is instant.
-- **Self-hosting:** `--host 0.0.0.0 --port 8411`. There is no login; keep it behind a VPN or a reverse proxy with auth. One run at a time uses up to about 1 GB of memory.
+- **Cache:** results are cached on disk in `~/.cache/os4-lab` (`--cache-dir`, `--no-cache`, `--cache-max-mb`, default 250 MB, least recently used first), keyed by the config and the model's code, so re-opening a run is instant.
+- **Self-hosting:** `--host 0.0.0.0 --port 8411`. Set `--password` (or `OS4_LAB_PASSWORD`) when others can reach it; otherwise there is no login. The password goes over plain HTTP, so still prefer a VPN or an HTTPS reverse proxy. One run at a time (`--max-queue`, default 4, can wait behind it) uses up to about 1 GB of memory.
 - The lab lives in `src/os4/lab/` and is not part of `outputs/site` or the GitHub Pages explorer.
 
 ## Continuous integration
 
-`.github/workflows/model.yml` runs on every pull request and push to `main`: install with uv, run the tests, run the model, and upload `outputs/` as the `os4-outputs-<sha>` artifact (kept 90 days). Pushes to `main` also publish `outputs/site` to GitHub Pages. Pushing a tag such as `v1.0-os4` creates a GitHub Release with the workbook, CSVs, figures and reports attached: use that for the copy we submit.
+`.github/workflows/model.yml` runs on every pull request and push to `main`: install with uv, run the tests, run the model, and upload `outputs/` as the `os4-outputs-<sha>` artifact (kept 90 days). Pushes to `main` also publish `outputs/site` to GitHub Pages. Pushing a tag such as `v1.0-os4` creates a GitHub Release with the workbook, CSVs, figures and reports attached: use that for the copy we submit. A second job builds the [standalone executable](#standalone-executable) on Linux, macOS and Windows, runs Tasks 1–2 with it as a smoke test, uploads each as an `os4-<platform>-<sha>` artifact and, on tags, attaches them to the Release.
 
 Generated files are never committed (`outputs/` is git-ignored); rebuild them with `uv run python -m os4`.

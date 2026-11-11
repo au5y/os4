@@ -1,16 +1,19 @@
-"""Entry point: ``python -m os4`` (or ``os4`` once installed).
+"""Entry point: ``python -m os4`` (or ``os4`` once installed, or the standalone ``os4`` executable).
 
 Runs every step by default; ``--only`` / ``--skip`` pick steps, ``--out`` changes the output folder and
-``--no-progress`` hides the progress bars. ``python -m os4 --help`` lists them.
+``--no-progress`` hides the progress bars. ``python -m os4 --help`` lists them. ``python -m os4 lab [...]``
+starts the Model Lab instead (same as ``python -m os4.lab``), so the standalone executable can run both.
 """
 
 import argparse
+import sys
 from pathlib import Path
 
 from os4 import tradespace as ts
 from os4.data import load_all
 from os4.export import export_model
 from os4.model import architecture_table
+from os4.paths import FROZEN
 from os4.plots import OUTPUT_DIR, case_table, write_task1, write_task2
 from os4.scenario import primary_scenario
 from os4.site import write_site
@@ -22,7 +25,8 @@ STEPS = ("task1", "task2", "task3", "sensitivity", "site", "excel")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="python -m os4", description="Run the OS4 model and write its outputs.")
+    parser = argparse.ArgumentParser(prog="python -m os4", description="Run the OS4 model and write its outputs. "
+                                     "'python -m os4 lab --help' describes the Model Lab.")
     parser.add_argument("--only", nargs="+", choices=STEPS, metavar="STEP",
                         help=f"run only these steps (choices: {', '.join(STEPS)})")
     parser.add_argument("--skip", nargs="+", choices=STEPS, default=[], metavar="STEP",
@@ -34,6 +38,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> None:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv[:1] == ["lab"]:
+        from os4.lab.__main__ import main as lab_main
+        return lab_main(argv[1:])
+    for stream in (sys.stdout, sys.stderr):  # a Windows console may not encode every character in the tables
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     args = parse_args(argv)
     steps = [s for s in (args.only or STEPS) if s not in args.skip]
     ts.SHOW_PROGRESS = not args.no_progress
@@ -78,6 +89,10 @@ def main(argv: list[str] | None = None) -> None:
     if "excel" in steps:
         print("\nExcel backup:")
         print(f"  wrote {export_model(scenario, out / 'media' / 'os4_model.xlsx')}")
+
+    print(f"\nDone. Outputs are in {out.resolve()}")
+    if FROZEN and sys.platform == "win32" and not argv and sys.stdin and sys.stdin.isatty():
+        input("Press Enter to close this window.")  # a double-clicked .exe would otherwise close at once
 
 
 if __name__ == "__main__":

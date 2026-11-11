@@ -36,7 +36,7 @@ COLORS = {"baseline": SERIES[0], "bike_assisted": SERIES[1], "road_posted": SERI
 
 
 def variations(scenario: Scenario) -> dict[str, tuple[str, Scenario]]:
-    """Baseline and the two speed changes, each as (label, scenario)."""
+    """Baseline, the two speed changes and the riders-per-day-ceiling variations, each as (label, scenario)."""
     return {
         "baseline": (f"Model baseline (road cap {scenario.speed_limit_kmh:g} km/h, bikes at the Appendix B "
                      "formula speed)", scenario),
@@ -207,7 +207,7 @@ def _marker_rows(results: dict, battery: str, key: str) -> pd.DataFrame:
 # ---------- shared ----------
 
 def plot_fronts(results: dict, keys: tuple[str, ...], path: Path, scenario: Scenario) -> Path:
-    """Pareto fronts, baseline vs. one variation, one panel per battery case; hollow points miss the 7-min goal."""
+    """Pareto fronts, baseline vs. the variations in ``keys``, one panel per battery case; hollow points miss the 7-min goal."""
     labels = {k: label for k, (label, _) in variations(scenario).items()}
     fig, axes = plt.subplots(1, 2, figsize=(13, 5.6), facecolor=SURFACE, sharey=True)
     # Zoom to where the fronts rise: past FRONT_ZOOM_USD they are flat at the MAU ceiling.
@@ -257,7 +257,7 @@ def _change(what: str, before: pd.Series, after: pd.Series) -> str:
 
 
 def write_speed_sensitivity(scenario: Scenario, out_dir: Path = OUTPUT_DIR) -> list[Path]:
-    """Write ``task3_speed_sensitivity.md``: availability and tradespace under the two speed changes."""
+    """Write ``task3_speed_sensitivity.md``: availability and tradespace under the two speed changes and without the riders-per-day ceilings."""
     media = media_dir(out_dir)
     results = run(scenario)
     bikes = bike_comparison(scenario)
